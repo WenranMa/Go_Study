@@ -8,38 +8,80 @@ import (
 )
 
 const (
-	filename = "large.in"
-	count    = 100000000
+	fileName   = "large.in"
+	fileSize   = 100000000 //512
+	chunkCount = 4
+
+	fileNameOut = "test.out"
 )
 
 func main() {
 	//mergeDemo()
 
+	//fileDemo()
+
+	//external sorting.
+
+	node.Init()
+
+	p := createPipeline(fileName, fileSize, chunkCount)
+	writeToFile(p, fileNameOut)
+	printFile(fileNameOut)
+
+}
+
+func createPipeline(filename string, fileSize, chunkCount int) <-chan int {
+
+	chunkSize := fileSize / chunkCount
+
+	sortResults := []<-chan int{}
+
+	for i := 0; i < chunkCount; i++ {
+
+		file, err := os.Open(filename)
+		if err != nil {
+			panic(err)
+
+		}
+
+		file.Seek(int64(i*chunkSize), 0) //???
+
+		source := node.ReaderSource(bufio.NewReader(file), chunkSize)
+		sortResults = append(sortResults, node.InMemSort(source))
+
+		fmt.Println()
+	}
+
+	return node.MergeN(sortResults...)
+}
+
+func writeToFile(p <-chan int, filename string) {
 	file, err := os.Create(filename)
 	if err != nil {
 		panic(err)
 	}
 	defer file.Close()
 
-	p := node.RandomSource(count)
+	writer := bufio.NewWriter(file)
+	defer writer.Flush()
 
-	w := bufio.NewWriter(file)
-	node.WriterSink(w, p) //???
-	w.Flush()
+	node.WriterSink(writer, p)
+}
 
-	file, err = os.Open(filename)
+func printFile(filename string) {
+	file, err := os.Open(filename)
 	if err != nil {
 		panic(err)
 	}
 	defer file.Close()
 
-	p = node.ReaderSource(bufio.NewReader(file)) //???
+	p := node.ReaderSource(file, -1)
 
 	c := 0
 	for v := range p {
 		fmt.Println(v)
 		c++
-		if c > 100 {
+		if c >= 50 {
 			break
 		}
 	}
@@ -68,6 +110,33 @@ func mergeDemo() {
 	}
 }
 
-func smallFileDemo() {
+func fileDemo() {
+	file, err := os.Create(fileName)
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
 
+	p := node.RandomSource(fileSize)
+
+	w := bufio.NewWriter(file)
+	node.WriterSink(w, p) //???
+	w.Flush()
+
+	file, err = os.Open(fileName)
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+
+	p = node.ReaderSource(bufio.NewReader(file), -1) //???
+
+	c := 0
+	for v := range p {
+		fmt.Println(v)
+		c++
+		if c > 100 {
+			break
+		}
+	}
 }

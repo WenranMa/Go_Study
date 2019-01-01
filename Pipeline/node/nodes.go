@@ -2,10 +2,18 @@ package node
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io"
 	"math/rand"
 	"sort"
+	"time"
 )
+
+var startTime time.Time
+
+func Init() {
+	startTime = time.Now()
+}
 
 //Data source
 func ArraySource(a ...int) <-chan int {
@@ -21,13 +29,19 @@ func ArraySource(a ...int) <-chan int {
 
 //Sorting func,
 func InMemSort(in <-chan int) <-chan int {
-	out := make(chan int)
+	//out := make(chan int)
+	out := make(chan int, 1024)
+
 	go func() {
 		a := []int{}
 		for v := range in {
 			a = append(a, v)
 		}
+
+		fmt.Println("Read done ", time.Now().Sub(startTime))
 		sort.Ints(a)
+		fmt.Println("InMemSort done ", time.Now().Sub(startTime))
+
 		for _, v := range a {
 			out <- v
 		}
@@ -38,7 +52,9 @@ func InMemSort(in <-chan int) <-chan int {
 
 //Merge func
 func Merge(in1, in2 <-chan int) <-chan int {
-	out := make(chan int)
+	//out := make(chan int)
+	out := make(chan int, 1024)
+
 	go func() {
 		v1, ok1 := <-in1
 		v2, ok2 := <-in2
@@ -52,22 +68,27 @@ func Merge(in1, in2 <-chan int) <-chan int {
 			}
 		}
 		close(out)
+		fmt.Println("Merge done ", time.Now().Sub(startTime))
+
 	}()
 	return out
 }
 
 //Reader Source
-func ReaderSource(reader io.Reader) <-chan int {
-	out := make(chan int)
+func ReaderSource(reader io.Reader, chunkSize int) <-chan int {
+	//out := make(chan int)
+	out := make(chan int, 1024)
 	go func() {
 		buffer := make([]byte, 8) //???
+		bytesRead := 0
 		for {
 			n, err := reader.Read(buffer)
+			bytesRead += n //??
 			if n > 0 {
 				v := int(binary.BigEndian.Uint64(buffer)) //??
 				out <- v
 			}
-			if err != nil {
+			if err != nil || (chunkSize != -1 && bytesRead >= chunkSize) {
 				break
 			}
 		}
@@ -93,4 +114,14 @@ func RandomSource(count int) <-chan int {
 		close(out)
 	}()
 	return out
+}
+
+func MergeN(inputs ...<-chan int) <-chan int {
+	if len(inputs) == 1 {
+		return inputs[0]
+	}
+	m := len(inputs) / 2
+
+	//merge inputs[0..m] and inputs[m..end]
+	return Merge(MergeN(inputs[:m]...), MergeN(inputs[m:]...))
 }

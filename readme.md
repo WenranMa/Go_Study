@@ -31,7 +31,9 @@ Write()方法有两个返回值，一个是写入到目标资源的字节数，�
 
 ### 其他用到io.Reader/io.Writer的类型，方法
 类型os.File表示本地系统上的文件。它实现了io.Reader和io.Writer，因此可以在任何io上下文中使用。
+
 缓冲区io，标准库中bufio包支持缓冲区io操作，可以轻松处理文本内容。
+
 ioutil，io包下面的一个子包ioutil封装了一些非常方便的功能，例如，使用函数ReadFile将文件内容加载到[]byte中。
 
 

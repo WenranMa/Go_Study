@@ -8,10 +8,9 @@ import (
 )
 
 const (
-	fileName   = "large.in"
-	fileSize   = 100000000 //512
-	chunkCount = 4
-
+	fileName    = "large.in"
+	fileSize    = 100000000 //512
+	chunkCount  = 4
 	fileNameOut = "test.out"
 )
 
@@ -33,7 +32,6 @@ func main() {
 func createPipeline(filename string, fileSize, chunkCount int) <-chan int {
 
 	chunkSize := fileSize / chunkCount
-
 	sortResults := []<-chan int{}
 
 	for i := 0; i < chunkCount; i++ {
@@ -41,7 +39,6 @@ func createPipeline(filename string, fileSize, chunkCount int) <-chan int {
 		file, err := os.Open(filename)
 		if err != nil {
 			panic(err)
-
 		}
 
 		file.Seek(int64(i*chunkSize), 0) //???
@@ -95,7 +92,7 @@ func mergeDemo() {
 			fmt.Printf("source: %v\n", v)
 		}
 	*/
-	//如果运行上面的打印代码，则chaneel数据已经消费 下面的InMemSort传入的为空chaneel
+	//如果运行上面的打印代码，则channel数据已经消费 下面的InMemSort传入的为空chaneel
 
 	s := node.InMemSort(p)
 	for v := range s {

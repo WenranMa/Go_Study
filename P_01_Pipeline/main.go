@@ -39,7 +39,6 @@ func createPipeline(filename string, fileSize, chunkCount int) <-chan int {
 		file, err := os.Open(filename)
 		if err != nil {
 			panic(err)
-
 		}
 
 		file.Seek(int64(i*chunkSize), 0) //???

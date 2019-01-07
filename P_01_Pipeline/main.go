@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"strconv"
 )
 
 const (
@@ -19,18 +20,48 @@ func main() {
 
 	//fileDemo()
 
-	//external sorting.
+	//sortDemo()
+
+	p := createNetworkPipeline("small.in", 512, 4)
+	writeToFile(p, "test_net.out")
+	printFile("test_net.out")
+}
+
+func createNetworkPipeline(filename string, fileSize, chunkCount int) <-chan int {
 
 	node.Init()
+	chunkSize := fileSize / chunkCount
+	//sortResults := []<-chan int{}
 
-	p := createPipeline(fileName, fileSize, chunkCount)
-	writeToFile(p, fileNameOut)
-	printFile(fileNameOut)
+	sortAddrs := []string{}
+	for i := 0; i < chunkCount; i++ {
 
+		file, err := os.Open(filename)
+		if err != nil {
+			panic(err)
+		}
+
+		file.Seek(int64(i*chunkSize), 0) //???
+
+		source := node.ReaderSource(bufio.NewReader(file), chunkSize)
+
+		addr := ":" + strconv.Itoa(7000+i)
+		node.NetworkSink(addr, node.InMemSort(source))
+		sortAddrs = append(sortAddrs, addr)
+
+	}
+
+	sortResults := []<-chan int{}
+	for _, addr := range sortAddrs {
+		sortResults = append(sortResults, node.NetworkSource(addr))
+	}
+
+	return node.MergeN(sortResults...)
 }
 
 func createPipeline(filename string, fileSize, chunkCount int) <-chan int {
 
+	node.Init()
 	chunkSize := fileSize / chunkCount
 	sortResults := []<-chan int{}
 
@@ -136,4 +167,10 @@ func fileDemo() {
 			break
 		}
 	}
+}
+
+func sortDemo() {
+	p := createPipeline(fileName, fileSize, chunkCount)
+	writeToFile(p, fileNameOut)
+	printFile(fileNameOut)
 }

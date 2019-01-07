@@ -81,3 +81,56 @@ ioutil，io包下面的一个子包ioutil封装了一些非常方便的功能，
 选自慕课网：搭建并行处理管道
 
 - 原始数据过大，无法一次读入内存，所以分块读入内存。每个块数据进行内部排序（直接调用API排序），最后讲各个节点归并，归并选择两两归并。
+
+---
+
+
+1.
+
+slice1:= slice[0:2]
+引用，非复制，所以任何对slice1或slice的修改都会影响对方
+
+data := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 0}
+data1 := data[0:2]
+data1[0] = 99
+fmt.Println(data1)
+fmt.Println(data)
+[99 2]
+
+[99 2 3 4 5 6 7 8 9 0]
+
+
+
+2.append
+
+
+append 比较特殊
+
+声明:
+
+源slice= src
+
+添加slice = app
+
+结果slice=tar
+
+1）如果len(src) + len(app) <= cap(src)  src和tar 是指向同一数据引用 ，即修改src或tar，会影响对方
+
+2）否则 tar 是copy的方式 src + app ，即修改src或tar，不会影响对方
+
+无论哪种情况不会影响app，因为app都会用copy的方式进入tar
+
+func test2() {
+    data := make([]int, 10, 20)
+    data[0] = 1
+    data[1] = 2
+    dataappend := make([]int, 10, 20)//len <=10 则   result[0] = 99 会 影响源Slice
+    dataappend[0] = 1
+    dataappend[1] = 2
+    result := append(data, dataappend...)
+    result[0] = 99
+    result[11] = 98
+    fmt.Println("length:", len(data), ":", data)
+    fmt.Println("length:", len(result), ":", result)
+    fmt.Println("length:", len(dataappend), ":", dataappend)
+}

@@ -11,7 +11,17 @@ type S struct {
 
 func main() {
 	//test2()
-	test3()
+	//test3()
+
+	//fmt.Println(test4(1, 3))
+
+	//var a int = 11
+	var b int = 12
+	//fmt.Println(a, b)
+
+	a, b := test5()
+
+	fmt.Println(a, b)
 }
 
 func test2() {
@@ -63,4 +73,26 @@ func test3() {
 	fmt.Println("s1 :", *s1)
 	fmt.Println("ss1:", *ss1[10])
 
+}
+
+func test4(x, y int) (z int) {
+
+	if z := x + y; z > 5 {
+
+		fmt.Println("?")
+		return z
+	}
+
+	return
+	// { // 不能在一个级别，引发 "z redeclared in this block" 错误。
+	// 	var z = x + y
+	// 	// return   // Error: z is shadowed during return
+	// 	return z // 必须显式返回。
+	// }
+}
+
+func test5() (a int, b int) {
+	a = 5
+	b = 3
+	return 2, 4
 }

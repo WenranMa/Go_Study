@@ -134,3 +134,24 @@ func test2() {
     fmt.Println("length:", len(result), ":", result)
     fmt.Println("length:", len(dataappend), ":", dataappend)
 }
+
+---
+
+
+命名返回参数可被同名局部变量遮蔽，此时需要显式返回。
+
+func add(x, y int) (z int) {
+    { // 不能在一个级别，引发 "z redeclared in this block" 错误。
+        var z = x + y
+        // return   // Error: z is shadowed during return
+        return z // 必须显式返回。
+    }
+}
+
+---
+
+不同于常规变量声明，在至少有一个非空白变量时，短变量声明可在相同块中，对原先声明的变量以相同的类型重声明。 因此，重声明只能出现在多变量短声明中。 重声明不能生成新的变量；它只能赋予新的值给原来的变量。
+
+field1, offset := nextField(str, 0)
+field2, offset := nextField(str, offset)  // 重声明 offset  在同一个块中使用var 重复声明是非法的
+a, a := 1, 2                              // 非法：重复声明了 a，或者若 a 在别处声明，但此处没有新的变量

@@ -9,6 +9,9 @@ type S struct {
 	b string
 }
 
+type C float64
+type F float64
+
 func main() {
 	//test2()
 	//test3()
@@ -16,12 +19,28 @@ func main() {
 	//fmt.Println(test4(1, 3))
 
 	//var a int = 11
-	var b int = 12
+	//var b int = 12
 	//fmt.Println(a, b)
 
-	a, b := test5()
+	//a, b := test5()
 
-	fmt.Println(a, b)
+	//fmt.Println(a, b)
+
+	f := p()
+
+	fmt.Println(f)
+	fmt.Println(p() == p())
+
+	var a = 3
+	//fmt.Println(a.(string))
+
+	_, ok := interface{}(a).(int)
+	fmt.Println(ok)
+
+	var cc C = 12.0
+	var ff F = 123.0
+
+	fmt.Println(cc - ff)
 }
 
 func test2() {
@@ -95,4 +114,9 @@ func test5() (a int, b int) {
 	a = 5
 	b = 3
 	return 2, 4
+}
+
+func p() *int {
+	v := 1
+	return &v
 }

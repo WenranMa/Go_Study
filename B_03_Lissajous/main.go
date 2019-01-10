@@ -25,7 +25,7 @@ func main() {
 	// Thanks to Randall McPherson for pointing out the omission.
 	rand.Seed(time.Now().UTC().UnixNano())
 
-	file, err := os.Create("a.gif")
+	file, err := os.Create("../file/img/lissajous.gif")
 	if err != nil {
 		panic(err)
 	}

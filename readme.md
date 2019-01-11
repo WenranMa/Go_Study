@@ -271,8 +271,14 @@ fmt.Println(z, -z, 1/z, -1/z, z/z) // "0 -0 +Inf -Inf NaN"
 ```
 
 #### 复数
-
-#### 布尔型
+复数类型:complex64和complex128，分别对应float32和float64两种浮 点数精度。内置的complex函数用于构建复数，内建的real和imag函数分别返回复数的实部和虚部:
+```go
+var x complex128 = complex(1, 2)
+var y complex128 = complex(3, 4)
+fmt.Println(x*y)
+fmt.Println(real(x*y))
+fmt.Println(imag(x*y))
+```
 
 #### 字符串
 

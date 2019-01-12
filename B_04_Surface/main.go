@@ -19,9 +19,7 @@ const (
 var sin30, cos30 = math.Sin(angle), math.Cos(angle) // sin(30°), cos(30°)
 
 func main() {
-
 	file, err := os.Create("../file/html/svg.html")
-
 	if err != nil {
 		panic(err)
 	}
@@ -49,7 +47,6 @@ func main() {
 	fmt.Fprintf(writer, "</svg>")
 	fmt.Fprintf(writer, "</body>")
 	fmt.Fprintf(writer, "</Html>\n")
-
 }
 
 func corner(i, j int) (float64, float64) {

@@ -5,6 +5,8 @@
 - 类型检查：编译时。
 - 运行环境：编译成机器码直接运行 (静态编译)。
 - 编程范式：面向借口，函数式编程，并发编程。
+- 采用CSP (Communication Sequential Process)模型。
+- 不需要锁，不需要callback。
 
 Go语言原生支持Unicode，它可以处理全世界任何语言的文本。
 
@@ -28,17 +30,11 @@ fmt.Printf函数对表达式产生格式化输出。
  
 os.Stdin
 
-Fprintf ????
-
 os.Stderr??
 
 map函数参数传递？？？
 
-实现上，bufio.Scanner、ioutil.ReadFile和ioutil.WriteFile都使用*os.File的Read和Write方法。
 
----
-- 采用CSP (Communication Sequential Process)模型
-- 不需要锁，不需要callback.
 
 ---
 ## 程序结构
@@ -524,10 +520,42 @@ func add(t *tree, value int) *tree {
 ```
 如果结构体的全部成员都是可以比较的，那么结构体也是可以比较的，那样的话两个结构体将可以使用`==`或`!=`运算符进行比较。比较两个结构体的每个成员。
 
-
 #### JSON
+基本的JSON类型有数字(十进制或科学记数法)、布尔值(true或false)、字符串，以双引号包含的Unicode字符序列，支持和Go语言类似的反斜杠转义特性，不过JSON使用的是`\Uhhhh`转义数字来表示一个UTF­16编码(UTF­16和UTF­8一样是一种变长的编码，有些Unicode码点较大的字符需要用4个字节表示;而且UTF­16还有大端和小端的问题)，而不是Go语言的rune类型。
+
+这些基础类型可以通过JSON的数组和对象类型进行递归组合。
+```
+boolean     true
+number      -273.15
+string      "She said \"Hello, BF\"" 
+array       ["gold", "silver", "bronze"] 
+object      {"year": 1980,
+             "event": "archery",
+             "medals": ["gold", "silver", "bronze"]}
+```
+
+转为JSON的过程叫marshaling. encoding/json包提供marshal函数：
+`data, err := json.Marshal(movies)`和格式化marshal函数: `data, err := json.MarshalIndent(movies, "", " ")`
+
+在编码时，默认使用Go语言结构体的成员名字作为JSON的对象。只有导出的结构体成员才会被编码，也就是选择大写字母开头做成员名称。
+构体成员可以添加Tag。一个构体成员Tag是和在编译阶段关联到该成员的元信息字符串:
+```go
+type Movie struct { 
+    Title   string      `json:"name"`
+    Year    int         `json:"released"`
+    Color   bool        `json:"color, omitempty"`         
+}
+```
+Color成员的Tag还带了一个额外的omitempty选项，表示当Go语言结构体成员为空或零值时不生成JSON对象(这里false为零值)。
+
+编码的逆操作是解码，对应将JSON数据解码为Go语言的数据结构，Go语言中一般叫unmarshaling，通过`json.Unmarshal`函数完成。
 
 #### 模板Template
+一个模板是一个字符串或一个文件，里面包含了一个或多个由双花括号包含的`{{action}}`对象。actions部分将触发其它的行为。模板语言包含通过选择结构体的成员、调用函数或方法、表达式控制流if ­else语句和range循环语句，还有其它实例化模板等诸多特性。对于每一个action，都有一个当前值的概念，对应点`.`操作符。 `{{range .Items}} {{end}}` 对应一个循环action。 `|`操作符表示将前一个表达式的结果作为后一个函数的输入，类似于UNIX中管道。
+```go
+var report = template.Must(template.New("issuelist"). Funcs(template.FuncMap{"daysAgo": daysAgo}). Parse(templ))
+```
+调用链的顺序:`template.New`先创建并返回一个模板;`Funcs`方法将daysAgo等自定义函数注 册到模板中，并返回模板;最后调用`Parse`函数分析模板。`Execute`最终执行。
 
 ---
 
@@ -571,9 +599,36 @@ func add(t *tree, value int) *tree {
 
 ## 接口
 
-#### 接口约定
+接口类型是一种抽象的类型。它不会暴露出它所代表的对象的内部值的结构和这个对象支持的基础操作的集合。它们只会展示出它们自己的方法。也就是说当你有看到一个接口类型的值时，不知道它是什么，但知道可以通过它的方法来做什么。
 
-#### 接口类型 
+`fmt.Printf`会把结果写到标准输出，`fmt.Sprintf`会把结果以字符串的形式返回。这两个函数都使用了另一个函数`fmt.Fprintf`。
+```go
+package fmt
+
+func Fprintf(w io.Writer, format string, args ...interface{}) (int, error) 
+
+func Printf(format string, args ...interface{}) (int, error) {
+    return Fprintf(os.Stdout, format, args...) 
+}
+
+func Sprintf(format string, args ...interface{}) string { 
+    var buf bytes.Buffer
+    Fprintf(&buf, format, args...)
+    return buf.String()
+}
+```
+在Printf函数中的第一个参数os.Stdout是*os.File类型;在Sprintf函数中的第一个参数&buf是一个指向可以写入字节的内存缓冲区。
+
+Fprintf函数中的第一个参数也不是一个文件类型。它是io.Writer类型，这是一个接口类型
+```go
+package io
+type Writer interface {
+    Write(p []byte) (n int, err error)
+}
+```
+\*os.File和\*bytes.Buffer都实现了io.Writer接口。所以可以用作Fprintf输入。
+
+接口类型具体描述了一系列方法的集合，一个实现了这些方法的具体类型是这个接口类型的实例。
 
 #### 实现接口的条件
 
@@ -604,10 +659,11 @@ func add(t *tree, value int) *tree {
 ## Goroutines和Channels
 
 #### Goroutines
+每一个并发的执行单元叫作一个goroutine。当一个程序启动时，其主函数即在一个单独的goroutine中运行，我们叫它main goroutine。新的goroutine会用go语句来创建。主函数返回时，所有的goroutine都会被直接打断，程序退出。除了从主函数退出或者直接终止程序之外，没有其它的编程方法能够让一个goroutine来打断另一个的执行。
 
-#### 示例：并发的Clock服务
+示例：并发的Clock服务，参见B_09_Clock
 
-#### 示例：并发的Echo服务
+示例：并发的Echo服务，参见B_10_Echo
 
 #### Channels
 
@@ -690,9 +746,9 @@ Write()方法有两个返回值，一个是写入到目标资源的字节数，�
 ### 其他用到io.Reader/io.Writer的类型，方法
 类型os.File表示本地系统上的文件。它实现了io.Reader和io.Writer，因此可以在任何io上下文中使用。
 
-缓冲区io，标准库中bufio包支持缓冲区io操作，可以轻松处理文本内容。
+缓冲区io，标准库中bufio包支持缓冲区io操作，可以轻松处理文本内容。例如：bufio.Scanner。
 
-ioutil，io包下面的一个子包ioutil封装了一些非常方便的功能，例如，使用函数ReadFile将文件内容加载到[]byte中。
+ioutil，io包下面的一个子包ioutil封装了一些非常方便的功能，例如，使用函数ReadFile将文件内容加载到[]byte中。ioutil.ReadFile和ioutil.WriteFile都使用*os.File的Read和Write方法。
 
 ---
 

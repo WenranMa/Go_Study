@@ -65,7 +65,7 @@ panic recover
 Go语言主要有四种类型的声明语句:var、const、type和func，分别对应变量、常量、类型和函数实体对象的声明。
 
 #### 变量
-`var 变量名字 类型 = 表达式` 其中“类型”或“=表达式”两个部分可以省略其中的一个。如果省略的是类型信息，那么将根据初始化表达式来推导变量的类型信息。如果初始化表达式被省略，那么将用零值初始化该变量。数值类型变量对应的零值是0，布尔类型变量对应的零值是false，字符串类型对应的零值是空字符串，接口或引用类型(包括slice、指针、map、chan和函数)变量对应的零值是nil。数组或结构体等聚合类型对应的零值是每个元素或字段都是对应该类型的零值。Go语言中不存在未初始化的变量。
+`var 变量名字 类型 = 表达式` 其中“类型”或“=表达式”两个部分可以省略其中的一个。如果省略的是类型信息，那么将根据初始化表达式来推导变量的类型信息。如果初始化表达式被省略，那么将用零值初始化该变量。数值类型变量对应的零值是0，布尔类型变量对应的零值是false，字符串类型对应的零值是空字符串。__接口或引用类型(包括slice、指针、map、chan和函数)变量对应的零值是nil。其他类型都是值类型。__ 数组或结构体等聚合类型对应的零值是每个元素或字段都是对应该类型的零值。Go语言中不存在未初始化的变量。
 
 可以在一个声明语句中同时声明一组变量，或用一组初始化表达式声明并初始化一组变量。
 ```go
@@ -390,15 +390,140 @@ d := [...]int{1, 2, 2, 4}
 ```
 数组的长度是数组类型的一个组成部分，因此[3]int和[4]int是两种不同的数组类型。数组的长度必 须是常量表达式，因为数组的长度需要在编译阶段确定。
 
+如果一个数组的元素类型是可以相互比较的，那么数组类型也是可以相互比较的，可以直接通过`==`比较运算符来比较两个数组，只有当两个数组的所有元素都是相等的时候数组才是相等的。
+```go
+a := [2]int{1, 2}
+b := [...]int{1, 2}
+c := [2]int{1, 3}
+fmt.Println(a == b, a == c, b == c) // "true false false"
+d := [3]int{1, 2}
+fmt.Println(a == d) // compile error
+```
+
 #### Slice
-Slice(切片)代表变长的序列，序列中每个元素都有相同的类型。slice的语法和数组很像，只是没有固定长度而已。而且slice的底层引用一个数组对象。一个slice由三个部分构成:指针、长度和容量。指针指向第一个slice元素对应的底层数组元素的地址，要注意的是slice的第一个元素并不一定就是数组的第一个元素。长度对应slice中元素的数目;长度不能超过容量，容量一般是从slice的开始位置到底层数据的结尾位置。内置的len和cap函数分别返回slice的长度和容量。
+Slice(切片)代表变长的序列，序列中每个元素都有相同的类型。slice的语法和数组很像，只是没有固定长度而已。而且slice的底层引用一个数组对象。一个slice由三个部分构成:指针、长度和容量。指针指向第一个slice元素对应的底层数组元素的地址，__要注意的是slice的第一个元素并不一定就是数组的第一个元素。长度对应slice中元素的数目;长度不能超过容量，容量一般是从slice的开始位置到底层数据的结尾位置。__内置的len和cap函数分别返回slice的长度和容量。
+![slice](./file/img/slice.png)
+
+slice值包含指向第一个slice元素的指针，因此向函数传递slice将允许在函数内部修改底层数组 的元素。换句话说，复制一个slice只是对底层的数组创建了一个新的slice别名。
+```go
+func reverse(s []int) {
+    for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
+        s[i], s[j] = s[j], s[i] 
+    }
+}
+
+a := [...]int{0, 1, 2, 3, 4, 5} 
+reverse(a[:])
+fmt.Println(a) // "[5 4 3 2 1 0]"
+
+//循环向左旋转n个元素:
+s := []int{0, 1, 2, 3, 4, 5}
+// Rotate s left by two positions. 
+reverse(s[:2])
+reverse(s[2:])
+reverse(s)
+fmt.Println(s) // "[2 3 4 5 0 1]"
+```
+slice之间不能比较，因此我们不能使用==操作符来判断两个slice是否含有全部相等元素。slice唯一合法的比较操作是和nil比较。
+```go
+var s []int // len(s) == 0, s == nil 
+s = nil // len(s) == 0, s == nil 
+s = []int(nil) // len(s) == 0, s == nil 
+s = []int{} // len(s) == 0, s != nil
+```
+内置的make函数创建一个指定元素类型、长度和容量的slice。容量部分可以省略，在这种情况下，容量将等于长度。
+```go
+make([]T, len)
+make([]T, len, cap) // same as make([]T, cap)[:len]
+```
+
+__append函数__
+
+通过appendInt函数模拟Go内置append函数。
+
+每次调用appendInt函数，必须先检测slice底层数组是否有足够的容量来保存新添加的元素。如果 有足够空间的话，直接扩展slice(依然在原有的底层数组之上)，将新添加的y元素复制到新扩展的空间，并返回slice。因此，输入的x和输出的z共享相同的底层数组。
+如果没有足够的增长空间的话，appendInt函数则会先分配一个足够大(2倍)的slice用于保存新的结果，先将输入的x复制到新的空间，然后添加y元素。结果z和输入的x引用的将是不同的底层数组。
+```go
+func appendInt(x []int, y int) []int {
+    var z []int
+    zlen := len(x) + 1
+    if zlen <= cap(x) {
+        // There is room to grow. Extend the slice.
+        z = x[:zlen]
+    } else {
+        // There is insufficient space. Allocate a new array.
+        // Grow by doubling, for amortized linear complexity.
+        zcap := zlen
+        if zcap < 2*len(x) {
+            zcap = 2 * len(x)
+        }
+        z = make([]int, zlen, zcap)
+        copy(z, x) // a built‐in function; see text
+    }
+    z[len(x)] = y
+    return z
+}
+```
 
 #### Map
 一个无序的key/value对的集合，其中所有的key都是不同的，然后通过给定的key可以在__常数时间复杂度__内检索、更新或删除对应的value。map类型可以写为map[K]V，其中K和V分别对应key和value。map中所有的key都有相同的类型，所有的value也有着相同的类型，但是key和value之间可以是不同的数据类型。其中K对应的key必须是支持`==`比较运算符的数据类型，所以map可以通过测试key是否相等来判断是否已经存在。
+```go
+m := make(map[string]int) //创建map
+n := map[string]int{} //创建map
+m["alice"] = 32  //添加key value
+delete(m, "alice") //删除key value
+```
+删除操作是安全的，即使元素不在map中，如果一个查找失败将返回value类型对应的零值。map中的元素并不是一个变量，不能对map的元素进行取址操作: `_ = &ages["bob"] // compile error` 。禁止对map元素取址的原因是map可能随着元素数量的增长而重新分配更大的内存空间，从而可能
+导致之前的地址无效。 在向map存数据前必须先创建map。
 
+`if age, ok := ages["bob"]; !ok { /* ... */ }`，map的下标语法可以产生两个值;第二个是一个布尔值，用于报告元素是否真的存
+在。布尔变量一般命名为ok。
 
+和slice一样，map之间也不能进行相等比较;唯一的例外是和nil进行比较。
 
 #### Struct
+结构体是一种聚合的数据类型，是由零个或多个任意类型的值聚合成的实体。如果结构体成员名字是以大写字母开头的，那么该成员就是导出的，一个结构体可能同时包含导出和未导出的成员。结构体类型的零值是每个成员都是零值。
+
+二叉树排序：
+```go
+type tree struct {
+    value       int
+    left, right *tree
+}
+// Sort sorts values in place.
+func Sort(values []int) {
+    var root *tree
+    for _, v := range values {
+        root = add(root, v)
+    }
+    appendValues(values[:0], root)
+}
+// appendValues appends the elements of t to values in order and returns the resulting slice.
+func appendValues(values []int, t *tree) []int {
+    if t != nil {
+        values = appendValues(values, t.left)
+        values = append(values, t.value)
+        values = appendValues(values, t.right)
+    }
+    return values
+}
+func add(t *tree, value int) *tree {
+    if t == nil {
+        // Equivalent to return &tree{value: value}.
+        t = new(tree)
+        t.value = value
+        return t
+    }
+    if value < t.value {
+        t.left = add(t.left, value)
+    } else {
+        t.right = add(t.right, value)
+    }
+    return t
+}
+```
+如果结构体的全部成员都是可以比较的，那么结构体也是可以比较的，那样的话两个结构体将可以使用`==`或`!=`运算符进行比较。比较两个结构体的每个成员。
+
 
 #### JSON
 
@@ -584,55 +709,7 @@ ioutil，io包下面的一个子包ioutil封装了一些非常方便的功能，
 ---
 
 
-1.
 
-slice1:= slice[0:2]
-引用，非复制，所以任何对slice1或slice的修改都会影响对方
-
-data := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 0}
-data1 := data[0:2]
-data1[0] = 99
-fmt.Println(data1)
-fmt.Println(data)
-[99 2]
-
-[99 2 3 4 5 6 7 8 9 0]
-
-
-
-2.append
-
-
-append 比较特殊
-
-声明:
-
-源slice= src
-
-添加slice = app
-
-结果slice=tar
-
-1）如果len(src) + len(app) <= cap(src)  src和tar 是指向同一数据引用 ，即修改src或tar，会影响对方
-
-2）否则 tar 是copy的方式 src + app ，即修改src或tar，不会影响对方
-
-无论哪种情况不会影响app，因为app都会用copy的方式进入tar
-
-func test2() {
-    data := make([]int, 10, 20)
-    data[0] = 1
-    data[1] = 2
-    dataappend := make([]int, 10, 20)//len <=10 则   result[0] = 99 会 影响源Slice
-    dataappend[0] = 1
-    dataappend[1] = 2
-    result := append(data, dataappend...)
-    result[0] = 99
-    result[11] = 98
-    fmt.Println("length:", len(data), ":", data)
-    fmt.Println("length:", len(result), ":", result)
-    fmt.Println("length:", len(dataappend), ":", dataappend)
-}
 
 ---
 

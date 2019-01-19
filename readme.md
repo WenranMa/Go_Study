@@ -480,44 +480,8 @@ delete(m, "alice") //删除key value
 #### Struct
 结构体是一种聚合的数据类型，是由零个或多个任意类型的值聚合成的实体。如果结构体成员名字是以大写字母开头的，那么该成员就是导出的，一个结构体可能同时包含导出和未导出的成员。结构体类型的零值是每个成员都是零值。
 
-二叉树排序：
-```go
-type tree struct {
-    value       int
-    left, right *tree
-}
-// Sort sorts values in place.
-func Sort(values []int) {
-    var root *tree
-    for _, v := range values {
-        root = add(root, v)
-    }
-    appendValues(values[:0], root)
-}
-// appendValues appends the elements of t to values in order and returns the resulting slice.
-func appendValues(values []int, t *tree) []int {
-    if t != nil {
-        values = appendValues(values, t.left)
-        values = append(values, t.value)
-        values = appendValues(values, t.right)
-    }
-    return values
-}
-func add(t *tree, value int) *tree {
-    if t == nil {
-        // Equivalent to return &tree{value: value}.
-        t = new(tree)
-        t.value = value
-        return t
-    }
-    if value < t.value {
-        t.left = add(t.left, value)
-    } else {
-        t.right = add(t.right, value)
-    }
-    return t
-}
-```
+二叉树排序：B_06_BinaryTreeSort
+
 如果结构体的全部成员都是可以比较的，那么结构体也是可以比较的，那样的话两个结构体将可以使用`==`或`!=`运算符进行比较。比较两个结构体的每个成员。
 
 #### JSON
@@ -666,6 +630,33 @@ type Writer interface {
 示例：并发的Echo服务，参见B_10_Echo
 
 #### Channels
+goroutine是Go语言程序的并发体，channels则是它们之间的通信机制。一个channels是一个通信机制，它可以让一个goroutine通过它给另一个goroutine发送值信息。每个channel都有可发送数据的类型。创建一个channel: `ch := make(chan int) // ch has type 'chan int'`。
+和map类似，channel也一个对应make创建的底层数据结构的引用。当我们复制一个channel或用于函数参数传递时，我们只是拷贝了一个channel引用，因此调用者何被调用者将引用同一个channel对象。和其它的引用类型一样，channel的零值也是nil。
+
+两个相同类型的channel可以使用==运算符比较。如果两个channel引用的是相同的对象，那么比较 的结果为真。一个channel也可以和nil进行比较。
+
+一个channel有发送和接受两个主要操作，都是通信行为。一个发送语句将一个值从一个goroutine通过channel发送到另一个执行接收操作的goroutine。发送和接收两个操作都是用`<‐`运算符。一个不使用接收结果的接收操作也是合法的。
+```go
+ch <- x     // a send statement
+x = <-ch    // a receive expression in an assignment statement 
+<-ch        // a receive statement; result is discared
+```
+Channel还支持close操作，用于关闭channel，使用内置的close函数就可以关闭一个channel: `close(ch)`。随后对基于该channel的任何发送操作都将导致panic异常。对一个已经被close过的channel执行接收操作依然可以接受到之前已经成功发送的数据;后续的接收操作将不再阻塞，它们会立即返回一个零值。
+
+make可以指定第二个整形参数，对应channel的容量。如果channel的容量大于零，那么该channel就是带缓存的channel。
+```go
+ch = make(chan int)     // unbuffered channel
+ch = make(chan int, 0)  // unbuffered channel
+ch = make(chan int, 3)  // buffered channel with capacity 3
+```
+一个基于无缓存Channels的发送操作将导致发送者goroutine阻塞，直到另一个goroutine在相同的Channels上执行接收操作，当发送的值通过Channels成功传输之后，两个goroutine可以继续执行后面的语句。反之，如果接收操作先发生，那么接收者goroutine也将阻塞，直到有另一个goroutine在相同的Channels上执行发送操作。
+
+基于无缓存Channels的发送和接收操作将导致两个goroutine做一次同步操作。因为这个原因，无缓存Channels有时候也被称为同步Channels。
+
+Channels也可以用于将多个goroutine链接在一起，一个Channels的输出作为下一个Channels的输 入。这种串联的Channels就是所谓的管道(pipeline)。
+
+
+
 
 #### 并发的循环
 

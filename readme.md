@@ -524,20 +524,94 @@ var report = template.Must(template.New("issuelist"). Funcs(template.FuncMap{"da
 ---
 
 ## 函数
-
-#### 递归
-
 #### 多值返回
+一个函数可以返回多个值。例如一个是期望得到的返回值，另一个是函数出错时的错误信息。一个函数内部可以将另一个有多返回值的函数作为返回值。
+
+如果一个函数将所有的返回值都显示的变量名，那么该函数的return语句可以省略操作数。这称之 为bare return。
+```go
+func CountWordsAndImages(url string) (words, images int, err error) {
+    resp, err := http.Get(url)
+    if err != nil {
+        return
+    }
+    doc, err := html.Parse(resp.Body)
+    resp.Body.Close()
+    if err != nil {
+        err = fmt.Errorf("parsing HTML: %s", err)
+        return
+    }
+    words, images = countWordsAndImages(doc)
+    return
+}
+```
+前两处return等价于 `return 0,0,err` (Go会将返回值words和images在函数体的开始处，根据它们的类型，将其初始化为0)，最后一处return等价于 `return words, image, nil`。
 
 #### Error
+对于将运行失败看作是预期结果的函数，会返回一个额外的返回值，通常是最后一个，来传递错误信息。如果导致失败的原因只有一个，额外的返回值可以是一个布尔值，通常被命名为ok：
+`value, ok := cache.Lookup(key)` 。
+
+导致失败的原因不止一种，尤其是对I/O操作，用户需要了解更多的错误信息。所以额外的返回值不再是简单的布尔类型，而是error类型。内置的error是接口类型，可能是nil或者non­-nil，nil意味着函数运行成功，non­-nil表示失败。
+
+`fmt.Errorf`函数使用fmt.Sprintf格式化错误信息并返回。
+
+处理错误的策略：1.传播错误。2.重试并限制重试的时间间隔或重试的次数。3.输出错误信息并结束程序`os.Exit(1)`或者`log.Fatalf`，这种策略只应在main中执行。4.只输出错误，不中断程序。
+
+io包保证任何由文件结束引起的读取失败都返回同一个错误 `io.EOF`: `var EOF = errors.New("EOF")`
+
+调用者只需通过简单的比较，就可以检测出这个错误。下面的例子展示了如何从标准输入中读取字符，以及判断文件结束。
+```go
+    in := bufio.NewReader(os.Stdin)
+    for {
+        r, _, err := in.ReadRune()
+        if err == io.EOF {
+            break // finished reading
+        }
+        if err != nil {
+            return fmt.Errorf("read failed:%v", err)
+        }
+    }
+```
 
 #### 函数值
+函数被看作第一类值(first­ class values):函数像其他值一样，拥有类型，可以被赋值给其他变量，传递给函数，从函数返回。对函数值(function value)的调用类似函数调用。
+```go
+func square(n int) int {
+    return n * n
+}
+func main() {
+    f := square
+    fmt.Println(f(3)) // "9"
+
+    var v func(int) int
+    if v != nil {
+        v(3)
+    }
+}
+```
+函数类型的零值是nil。调用值为nil的函数值会引起panic错误。但是函数值之间是不可比较的，也不能用函数值作为map的key。
 
 #### 匿名函数
 
 #### 可变参数
 
 #### Defer
+当defer语句被执行时，跟在defer后面的函数会被延迟执行。直到包含该defer语句的函数执行完毕时，defer后的函数才会被执行，不论包含defer语句的函数是通过return正常结束，还是由于panic导致的异常结束。可以在一个函数中执行多条defer语句，它们的执行顺序与声明顺序相反。
+
+defer语句经常被用于处理成对的操作，如打开、关闭、连接、断开连接、加锁、释放锁。通过defer机制，不论函数逻辑多复杂，都能保证在任何执行路径下，资源被释放。释放资源的defer应该直接跟在请求资源的语句后。
+
+我们知道，defer语句中的函数会在return语句更新返回值变量后再执行，又因为在函数中定义的匿名函数可以访问该函数包括返回值变量在内的所有变量，所以，对匿名函数采用defer机制，可以使其观察函数的返回值。
+```go
+func main() {
+    _ = double(4) // "double(4) = 8"
+}
+
+func double(x int) (result int) {
+    defer func() { 
+        fmt.Printf("double(%d) = %d\n", x, result) 
+    }()
+    return x + x
+}
+```
 
 #### Panic
 
@@ -546,7 +620,6 @@ var report = template.Must(template.New("issuelist"). Funcs(template.FuncMap{"da
 ---
 
 ## 方法
-
 #### 方法声明
 在函数声明时，在其名字之前放上一个变量，即是一个方法。这个附加的参数会将该函数附加到这种类型上，相当于为这种类型定义了一个独占的方法。这个变量叫做方法的接收器(receiver)。
 
@@ -905,7 +978,7 @@ channel的零值是nil。对一个nil的channel发送和接收操作会永远阻
 
 #### 竞争条件
 
-#### sync.Mutex出斥锁
+#### sync.Mutex互斥锁
 
 #### sync.RWMutex读写锁
 

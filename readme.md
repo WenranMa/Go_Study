@@ -524,20 +524,94 @@ var report = template.Must(template.New("issuelist"). Funcs(template.FuncMap{"da
 ---
 
 ## 函数
-
-#### 递归
-
 #### 多值返回
+一个函数可以返回多个值。例如一个是期望得到的返回值，另一个是函数出错时的错误信息。一个函数内部可以将另一个有多返回值的函数作为返回值。
+
+如果一个函数将所有的返回值都显示的变量名，那么该函数的return语句可以省略操作数。这称之 为bare return。
+```go
+func CountWordsAndImages(url string) (words, images int, err error) {
+    resp, err := http.Get(url)
+    if err != nil {
+        return
+    }
+    doc, err := html.Parse(resp.Body)
+    resp.Body.Close()
+    if err != nil {
+        err = fmt.Errorf("parsing HTML: %s", err)
+        return
+    }
+    words, images = countWordsAndImages(doc)
+    return
+}
+```
+前两处return等价于 `return 0,0,err` (Go会将返回值words和images在函数体的开始处，根据它们的类型，将其初始化为0)，最后一处return等价于 `return words, image, nil`。
 
 #### Error
+对于将运行失败看作是预期结果的函数，会返回一个额外的返回值，通常是最后一个，来传递错误信息。如果导致失败的原因只有一个，额外的返回值可以是一个布尔值，通常被命名为ok：
+`value, ok := cache.Lookup(key)` 。
+
+导致失败的原因不止一种，尤其是对I/O操作，用户需要了解更多的错误信息。所以额外的返回值不再是简单的布尔类型，而是error类型。内置的error是接口类型，可能是nil或者non­-nil，nil意味着函数运行成功，non­-nil表示失败。
+
+`fmt.Errorf`函数使用fmt.Sprintf格式化错误信息并返回。
+
+处理错误的策略：1.传播错误。2.重试并限制重试的时间间隔或重试的次数。3.输出错误信息并结束程序`os.Exit(1)`或者`log.Fatalf`，这种策略只应在main中执行。4.只输出错误，不中断程序。
+
+io包保证任何由文件结束引起的读取失败都返回同一个错误 `io.EOF`: `var EOF = errors.New("EOF")`
+
+调用者只需通过简单的比较，就可以检测出这个错误。下面的例子展示了如何从标准输入中读取字符，以及判断文件结束。
+```go
+    in := bufio.NewReader(os.Stdin)
+    for {
+        r, _, err := in.ReadRune()
+        if err == io.EOF {
+            break // finished reading
+        }
+        if err != nil {
+            return fmt.Errorf("read failed:%v", err)
+        }
+    }
+```
 
 #### 函数值
+函数被看作第一类值(first­ class values):函数像其他值一样，拥有类型，可以被赋值给其他变量，传递给函数，从函数返回。对函数值(function value)的调用类似函数调用。
+```go
+func square(n int) int {
+    return n * n
+}
+func main() {
+    f := square
+    fmt.Println(f(3)) // "9"
+
+    var v func(int) int
+    if v != nil {
+        v(3)
+    }
+}
+```
+函数类型的零值是nil。调用值为nil的函数值会引起panic错误。但是函数值之间是不可比较的，也不能用函数值作为map的key。
 
 #### 匿名函数
 
 #### 可变参数
 
 #### Defer
+当defer语句被执行时，跟在defer后面的函数会被延迟执行。直到包含该defer语句的函数执行完毕时，defer后的函数才会被执行，不论包含defer语句的函数是通过return正常结束，还是由于panic导致的异常结束。可以在一个函数中执行多条defer语句，它们的执行顺序与声明顺序相反。
+
+defer语句经常被用于处理成对的操作，如打开、关闭、连接、断开连接、加锁、释放锁。通过defer机制，不论函数逻辑多复杂，都能保证在任何执行路径下，资源被释放。释放资源的defer应该直接跟在请求资源的语句后。
+
+我们知道，defer语句中的函数会在return语句更新返回值变量后再执行，又因为在函数中定义的匿名函数可以访问该函数包括返回值变量在内的所有变量，所以，对匿名函数采用defer机制，可以使其观察函数的返回值。
+```go
+func main() {
+    _ = double(4) // "double(4) = 8"
+}
+
+func double(x int) (result int) {
+    defer func() { 
+        fmt.Printf("double(%d) = %d\n", x, result) 
+    }()
+    return x + x
+}
+```
 
 #### Panic
 
@@ -546,14 +620,131 @@ var report = template.Must(template.New("issuelist"). Funcs(template.FuncMap{"da
 ---
 
 ## 方法
-
 #### 方法声明
+在函数声明时，在其名字之前放上一个变量，即是一个方法。这个附加的参数会将该函数附加到这种类型上，相当于为这种类型定义了一个独占的方法。这个变量叫做方法的接收器(receiver)。
+
+对于一个给定的类型，其内部的方法都必须有唯一的方法名，但是不同的类型却可以有同样的方法名。
+```go
+package main
+
+import (
+    "fmt"
+    "math"
+)
+
+type Point struct {
+    X, Y float64
+}
+// same thing, but as a method of the Point type
+func (p Point) Distance(q Point) float64 {
+    return math.Hypot(q.X-p.X, q.Y-p.Y)
+}
+
+type Path []Point
+// Distance returns the distance traveled along the path.
+func (path Path) Distance() float64 {
+    sum := 0.0
+    for i := range path {
+        if i > 0 {
+            sum += path[i-1].Distance(path[i])
+        }
+    }
+    return sum
+}
+
+func main() {
+    perim := Path{
+        {1, 1},
+        {5, 1},
+        {5, 4},
+        {1, 1},
+    }
+    fmt.Println(perim.Distance()) //12
+}
+```
 
 #### 指针对象方法
+当调用一个函数时，会对其每一个参数值进行拷贝：
+```go
+type Point struct {
+    X, Y int
+}
+func (p Point) set(x int) Point {
+    p.X = x
+    return p
+}
+func main() {
+    p := Point{3, 3}
+    fmt.Println(p)         // {3, 3}
+    fmt.Println(p.set(12)) // {12, 3}
+    fmt.Println(p)         // {3, 3}
+}
+```
+如果一个函数需要更新一个变量，或参数太大，需要用到指针：
+```go
+type Point struct {
+    X, Y int
+}
+func (p *Point) set(x int) *Point {
+    p.X = x  // 编译器在这里也会给我们隐式地插入*，与(*p).X = x 等价，这种简写只适用于变量。
+    return p
+}
+func main() {
+    p := &Point{3, 3}
+    fmt.Println(*p)           // {3, 3}
+    fmt.Println(*(p.set(12))) // {12, 3}
+    fmt.Println(*p)           // {12, 3}
+}
+```
+就像一些函数允许nil指针作为参数一样，方法理论上也可以用nil指针作为其接收器，尤其当nil对于对象来说是合法的零值时，比如map或者slice。
 
 #### 嵌入结构体扩展类型
+```go
+package main
+
+import (
+    "fmt"
+    "image/color"
+    "math"
+)
+
+type Point struct {
+    X, Y float64
+}
+
+type ColoredPoint struct {
+    Point
+    Color color.RGBA
+}
+
+func (p Point) Distance(q Point) float64 {
+    return math.Hypot(q.X-p.X, q.Y-p.Y)
+}
+
+func main() {
+    var cp ColoredPoint
+    cp.X = 1
+    fmt.Println(cp.Point.X) // "1"
+    cp.Point.Y = 2
+    fmt.Println(cp.Y) // "2"  内嵌可以使我们在定义ColoredPoint时得到一种句法上的简写形式，并使其包含Point类型所具有的一切字段。
+
+    red := color.RGBA{255, 0, 0, 255}
+    blue := color.RGBA{0, 0, 255, 255}
+    var p = ColoredPoint{Point{1, 1}, red}
+    var q = ColoredPoint{Point{5, 4}, blue}
+    fmt.Println(p.Distance(q.Point))  //方法也类似，可以省略p.Point.Distance()..
+}
+```
 
 #### 方法值 方法表达式
+```go
+p := Point{1, 2} 
+q := Point{4, 6}
+distanceFromP := p.Distance  //method value
+fmt.Println(distanceFromP(q)) 
+distance := Point.Distance  // method expression
+fmt.Println(distance(p, q))
+```
 
 #### Bit数组
 
@@ -625,6 +816,8 @@ type Writer interface {
 #### Goroutines
 每一个并发的执行单元叫作一个goroutine。当一个程序启动时，其主函数即在一个单独的goroutine中运行，我们叫它main goroutine。新的goroutine会用go语句来创建。主函数返回时，所有的goroutine都会被直接打断，程序退出。除了从主函数退出或者直接终止程序之外，没有其它的编程方法能够让一个goroutine来打断另一个的执行。
 
+示例：Spinner动画，B_08_Spinner
+
 示例：并发的Clock服务，参见B_09_Clock
 
 示例：并发的Echo服务，参见B_10_Echo
@@ -641,8 +834,6 @@ ch <- x     // a send statement
 x = <-ch    // a receive expression in an assignment statement 
 <-ch        // a receive statement; result is discared
 ```
-Channel还支持close操作，用于关闭channel，使用内置的close函数就可以关闭一个channel: `close(ch)`。随后对基于该channel的任何发送操作都将导致panic异常。对一个已经被close过的channel执行接收操作依然可以接受到之前已经成功发送的数据;后续的接收操作将不再阻塞，它们会立即返回一个零值。
-
 make可以指定第二个整形参数，对应channel的容量。如果channel的容量大于零，那么该channel就是带缓存的channel。
 ```go
 ch = make(chan int)     // unbuffered channel
@@ -655,14 +846,125 @@ ch = make(chan int, 3)  // buffered channel with capacity 3
 
 Channels也可以用于将多个goroutine链接在一起，一个Channels的输出作为下一个Channels的输 入。这种串联的Channels就是所谓的管道(pipeline)。
 
+Channel还支持close操作，用于关闭channel，使用内置的close函数就可以关闭一个channel: `close(ch)`。close后发送操作都将导致panic异常。对一个已经被close过的channel执行接收操作依然可以接受到之前已经成功发送的数据;后续的接收操作将不再阻塞，它们会立即返回一个零值(一直可以读取零值)。
 
+没有办法直接测试一个channel是否被关闭，但是接收操作有一个变体形式:它多接收一个结果，多接收的第二个结果是一个布尔值ok，ture表示成功从channels接收到值，false表示channels已经被关闭并且里面没有值可接收。`x, ok := <‐naturals`
 
+Go语言的range循环可直接在channels上面迭代 (使用range循环是上面ok判断的简洁语法)。它依次从channel接收数据，当channel被关闭并且没有值可接收时跳出循环。
+
+例子：
+```go
+package main
+
+import (
+    "fmt"
+    "time"
+)
+
+func counter(out chan<- int) { //类型chan<‐ int表示一个只发送int的channel，只能发送不能接收。
+    for x := 0; x < 5; x++ {
+        out <- x
+        time.Sleep(1 * time.Second)
+    }
+    close(out)
+}
+func squarer(out chan<- int, in <-chan int) { //类型<‐chan int表示一个只接收int的channel，只能接收不能发送。
+    for v := range in {
+        out <- v * v
+    }
+    close(out)
+}
+func printer(in <-chan int) {
+    for v := range in {
+        fmt.Println(v)
+    }
+}
+func main() {
+    naturals := make(chan int)
+    squares := make(chan int)
+    go counter(naturals)
+    go squarer(squares, naturals)
+    printer(squares)
+}
+```
+
+向缓存Channel的发送操作就是向内部缓存队列的尾部插入元素，接收操作则是从队列的头部删除元素。如果内部缓存队列是满的，那么发送操作将阻塞直到因另一个goroutine执行接收操作而释放了新的队列空间。相反，如果channel是空的，接收操作将阻塞直到有另一个goroutine执行发送操作而向队列插入元素。
+
+可以用内置的cap函数获取channel内部缓存的容量: `fmt.Println(cap(ch))`。
+内置的len函数返回channel内部缓存队列中有效元素的个数: `fmt.Println(len(ch))`。
 
 #### 并发的循环
 
 #### 示例：并发Web爬虫
 
-#### 基于Select的多路复用
+#### Select
+```go
+select { 
+    case <-ch1:
+    // ...
+    case x := <-ch2: 
+    // ...use x...
+    case ch3 <- y: 
+    // ...
+    default: // ...
+}
+```
+select语句的一般形式：会有几个case和最后的default。每一个case代表一个通信操作(在某个channel上进行发送或者接收)并且会包含一些语句组成的一个语句块。
+
+select会等待case中有能够执行的case时去执行。当条件满足时，select才会去通信并执行case之 后的语句;这时候其它通信是不会执行的。一个没有任何case的select语句写作select{}，会永远地 等待下去。如果多个case同时就绪时，select会随机地选择一个执行，这样来保证每一个channel都有平等的被select的机会。
+
+例1：
+```go
+package main
+
+import (
+    "fmt"
+    "os"
+    "time"
+)
+
+func main() {
+    fmt.Println("Commencing countdown. Press return to abort.")
+    //tick := time.Tick(1 * time.Second)
+    ticker := time.NewTicker(1 * time.Second)
+
+    abort := make(chan struct{})
+    go func() {
+        os.Stdin.Read(make([]byte, 1)) // read a single byte
+        abort <- struct{}{}
+    }()
+
+    for s := 10; s >= 0; s-- {
+        select {
+        //case <-tick:
+        case <-ticker.C:
+            fmt.Println("T minis: ", s)
+        case <-abort:
+            fmt.Println("Launch aborted!")
+            return
+        }
+    }
+    ticker.Stop()
+    launch()
+}
+
+func launch() {
+    fmt.Println("Rocket launched!")
+}
+```
+
+例2：ch这个channel的buffer大小是1，所以会交替的为空或为满，所以只有一个case可以进行下去，无论i是奇数或者偶数，它都会打印0 2 4 6 8。
+```go
+ch := make(chan int, 1)
+for i := 0; i < 10; i++ {
+    select {
+    case x := <-ch:
+        fmt.Println(x) // "0" "2" "4" "6" "8"
+    case ch <- i:
+    }
+}
+```
+channel的零值是nil。对一个nil的channel发送和接收操作会永远阻塞，在select语句中操作nil的channel永远都不会被select到。
 
 #### 示例：并发的字典遍历
 
@@ -676,7 +978,7 @@ Channels也可以用于将多个goroutine链接在一起，一个Channels的输�
 
 #### 竞争条件
 
-#### sync.Mutex出斥锁
+#### sync.Mutex互斥锁
 
 #### sync.RWMutex读写锁
 
@@ -796,3 +1098,7 @@ if v, ok := interface{}(x).(string); ok { // interface{}(x):把 x 的类型转�
 
 
 断言返回值个数 不一定是两个
+
+
+
+time库？？？

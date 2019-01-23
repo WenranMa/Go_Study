@@ -32,10 +32,6 @@ os.Stdin
 
 os.Stderr??
 
-map函数参数传递？？？
-
-
-
 ---
 ## 程序结构
 
@@ -614,8 +610,51 @@ func double(x int) (result int) {
 ```
 
 #### Panic
+Go的类型系统会在编译时捕获很多错误，但有些错误只能在运行时检查，如数组访问越界、空指
+针引用等。这些运行时错误会引起painc异常。当panic异常发生时，程序会中断运行，并立即执行在该goroutine中被延迟的函数(defer机制)。
+
+直接调用内置的panic函数也会引发panic异常;panic函数接受任何值作为参数。当某些不应该发生的场景发生时，我们就应该调用panic。
+```go
+if err != nil {
+    panic(err) 
+}
+```
+Defer栈：
+```go
+func main() {
+    f(3)
+}
+func f(x int) {
+    fmt.Printf("f(%d)\n", x+0/x) // panics if x == 0
+    defer fmt.Printf("defer %d\n", x)
+    f(x - 1)
+}
+/* output:
+f(3)
+f(2)
+f(1)
+defer 1
+defer 2
+defer 3
+panic: runtime error: integer divide by zero
+*/
+```
 
 #### Recover
+有时可以从异常中恢复，至少可以在程序崩溃前，做一些操作。例如当web服务器遇到问题时，在崩溃前应该将所有的连接关闭，否则会使得客户端一直于等待状态。
+
+如果在deferred函数中调用了内置函数recover，并且定义该defer语句的函数发生了panic异常， recover会使程序从panic中恢复，并返回panic value。导致panic异常的函数不会继续运行，但能 正常返回。在未发生panic时调用recover，recover会返回nil（选择性recover）。
+```go
+    defer func() {
+        switch p := recover(); p {
+        case nil: // no panic
+        case bailout{}: // "expected" panic
+            err = fmt.Errorf("multiple title elements")
+        default:
+            panic(p) // unexpected panic; carry on panicking
+        }
+    }()
+```
 
 ---
 
@@ -786,6 +825,23 @@ type Writer interface {
 接口类型具体描述了一系列方法的集合，一个实现了这些方法的具体类型是这个接口类型的实例。
 
 #### 实现接口的条件
+一个类型如果拥有一个接口需要的所有方法，那么这个类型就实现了这个接口。接口指定的规则非常简单:表达一个类型属于某个接口只要这个类型实现这个接口。
+
+例如，\*os.File类 型实现了io.Reader，Writer，Closer和ReadWriter接口。\*bytes.Buffer实现了Reader，Writer和ReadWriter这些接口，但是它没有实现Closer接口因为它不具有Close方法。
+```go
+    var w io.Writer
+    w = os.Stdout         //OK: *os.File has Write method
+    w = new(bytes.Buffer) // OK: *bytes.Buffer has Write method
+    w = time.Second       // compile error: time.Duration lacks Write method
+
+    var rwc io.ReadWriteCloser //
+    rwc = os.Stdout            // OK: *os.File has Read, Write, Close methods
+    rwc = new(bytes.Buffer)    //compile error: *bytes.Buffer lacks Close method
+
+    w = rwc // OK: io.ReadWriteCloser has Write method
+    rwc = w // compile error: io.Writer lacks Close method
+```
+
 
 #### flag.Value接口
 

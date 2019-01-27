@@ -922,16 +922,93 @@ type Interface interface {
 ```
 为了对序列进行排序，我们需要定义一个实现了这三个方法的类型，然后对这个类型的一个实例应用sort.Sort函数。
 
-
-
+例：B_07_Sort
 
 #### http.Handler接口
+```go
+package http
+type Handler interface {
+    ServeHTTP(w ResponseWriter, r *Request)
+}
+func ListenAndServe(address string, h Handler) error
+```
+ListenAndServe函数需要一个例如“localhost:8000”的服务器地址，和一个所有请求都可以分派的Handler接口实例。它会一直运行，直到这个服务因为一个错误而失败，返回值一定是一个非空的错误。
+
+例：B_08_Http_01
+
+可以在浏览器输入：`http://localhost:8000/price?item=socks` 。
+
+net/http包提供了一个请求多路器ServeMux来简化URL和handlers的联系。一个ServeMux将一批http.Handler聚集到一个单一的http.Handler中。
+
+例：B_09_Http_02
 
 #### error接口
+整个errors包仅只有4行，error接口类型有一个返回错误信息的单一方法:
+```go
+package errors
+
+type error interface {
+    Error() string
+}
+
+func New(text string) error {
+    return &errorString{text}
+}
+
+type errorString struct{ 
+    text string 
+}
+
+func (e *errorString) Error() string {
+    return e.text
+}
+```
+创建一个error最简单的方法就是调用errors.New函数，它会根据传入的错误信息返回一个新的error。
+
+errorString是一个结构体而非一个字符串。并且因为是指针类型*errorString而不是errorString类型满足error接口，所以每个New函数的调用都分配了一个单独地址，即使错误信息相同，实例也不相等：`fmt.Println(errors.New("EOF") == errors.New("EOF")) // "false"`。
+
+有一个方便的封装函数fmt.Errorf，它还会处理字符串格式化：
+```go
+package fmt
+
+import "errors"
+
+func Errorf(format string, args ...interface{}) error {
+    return errors.New(Sprintf(format, args...))
+}
+```
 
 #### 示例：表达式请求
 
 #### 类型断言
+类型断言是一个使用在接口值上的操作。`x.(T)`，一个类型断言检查x对象的类型是否和断言的类型T匹配。
+
+如果T是一个具体类型，类型断言检查x的动态类型是否和T相同。如果这个检查成功，类型断言的结果是x的动态值。如果检查失败，接下来这个操作会抛出panic。T也可以是一个接口类型，类型断言检查x的动态类型是否满足T（实现了T的方法）。
+
+```go
+    var w io.Writer
+    w = os.Stdout
+    f := w.(*os.File) // success: f == os.Stdout
+    c := w.(*bytes.Buffer) //panic: interface holds *os.File, not *bytes.Buffer
+    d := w.(sort.Interface) //panic: interface conversion: *os.File is not sort.Interface: missing method Len
+```
+不是interface类型做类型断言都是回报non-interface的错误的，
+```go
+    s := "hello world"
+    if v, ok := s.(string); ok {
+        fmt.Println(v)
+    }
+    //invalid type assertion: s.(string) (non-interface type string on left)
+
+    //所以我们只能通过将s作为一个interface{}的方法来进行类型断言，如下代码所示：
+    x := "hello world"
+    if v, ok := interface{}(x).(string); ok { // interface{}(x):把 x 的类型转换成 interface{}
+        fmt.Println(v)
+    }
+```
+断言可以返回两个值，第二个结果常规地赋值给一个命名为ok的变量。如果这个操作失败了，那么ok就是false值，第一个结果等于被断言类型的零值。
+
+断言操作的对象是一个nil接口值，断言都会失败。
 
 #### 基于类型断言区别错误类型
 
@@ -1216,12 +1293,33 @@ goroutine没有可以被程序员获取到的身份(id)的概念。
 反射可以检查未知类型的表示方式。
 
 #### refect.Type和reflect.Value
-反射是由reflect包提供的。它定义了两个重要的类型，Type和Value。一个Type表示一个Go类型，它是一个接口。函数`reflect.TypeOf`接受任意的interface{}类型, 并以reflect.Type形式返回其动态类型。
+反射是由reflect包提供的。它定义了两个重要的类型，Type和Value。Type是接口，表示一个Go类型。函数`reflect.TypeOf`接受任意的interface{}类型，并以reflect.Type形式返回其动态类型。
 ```go
     t := reflect.TypeOf(3)  // a reflect.Type //一个隐式的接口转换操作
     fmt.Println(t.String()) // "int"
     fmt.Println(t)          // "int"
 ```
+
+reflect.TypeOf总是返回具体的类型。
+```go
+var w io.Writer = os.Stdout
+fmt.Println(reflect.TypeOf(w)) // 打印 "*os.File" 而不是 "io.Writer"。
+```
+reflect.Type接口是满足fmt.Stringer接口的，fmt.Printf提供了一个缩写`%T`参数, 内部使用 reflect.TypeOf来输出:`fmt.Printf("%T\n", 3) // "int"`。
+
+reflect包中另一个类型是Value，可以装载任意类型的值。函数reflect.ValueOf接受任意的interface{}类型，并返回一个装载着其动态值的reflect.Value。和reflect.TypeOf类似，reflect.ValueOf返回的结果也是具体的类型，但是reflect.Value也可以持有一个接口值。
+reflect.Value也满足fmt.Stringer接口, fmt包的`%v`标志参数会对reflect.Values特殊处理。对 Value 调用 Type 方法将返回具体类型所对应的 reflect.Type。
+```go
+    v := reflect.ValueOf(3) // a reflect.Value
+    fmt.Println(v)          // "3"
+    fmt.Printf("%v\n", v)   // "3"
+    fmt.Println(v.String()) // NOTE: "<int Value>"
+    t := v.Type()           // a reflect.Type
+    fmt.Println(t.String()) // "int"
+```
+ reflect.Value的Kind方法可以用来枚举类型，kinds类型是有限的: Bool, String和所有数字类型的基础类型; Array和Struct对应的聚合类型; Chan, Func, Ptr, Slice和Map对应的引用类型; interface类型; 还有表示空值的Invalid类型(空的reflect.Value的kind即为Invalid)。
+
+例：B_24_Format
 
 #### Display,递归打印器
 
@@ -1281,10 +1379,6 @@ ioutil，io包下面的一个子包ioutil封装了一些非常方便的功能，
 ---
 
 
-
-
----
-
 命名返回参数可被同名局部变量遮蔽，此时需要显式返回。
 
 func add(x, y int) (z int) {
@@ -1302,27 +1396,6 @@ func add(x, y int) (z int) {
 
 
 
-em必须为interface类型才可以进行类型断言
-
-比如下面这段代码，
-
-s := "hello world"
-if v, ok := s.(string); ok {
-    fmt.Println(v)
-}
-运行报错， invalid type assertion: s.(string) (non-interface type string on left)
-
-在这里只要是在声明时或函数传进来的参数不是interface类型那么做类型断言都是回报 non-interface的错误的 所以我们只能通过将s作为一个interface{}的方法来进行类型断言，如下代码所示：
-
-x := "hello world"
-if v, ok := interface{}(x).(string); ok { // interface{}(x):把 x 的类型转换成 interface{}
-    fmt.Println(v)
-}
-
-
-断言返回值个数 不一定是两个
-
-
 time库？？？
 flag库？？
 fmt库 fmt.Stringer接口？？？
@@ -1332,3 +1405,7 @@ os.Stdin
 os.Stderr??
 
 sort库？？
+
+text/tabwriter
+
+net/http

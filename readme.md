@@ -28,10 +28,6 @@ bufio包使处理输入和输出方便高效。Scanner类型读取输入并将�
 fmt.Printf函数对表达式产生格式化输出。
 %d:十进制整数。%x,%o,%b:十六进制，八进制，二进制整数。%f,%g,%e:浮点数:3.141593 3.141592653589793 3.141593e+00。%t:布尔:true或false。%c:字符(rune) (Unicode码点)。%s:字符串。%q:带双引号的字符串"abc"或带单引号的字符'c'。%v:变量的自然形式(natural format)。%T:变量的类型。%%:字面上的百分号标志(无操作数)。按照惯例，以字母f结尾的格式化函数，如Printf和Errorf。而以ln结尾的在最后添加一个换行符。
  
-os.Stdin
-
-os.Stderr??
-
 ---
 ## 程序结构
 
@@ -792,7 +788,6 @@ fmt.Println(distance(p, q))
 ---
 
 ## 接口
-
 接口类型是一种抽象的类型。它不会暴露出它所代表的对象的内部值的结构和这个对象支持的基础操作的集合。它们只会展示出它们自己的方法。也就是说当你有看到一个接口类型的值时，不知道它是什么，但知道可以通过它的方法来做什么。
 
 `fmt.Printf`会把结果写到标准输出，`fmt.Sprintf`会把结果以字符串的形式返回。这两个函数都使用了另一个函数`fmt.Fprintf`。
@@ -842,12 +837,93 @@ type Writer interface {
     rwc = w // compile error: io.Writer lacks Close method
 ```
 
+对于每一个命名过的具体类型T;它一些方法的接收者是类型T本身而另一些则是一个T指针。
+T类型变量上调用*T的方法是合法的，必须是变量。编译器隐式的获取了它的地址。但这仅仅是一个语法糖:T类型的值不拥有所有*T指针的方法。
+```go
+type IntSet struct { /* ... */ }
+func (*IntSet) String() string
+var _ = IntSet{}.String() // compile error: String requires *IntSet receiver
+```
+但是我们可以在一个IntSet值上调用这个方法:
+```go
+var s IntSet
+var _ = s.String() // OK: s is a variable and &s has a String method
+```
+但由于只有*IntSet类型有String方法，也只有*IntSet类型实现了fmt.Stringer接口
+```go
+var _ fmt.Stringer = &s // OK
+var _ fmt.Stringer = s // compile error: IntSet lacks String method
+```
+
+interface{}被称为空接口类型，因为空接口类型对实现它的类型没有要求，所以我们可以将任意一个值赋给空接口类型。`var any interface{}`
 
 #### flag.Value接口
+```go
+func main() {
+    var period = flag.Duration("period", 1*time.Second, "sleep period")
+    flag.Parse()
+    fmt.Printf("Sleeping for %v...", *period)
+    time.Sleep(*period)
+    fmt.Println("Done!")
+}
+```
+可以通过`-period`这个命令行标记来控制：`go run main.go -period 5s`。
+
+为自定义数据类型定义新的标记符号，需要定义一个实现`flag.Value`接口的类型。
+```go
+package flag
+// Value is the interface to the value stored in a flag.
+type Value interface {
+    String() string
+    Set(string) error
+}
+```
+String方法格式化标记的值用在命令行帮组消息中，每一个flag.Value也是一个fmt.Stringer。Set方法解析它的字符串参数并且更新标记变量的值。实际上，Set方法和String是两个相反的操作。
 
 #### 接口值
+一个接口的值由两个部分组成，一个具体的类型和那个类型的值。它们被称为接口的动态类型和动态值。Go语言这种静态类型的语言，类型是编译期的概念；因此一个类型不是一个值。
+
+`var w io.Writer` 在Go语言中，变量总是被一个定义明确的值初始化，即使接口类型也不例外。对于一个接口的零 值就是它的类型和值的部分都是nil。
+
+`w = os.Stdout` 这个赋值过程调用了一个具体类型到接口类型的隐式转换，这和显式的使用io.Writer(os.Stdout)是等价的。这个接口值的动态类型被设为*os.File指针，它的动态值持有os.Stdout的拷贝。
+
+接口值可以使用==和!=来进行比较。两个接口值相等仅当它们都是nil值或者它们的动态类型相同并且动态值也根据这个动态类型的==操作相等。可以用在map的键或者作为switch语句的操作数。如果两个接口值的动态类型相同，但这个动态类型是不可比较(比如切片)，将它们进行比较就会失败并且panic:
+```go
+    var x interface{} = []int{1, 2, 3}
+    fmt.Printf("%T\n", x) // []int
+    fmt.Println(x == x) // panic: comparing uncomparable type []int
+```
+使用fmt包的`%T`动作可以获得接口值动态类型。
+
+一个不包含任何值的nil接口值和一个刚好包含nil指针的接口值是不同的。
+```go
+func main() {
+    var buf *bytes.Buffer
+    f(buf) // NOTE: subtly incorrect! //panic.
+}
+func f(out io.Writer) {
+    if out != nil {
+        out.Write([]byte("done!\n")) 
+    }
+}
+```
+当main函数调用函数f时，它给f函数的out参数赋了一个*bytes.Buffer的空指针，所以out的动态值是nil。然而，它的动态类型是*bytes.Buffer，意思就是out变量是一个包含空指针值的非空接口，所以防御性检查out!=nil的结果依然是true。解决方案就是将main函数中的变量buf的类型改为io.Writer。
 
 #### sort.Interface接口
+Go语言的sort.Sort函数不会对具体的序列和它的元素做任何假设。它使用了一个接口类型sort.Interface来指定通用的排序算法。序列的表示经常是一个切片。
+
+一个内置的排序算法需要知道三个东西:序列的长度，表示两个元素比较的结果，一种交换两个元素的方式;这就是sort.Interface的三个方法:
+```go
+package sort
+type Interface interface { 
+    Len() int
+    Less(i, j int) bool // i, j are indices of sequence elements
+    Swap(i, j int) }
+```
+为了对序列进行排序，我们需要定义一个实现了这三个方法的类型，然后对这个类型的一个实例应用sort.Sort函数。
+
+
+
 
 #### http.Handler接口
 
@@ -1033,28 +1109,119 @@ channel的零值是nil。对一个nil的channel发送和接收操作会永远阻
 ## 基于共享变量的并发
 
 #### 竞争条件
+在一个线性(只有一个goroutine的)的程序中，程序的执行顺序只由程序的逻辑来决定。在有两个或更多goroutine的程序中，每一个goroutine内的语句也是按照既定的顺序去执行的，但是一般情况下没法知道分别位于两个goroutine的事件x和y的执行顺序，x是在y之前还是之后还是同时发生是没法判断的。这也说明x和y这两个事件是并发的。
+
+一个函数在线性、在并发的情况下，这个函数可以正确地工作，那么这个函数是并发安全的，并发安全的函数不需要额外的同步工作。可以把这个概念概括为一个特定类型的一些方法和操作函数，如果这个类型是并发安全的话，那么所有它的访问方法和操作就都是并发安全的。
+
+在一个程序中有非并发安全的类型的情况下，我们依然可以使这个程序并发安全。并发安全的类型是例外，而不是规则，所以只有当文档中明确地说明了其是并发安全的情况下，你才可以并发地去访问它。
+
+数据竞争：只要有两个goroutine并发访问同一变量，且至少其中的一个是写操作的时候就会发生数据竞争。有三种方式可以避免数据竞争：第一种方法是不要去写变量。第二种避免多个goroutine访问变量。第三种避免数据竞争的方法是允许很多goroutine去访问变量，但是在同一个时刻最多只有一个goroutine在访问，这种方式被称为“互斥”。
 
 #### sync.Mutex互斥锁
+可以用一个容量只有1的channel来保证最多只有一个goroutine在同一时刻访问一个共享变量。
+```go
+var (
+    sema    = make(chan struct{}, 1) // a binary semaphore guarding balance
+    balance int
+)
+func Deposit(amount int) {
+    sema <- struct{}{} // acquire token
+    balance = balance + amount
+    <-sema // release token
+}
+func Balance() int {
+    sema <- struct{}{} // acquire token
+    b := balance
+    <-sema // release token
+    return b
+}
+```
+sync包里的Mutex类型，它的Lock方法能够获取到token(这里叫锁)，并且Unlock方法会释放这个token。下面的写法与上面的功能一样：
+```go
+import "sync"
+var (
+    mu      sync.Mutex // guards balance
+    balance int
+)
+func Deposit(amount int) {
+    mu.Lock()
+    balance = balance + amount
+    mu.Unlock()
+}
+func Balance() int {
+    mu.Lock()
+    b := balance
+    mu.Unlock()
+    return b
+}
+```
+每次一个goroutine访问bank变量时(这里只有balance余额变量)，它都会调用mutex的Lock方法来获取一个互斥锁。如果其它的goroutine已经获得了这个锁的话，这个操作会被阻塞直到其它goroutine调用了Unlock使该锁变回可用状态。mutex会保护共享变量。
+
+更好的方法是用defer来调用Unlock。无法对一个已经锁上的mutex来再次上锁­­这会导致程序死锁，没法继续执行下去。
 
 #### sync.RWMutex读写锁
+允许多个只读操作并行执行，但写操作会完全互斥。这种锁叫作“多读单写”锁(multiple readers, single writer lock)，Go语言提供的这样的锁是sync.RWMutex。
+```go
+var mu sync.RWMutex
+var balance int
+func Balance() int {
+    mu.RLock() // readers lock defer 
+    mu.RUnlock()
+    return balance
+}
+```
 
 #### 内存同步
+因为赋值和打印指向不同的变量，编译器可能会断定两条语句的顺序不会影响执行结果，并且会交换两个语句的执行顺序。可能的话，将变量限定在goroutine内部;如果是多个goroutine都需要访问的变量，使用互斥条件来访问。
 
 #### sync.Once初始化
-
-#### 竞争条件检测
+sync包提供了一个专门的方案来解决一次性初始化的问题:sync.Once。一次性的初始化需要一个互斥量mutex和一个boolean变量来记录初始化是不是已经完成了;互斥量用来保护boolean变量和客户端数据结构。
+```go
+var loadIconsOnce sync.Once
+var icons map[string]image.Image
+// Concurrency‐safe.
+func Icon(name string) image.Image {
+    loadIconsOnce.Do(loadIcons)
+    return icons[name]
+}
+```
+每一次对Do(loadIcons)的调用都会锁定mutex，并会检查boolean变量。在第一次调用时，变量的值是false，Do会调用loadIcons并会将boolean设置为true。
 
 #### 示例：并发的非阻塞缓存
 
 #### Goroutines和线程
+每一个OS线程都有一个固定大小的内存块(一般会是2MB)来做栈，这个栈会用来存储当前正在被调用或挂起(指在调用其它函数时)的函数的内部变量。2MB的栈对于一个小小的goroutine来说是很大的内存浪费。修改固定的大小可以提升空间的利用率允许创建更多的线程，并且可以允许更深的递归调用，不过这两者是没法同时兼备的。
+
+相反，一个goroutine会以一个很小的栈开始其生命周期，一般只需要2KB。一个goroutine的栈，和操作系统线程一样，会保存其活跃或挂起的函数调用的本地变量，但是和OS线程不太一样的是一个goroutine的栈大小并不是固定的;栈的大小会根据需要动态地伸缩。而goroutine的栈的最大值有1GB，比传统的固定大小的线程栈要大得多。
+
+OS线程会被操作系统内核调度。每几毫秒，一个硬件计时器会中断处理器，这会调用一个叫作scheduler的内核函数。这个函数会挂起当前执行的线程并保存内存中它的寄存器内容，检查线程列表并决定下一次哪个线程可以被运行，并从内存中恢复该线程的寄存器信息，然后恢复执行该线程的现场并开始执行线程。因为操作系统线程是被内核所调度，所以从一个线程向另一个“移动”需要完整的上下文切换，也就是说，保存一个用户线程的状态到内存，恢复另一个线程的到寄存器，然后更新调度器的数据结构。这几步操作很慢，因为其局部性很差需要几次内存访问，并且会增加运行的cpu周期。
+
+Go的运行时包含自己的调度器，这个调度器使用了一些技术手段，比如m:n调度，因为其会在n个操作系统线程上多工(调度)m个goroutine。Go调度器的工作和内核的调度是相似的，但是这个调度器只关注单独的Go程序中的goroutine(按程序独立)。
+和操作系统的线程调度不同的是，Go调度器并不是用一个硬件定时器而是被Go语言"建筑"本身进行调度的。这种调度方式不需要进入内核的上下文，所以重新调度一个goroutine比调度一个线程代价要低得多。
+
+Go的调度器使用了一个叫做__GOMAXPROCS__的变量来决定会有多少个操作系统的线程同时执行Go的代码。其默认的值是运行机器上的CPU的核心数，所以在一个有8个核心的机器上时，调度器一次会在8个OS线程上去调度GO代码。(GOMAXPROCS是m:n调度中的n)。在休眠中的或者在通信中被阻塞的goroutine是不需要一个对应的线程来做调度的。
+可以用GOMAXPROCS的环境变量来显式地控制这个参数，或者也可以在运行时用runtime.GOMAXPROCS函数来修改它。
+`GOMAXPROCS=1 go run main.go`
+
+在大多数支持多线程的操作系统和程序语言中，当前的线程都有一个独特的身份(id)，并且这个身份信息可以以一个普通值的形式被被很容易地获取到。
+goroutine没有可以被程序员获取到的身份(id)的概念。
 
 --- 
 
 ## 反射
 
 #### 为什么反射
+有时候我们需要编写一个函数能够处理一类并不满足普通公共接口的类型的值。一个大家熟悉的例子是fmt.Fprintf函数提供的字符串格式化处理逻辑，它可以用来对任意类型的值格式化并打印，甚至支持用户自定义的类型。
+
+反射可以检查未知类型的表示方式。
 
 #### refect.Type和reflect.Value
+反射是由reflect包提供的。它定义了两个重要的类型，Type和Value。一个Type表示一个Go类型，它是一个接口。函数`reflect.TypeOf`接受任意的interface{}类型, 并以reflect.Type形式返回其动态类型。
+```go
+    t := reflect.TypeOf(3)  // a reflect.Type //一个隐式的接口转换操作
+    fmt.Println(t.String()) // "int"
+    fmt.Println(t)          // "int"
+```
 
 #### Display,递归打印器
 
@@ -1156,5 +1323,12 @@ if v, ok := interface{}(x).(string); ok { // interface{}(x):把 x 的类型转�
 断言返回值个数 不一定是两个
 
 
-
 time库？？？
+flag库？？
+fmt库 fmt.Stringer接口？？？
+io
+
+os.Stdin
+os.Stderr??
+
+sort库？？

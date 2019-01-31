@@ -120,3 +120,14 @@ func p() *int {
 	v := 1
 	return &v
 }
+
+func peakIndexInMountainArray(A []int) int {
+	l := len(A)
+	for i := 0; i < l-1; i++ {
+		if A[i] > A[i+1] {
+			return i
+		}
+
+	}
+	return 0
+}

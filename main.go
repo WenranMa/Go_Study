@@ -120,25 +120,3 @@ func p() *int {
 	v := 1
 	return &v
 }
-
-/**
- * Definition for a binary tree node.
- * type TreeNode struct {
- *     Val int
- *     Left *TreeNode
- *     Right *TreeNode
- * }
- */
-func isUnivalTree(root *TreeNode) bool {
-	if root == nil {
-		return true
-	}
-	l, r := true, true
-	if root.Left != nil {
-		l = root.Left.Val == root.Val && isUnivalTree(root.Left)
-	}
-	if root.Right != nil {
-		r = root.Right.Val == root.Val && isUnivalTree(root.Right)
-	}
-	return l && r
-}

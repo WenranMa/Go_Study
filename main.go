@@ -121,13 +121,24 @@ func p() *int {
 	return &v
 }
 
-func peakIndexInMountainArray(A []int) int {
-	l := len(A)
-	for i := 0; i < l-1; i++ {
-		if A[i] > A[i+1] {
-			return i
-		}
-
+/**
+ * Definition for a binary tree node.
+ * type TreeNode struct {
+ *     Val int
+ *     Left *TreeNode
+ *     Right *TreeNode
+ * }
+ */
+func isUnivalTree(root *TreeNode) bool {
+	if root == nil {
+		return true
 	}
-	return 0
+	l, r := true, true
+	if root.Left != nil {
+		l = root.Left.Val == root.Val && isUnivalTree(root.Left)
+	}
+	if root.Right != nil {
+		r = root.Right.Val == root.Val && isUnivalTree(root.Right)
+	}
+	return l && r
 }

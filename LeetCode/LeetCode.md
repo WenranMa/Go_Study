@@ -33,6 +33,46 @@ func sortArrayByParity(A []int) []int {
     return A
 }
 ```
+
+##### 977.Squares of a Sorted Array
+Given an array of integers A sorted in non-decreasing order, return an array of the squares of each number, also in sorted non-decreasing order.
+
+Example:  
+Input: [-4,-1,0,3,10]  
+Output: [0,1,9,16,100]  
+Input: [-7,-3,2,3,11]  
+Output: [4,9,9,49,121]  
+ 
+Note:  
+1 <= A.length <= 10000  
+-10000 <= A[i] <= 10000  
+A is sorted in non-decreasing order.  
+```go
+func sortedSquares(A []int) []int {
+    if A == nil || len(A) == 0 {
+        return A
+    }
+    l := len(A)
+    i := 0 // for positive
+    for i < l && A[i] < 0 {
+        i++
+    }
+    j := i - 1 //for negative
+    ans := []int{}
+    for i < l || j >= 0 {
+        if j < 0 || i < l && A[i]*A[i] <= A[j]*A[j] {
+            ans = append(ans, A[i]*A[i])
+            i++
+        } else {
+            ans = append(ans, A[j]*A[j])
+            j--
+        }
+    }
+    return ans
+}
+```
+
+
 ---
 
 ### String
@@ -137,6 +177,52 @@ func toLowerCase(str string) string {
 }
 ```
 
+##### 824.Goat Latin
+A sentence S is given, composed of words separated by spaces. Each word consists of lowercase and uppercase letters only. We would like to convert the sentence to "Goat Latin" (a made-up language similar to Pig Latin.)
+
+The rules of Goat Latin are as follows:  
+If a word begins with a vowel (a, e, i, o, or u), append "ma" to the end of the word. For example, the word 'apple' becomes 'applema'. If a word begins with a consonant (i.e. not a vowel), remove the first letter and append it to the end, then add "ma". For example, the word "goat" becomes "oatgma".  
+Add one letter 'a' to the end of each word per its word index in the sentence, starting with 1. For example, the first word gets "a" added to the end, the second word gets "aa" added to the end and so on. Return the final sentence representing the conversion from S to Goat Latin. 
+
+Example:  
+Input: "I speak Goat Latin"  
+Output: "Imaa peaksmaaa oatGmaaaa atinLmaaaaa"  
+Input: "The quick brown fox jumped over the lazy dog"  
+Output: "heTmaa uickqmaaa rownbmaaaa oxfmaaaaa umpedjmaaaaaa overmaaaaaaa hetmaaaaaaaa azylmaaaaaaaaa ogdmaaaaaaaaaa"  
+ 
+Notes:  
+S contains only uppercase, lowercase and spaces. Exactly one space between each word.  
+1 <= S.length <= 150.
+```go
+func toGoatLatin(S string) string {
+    arr := strings.Split(S, " ")
+    ws := []string{}
+    for i, w := range arr {
+        out := encode(w)
+        for j := 0; j <= i; j++ {
+            out = out + "a"
+        }
+        ws = append(ws, out)
+    }
+    ans := strings.Join(ws, " ")
+    return ans
+}
+
+func encode(in string) string {
+    if in == "" {
+        return in
+    }
+    out := ""
+    if in[0] == 'a' || in[0] == 'e' || in[0] == 'i' || in[0] == 'o' || in[0] == 'u' || in[0] == 'A' || in[0] == 'E' || in[0] == 'I' || in[0] == 'O' || in[0] == 'U' {
+        out = in + "ma"
+    } else {
+        out = in[1:len(in)] + string(in[0]) + "ma"
+    }
+    return out
+}
+```
+
+
 ---
 
 ### Map
@@ -234,7 +320,45 @@ func uniqueMorseRepresentations(words []string) int {
 }
 ```
 
-### Bit Manipulation（位运算）
+##### 884.Uncommon Words from Two Sentences
+We are given two sentences A and B. (A sentence is a string of space separated words.  Each word consists only of lowercase letters.) A word is uncommon if it appears exactly once in one of the sentences, and does not appear in the other sentence. Return a list of all uncommon words. You may return the list in any order.
+
+Example:  
+Input: A = "this apple is sweet", B = "this apple is sour"  
+Output: ["sweet","sour"]  
+Input: A = "apple apple", B = "banana"  
+Output: ["banana"]  
+
+Note:  
+0 <= A.length <= 200  
+0 <= B.length <= 200  
+A and B both contain only spaces and lowercase letters.  
+
+```go
+func uncommonFromSentences(A string, B string) []string {
+    m := make(map[string]int)
+    res := []string{}
+    a := strings.Split(A, " ")
+    b := strings.Split(B, " ")
+    for _, s := range a {
+        m[s] += 1
+    }
+    for _, s := range b {
+        m[s] += 1
+    }
+    for k, _ := range m {
+        if m[k] == 1 {
+            res = append(res, k)
+        }
+    }
+    return res
+}
+```
+
+
+
+
+### Math and Bit Manipulation（位运算）
 
 ##### 461. Hamming Distance
 The Hamming distance between two integers is the number of positions at which the corresponding bits are different.  
@@ -370,6 +494,50 @@ func hasAlternatingBits(n int) bool {
 }
 ```
 
+##### 728.Self Dividing Numbers
+A self-dividing number is a number that is divisible by every digit it contains. For example, 128 is a self-dividing number because 128 % 1 == 0, 128 % 2 == 0, and 128 % 8 == 0. Also, a self-dividing number is not allowed to contain the digit zero. Given a lower and upper number bound, output a list of every possible self dividing number, including the bounds if possible.
+
+Example:  
+Input:  
+left = 1, right = 22  
+Output: [1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 15, 22]  
+
+Note: The boundaries of each input argument are 1 <= left <= right <= 10000.
+```go
+func selfDividingNumbers(left int, right int) []int {
+    ans := []int{}
+    for i := left; i <= right; i++ {
+        if isDividingNumber(i) == true {
+            ans = append(ans, i)
+        }
+    }
+    return ans
+}
+
+func isDividingNumber(num int) bool {
+    bits := []int{}
+    n := num
+    for n > 0 {
+        b := n % 10
+        if b == 0 {
+            return false
+        }
+        n = n / 10
+        bits = append(bits, b)
+    }
+    for _, b := range bits {
+        if num%b != 0 {
+            return false
+        }
+    }
+    return true
+}
+```
+
+
+
+---
+
 ### Array 数组
 
 ##### 852.Peak Index in a Mountain Array
@@ -398,5 +566,206 @@ func peakIndexInMountainArray(A []int) int {
         }
     }
     return 0
+}
+```
+
+##### 832. Flipping an Image
+Given a binary matrix A, we want to flip the image horizontally, then invert it, and return the resulting image. To flip an image horizontally means that each row of the image is reversed.  For example, flipping [1, 1, 0] horizontally results in [0, 1, 1]. To invert an image means that each 0 is replaced by 1, and each 1 is replaced by 0. For example, inverting [0, 1, 1] results in [1, 0, 0].
+
+Example:  
+Input: [[1,1,0],[1,0,1],[0,0,0]]   
+Output: [[1,0,0],[0,1,0],[1,1,1]]    
+Explanation: First reverse each row: [[0,1,1],[1,0,1],[0,0,0]].
+Then, invert the image: [[1,0,0],[0,1,0],[1,1,1]]  
+Input: [[1,1,0,0],[1,0,0,1],[0,1,1,1],[1,0,1,0]]  
+Output: [[1,1,0,0],[0,1,1,0],[0,0,0,1],[1,0,1,0]]  
+Explanation: First reverse each row: [[0,0,1,1],[1,0,0,1],[1,1,1,0],[0,1,0,1]].
+Then invert the image: [[1,1,0,0],[0,1,1,0],[0,0,0,1],[1,0,1,0]]  
+
+Notes:  
+1 <= A.length = A[0].length <= 20  
+0 <= A[i][j] <= 1
+```go
+func flipAndInvertImage(A [][]int) [][]int {
+    for _, row := range A {
+        l := len(row)
+        for j, k := 0, l-1; j <= k; {
+            row[j], row[k] = row[k], row[j]
+            row[j], row[k] = row[j]^1, row[k]^1
+            j++
+            k--
+        }
+    }
+    return A
+}
+```
+
+##### 985. Sum of Even Numbers After Queries
+We have an array A of integers, and an array queries of queries. For the i-th query val = queries[i][0], index = queries[i][1], we add val to A[index].  Then, the answer to the i-th query is the sum of the even values of A. (Here, the given index = queries[i][1] is a 0-based index, and each query permanently modifies the array A.) Return the answer to all queries.  Your answer array should have answer[i] as the answer to the i-th query.
+
+Example:  
+Input: A = [1,2,3,4], queries = [[1,0],[-3,1],[-4,0],[2,3]]  
+Output: [8,6,2,4]  
+Explanation:   
+At the beginning, the array is [1,2,3,4].  
+After adding 1 to A[0], the array is [2,2,3,4], and the sum of even values is 2 + 2 + 4 = 8.  
+After adding -3 to A[1], the array is [2,-1,3,4], and the sum of even values is 2 + 4 = 6.  
+After adding -4 to A[0], the array is [-2,-1,3,4], and the sum of even values is -2 + 4 = 2.  
+After adding 2 to A[3], the array is [-2,-1,3,6], and the sum of even values is -2 + 6 = 4.  
+ 
+Note:  
+1 <= A.length <= 10000  
+-10000 <= A[i] <= 10000  
+1 <= queries.length <= 10000  
+-10000 <= queries[i][0] <= 10000  
+0 <= queries[i][1] < A.length  
+```go
+func sumEvenAfterQueries(A []int, queries [][]int) []int {
+    ans := []int{}
+    for _, query := range queries {
+        A[query[1]] += query[0]
+        an := 0
+        for _, a := range A {
+            if a&1 == 0 {
+                an += a
+            }
+        }
+        ans = append(ans, an)
+    }
+    return ans
+}
+```
+
+
+
+---
+
+### LinkedList 链表
+
+##### 876.Middle of the Linked List
+
+Given a non-empty, singly linked list with head node head, return a middle node of linked list. If there are two middle nodes, return the second middle node. 
+
+Example:  
+Input: [1,2,3,4,5]  
+Output: Node 3 from this list (Serialization: [3,4,5])  
+The returned node has value 3.  (The judge's serialization of this node is [3,4,5]).  
+Note that we returned a ListNode object ans, such that:  
+ans.val = 3, ans.next.val = 4, ans.next.next.val = 5, and ans.next.next.next = NULL.  
+Input: [1,2,3,4,5,6]  
+Output: Node 4 from this list (Serialization: [4,5,6])  
+Since the list has two middle nodes with values 3 and 4, we return the second one.
+```go
+/**
+ * Definition for singly-linked list.
+ * type ListNode struct {
+ *     Val int
+ *     Next *ListNode
+ * }
+ */
+func middleNode(head *ListNode) *ListNode {
+    if head == nil || head.Next == nil {
+        return head
+    }
+    l := 1
+    h := head
+    for h.Next != nil {
+        h = h.Next
+        l++
+    }
+    m := l / 2
+    for i := 0; i < m; i++ {
+        head = head.Next
+    }
+    return head
+}
+```
+
+---
+
+### Tree 二叉树
+
+##### 617.Merge Two Binary Trees
+Given two binary trees and imagine that when you put one of them to cover the other, some nodes of the two trees are overlapped while the others are not. You need to merge them into a new binary tree. The merge rule is that if two nodes overlap, then sum node values up as the new value of the merged node. Otherwise, the NOT null node will be used as the node of new tree.
+
+Example 1:  
+Input: 
+    Tree 1                     Tree 2                  
+          1                         2                             
+         / \                       / \                            
+        3   2                     1   3                        
+       /                           \   \                      
+      5                             4   7                  
+Output:  
+Merged tree:    
+         3  
+        / \  
+       4   5  
+      / \   \   
+     5   4   7  
+ 
+Note: The merging process must start from the root nodes of both trees.
+
+```go
+/**
+ * Definition for a binary tree node.
+ * type TreeNode struct {
+ *     Val int
+ *     Left *TreeNode
+ *     Right *TreeNode
+ * }
+ */
+func mergeTrees(t1 *TreeNode, t2 *TreeNode) *TreeNode {
+    if t1 == nil && t2 == nil {
+        return nil
+    } else if t1 == nil {
+        return t2
+    } else if t2 == nil {
+        return t1
+    } else {
+        t := &TreeNode{0, nil, nil}
+        t.Val = t1.Val + t2.Val
+        t.Left = mergeTrees(t1.Left, t2.Left)
+        t.Right = mergeTrees(t1.Right, t2.Right)
+        return t
+    }
+    return nil
+}
+```
+
+##### 965.Univalued Binary Tree
+A binary tree is univalued if every node in the tree has the same value. Return true if and only if the given tree is univalued.
+
+Example:
+Input: [1,1,1,1,1,null,1]
+Output: true
+Input: [2,2,2,5,2]
+Output: false
+
+Note:
+The number of nodes in the given tree will be in the range [1, 100].
+Each node's value will be an integer in the range [0, 99].
+
+```go
+/**
+ * Definition for a binary tree node.
+ * type TreeNode struct {
+ *     Val int
+ *     Left *TreeNode
+ *     Right *TreeNode
+ * }
+ */
+func isUnivalTree(root *TreeNode) bool {
+    if root == nil {
+        return true
+    }
+    l, r := true, true
+    if root.Left != nil {
+        l = root.Left.Val == root.Val && isUnivalTree(root.Left)
+    }
+    if root.Right != nil {
+        r = root.Right.Val == root.Val && isUnivalTree(root.Right)
+    }
+    return l && r
 }
 ```

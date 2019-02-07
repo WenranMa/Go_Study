@@ -1,11 +1,5 @@
 # LeetCode
 
-### Two Pass (双指针)
-
-
-
----
-
 ### String
 
 ##### 657.Robot Return to Origin
@@ -194,7 +188,7 @@ func reverseString(s []byte) {
 
 ---
 
-### Map
+### Map 
 
 ##### 961.N-Repeated Element in Size 2N Array
 In a array A of size 2N, there are N+1 unique elements, and exactly one of these elements is repeated N times. Return the element repeated N times.
@@ -321,6 +315,68 @@ func uncommonFromSentences(A string, B string) []string {
         }
     }
     return res
+}
+```
+
+##### 500.Keyboard Row
+Given a List of words, return the words that can be typed using letters of alphabet on only one row's of American keyboard like the image below.
+
+Example:  
+Input: ["Hello", "Alaska", "Dad", "Peace"]  
+Output: ["Alaska", "Dad"]  
+ 
+Note:  
+You may use one character in the keyboard more than once.  
+You may assume the input string will only contain letters of alphabet.  
+```go
+func findWords(words []string) []string {
+    m := make(map[rune]int)
+
+    m['q'] = 1
+    m['w'] = 1
+    m['e'] = 1
+    m['r'] = 1
+    m['t'] = 1
+    m['y'] = 1
+    m['u'] = 1
+    m['i'] = 1
+    m['o'] = 1
+    m['p'] = 1
+
+    m['a'] = 2
+    m['s'] = 2
+    m['d'] = 2
+    m['f'] = 2
+    m['g'] = 2
+    m['h'] = 2
+    m['j'] = 2
+    m['k'] = 2
+    m['l'] = 2
+
+    m['z'] = 3
+    m['x'] = 3
+    m['c'] = 3
+    m['v'] = 3
+    m['b'] = 3
+    m['n'] = 3
+    m['m'] = 3
+
+    ans := []string{}
+    for _, w := range words {
+        wl := strings.ToLower(w)
+        flag := true
+        n := m[rune(wl[0])]
+        for _, l := range wl {
+            if m[l] != n {
+                flag = false
+                break
+            }
+        }
+        if flag {
+            ans = append(ans, w)
+        }
+    }
+    return ans
 }
 ```
 
@@ -573,7 +629,7 @@ func smallestRangeI(A []int, K int) int {
 
 ---
 
-### Array 数组 and Two Pass ()
+### Array 数组 and Two Pass 双指针
 ##### 905.Sort Array By Parity
 Given an array A of non-negative integers, return an array consisting of all the even elements of A, followed by all the odd elements of A. You may return any answer array that satisfies this condition.
 
@@ -847,6 +903,98 @@ func projectionArea(grid [][]int) int {
         ans += m
     }
     return ans
+}
+```
+
+##### 821.Shortest Distance to a Character
+Given a string S and a character C, return an array of integers representing the shortest distance from the character C in the string.
+
+Example:  
+Input: S = "loveleetcode", C = 'e'   
+Output: [3, 2, 1, 0, 1, 0, 0, 1, 2, 2, 1, 0]   
+
+Note:  
+S string length is in [1, 10000].   
+C is a single character, and guaranteed to be in string S.   
+All letters in S and C are lowercase.   
+```go
+func shortestToChar(S string, C byte) []int {
+    l := len(S)
+    ans := []int{}
+    pos := []int{}
+    for i, c := range S {
+        if c == rune(C) {
+            pos = append(pos, i)
+        }
+    }
+    for i, _ := range S {
+        min := l
+        for _, p := range pos {
+            d := 0
+            if i < p {
+                d = p - i
+            } else {
+                d = i - p
+            }
+            if d < min {
+                min = d
+            }
+        }
+        ans = append(ans, min)
+    }
+    return ans
+}
+```
+
+##### 463.Island Perimeter
+You are given a map in form of a two-dimensional integer grid where 1 represents land and 0 represents water.
+
+Grid cells are connected horizontally/vertically (not diagonally). The grid is completely surrounded by water, and there is exactly one island (i.e., one or more connected land cells).
+
+The island doesn't have "lakes" (water inside that isn't connected to the water around the island). One cell is a square with side length 1. The grid is rectangular, width and height don't exceed 100. Determine the perimeter of the island.
+
+Example:  
+Input:  
+[[0,1,0,0],  
+ [1,1,1,0],  
+ [0,1,0,0],  
+ [1,1,0,0]]
+
+Output: 16
+
+Explanation: The perimeter is the 16 yellow stripes in the image below:
+```go
+func islandPerimeter(grid [][]int) int {
+    h := len(grid)
+    w := len(grid[0])
+    ans := 0
+    for i, _ := range grid {
+        for j, _ := range grid[i] {
+            if grid[i][j] == 1 {
+                edge := 4 - checkNeighbor(grid, i, j, h, w)
+                ans += edge
+            }
+
+        }
+    }
+    return ans
+}
+
+func checkNeighbor(grid [][]int, i, j, h, w int) int {
+    n := 0
+    if i-1 >= 0 && grid[i-1][j] == 1 {
+        n += 1
+    }
+    if i+1 < h && grid[i+1][j] == 1 {
+        n += 1
+    }
+    if j-1 >= 0 && grid[i][j-1] == 1 {
+        n += 1
+    }
+    if j+1 < w && grid[i][j+1] == 1 {
+        n += 1
+    }
+    return n
 }
 ```
 

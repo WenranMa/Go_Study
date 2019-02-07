@@ -625,7 +625,50 @@ func smallestRangeI(A []int, K int) int {
 }
 ```
 
+##### 412.Fizz Buzz
+Write a program that outputs the string representation of numbers from 1 to n.
 
+But for multiples of three it should output “Fizz” instead of the number and for the multiples of five output “Buzz”. For numbers which are multiples of both three and five output “FizzBuzz”.
+
+Example:   
+n = 15,   
+Return:
+[
+    "1",
+    "2",
+    "Fizz",
+    "4",
+    "Buzz",
+    "Fizz",
+    "7",
+    "8",
+    "Fizz",
+    "Buzz",
+    "11",
+    "Fizz",
+    "13",
+    "14",
+    "FizzBuzz"
+]
+```go
+func fizzBuzz(n int) []string {
+    ans := []string{}
+    for i := 1; i <= n; i++ {
+        f1 := i % 3
+        f2 := i % 5
+        if f1 == 0 && f2 != 0 {
+            ans = append(ans, "Fizz")
+        } else if f1 != 0 && f2 == 0 {
+            ans = append(ans, "Buzz")
+        } else if f1 == 0 && f2 == 0 {
+            ans = append(ans, "FizzBuzz")
+        } else {
+            ans = append(ans, strconv.Itoa(i))
+        }
+    }
+    return ans
+}
+```
 
 ---
 
@@ -998,6 +1041,106 @@ func checkNeighbor(grid [][]int, i, j, h, w int) int {
 }
 ```
 
+##### 976.Largest Perimeter Triangle
+Given an array A of positive lengths, return the largest perimeter of a triangle with non-zero area, formed from 3 of these lengths.
+
+If it is impossible to form any triangle of non-zero area, return 0.
+
+Example 1:  
+Input: [2,1,2]   
+Output: 5    
+Input: [1,2,1]    
+Output: 0      
+Input: [3,2,3,4]    
+Output: 10   
+Input: [3,6,2,3]    
+Output: 8    
+ 
+Note:   
+3 <= A.length <= 10000   
+1 <= A[i] <= 10^6    
+```go
+func largestPerimeter(A []int) int {
+    l := len(A)
+    if l <= 2 {
+        return 0
+    }
+    sort.Ints(A)
+    ans := 0
+    for i := l - 1; i >= 2; i-- {
+
+        if A[i-1]+A[i-2] > A[i] {
+            ans = A[i-2] + A[i-1] + A[i]
+            break
+        }
+    }
+    return ans
+}
+```
+
+
+---
+
+### Stack
+
+##### 682. Baseball Game
+You're now a baseball game point recorder. Given a list of strings, each string can be one of the 4 following types: 
+
+Integer (one round's score): Directly represents the number of points you get in this round.  
+"+" (one round's score): Represents that the points you get in this round are the sum of the last two valid round's points.  
+"D" (one round's score): Represents that the points you get in this round are the doubled data of the last valid round's points.  
+"C" (an operation, which isn't a round's score): Represents the last valid round's points you get were invalid and should be removed.  
+Each round's operation is permanent and could have an impact on the round before and the round after.
+
+You need to return the sum of the points you could get in all the rounds.
+
+Example 1:  
+Input: ["5","2","C","D","+"]  
+Output: 30   
+Explanation:    
+Round 1: You could get 5 points. The sum is: 5.    
+Round 2: You could get 2 points. The sum is: 7.   
+Operation 1: The round 2's data was invalid. The sum is: 5.     
+Round 3: You could get 10 points (the round 2's data has been removed). The sum is: 15.    
+Round 4: You could get 5 + 10 = 15 points. The sum is: 30.    
+Example 2:    
+Input: ["5","-2","4","C","D","9","+","+"]     
+Output: 27   
+Explanation:    
+Round 1: You could get 5 points. The sum is: 5.   
+Round 2: You could get -2 points. The sum is: 3.    
+Round 3: You could get 4 points. The sum is: 7.    
+Operation 1: The round 3's data is invalid. The sum is: 3.     
+Round 4: You could get -4 points (the round 3's data has been removed). The sum is: -1.    
+Round 5: You could get 9 points. The sum is: 8.   
+Round 6: You could get -4 + 9 = 5 points. The sum is 13.   
+Round 7: You could get 9 + 5 = 14 points. The sum is 27.   
+Note:    
+The size of the input list will be between 1 and 1000.    
+Every integer represented in the list will be between -30000 and 30000.    
+```go
+func calPoints(ops []string) int {
+    points := []int{}
+    for _, o := range ops {
+        l := len(points)
+        if o == "C" && l > 0 {
+            points = points[:l-1]
+        } else if o == "D" && l > 0 {
+            points = append(points, points[l-1]*2)
+        } else if o == "+" && l > 1 {
+            points = append(points, points[l-1]+points[l-2])
+        } else {
+            n, _ := strconv.Atoi(o)
+            points = append(points, n)
+        }
+    }
+    ans := 0
+    for _, n := range points {
+        ans += n
+    }
+    return ans
+}
+```
 
 ---
 

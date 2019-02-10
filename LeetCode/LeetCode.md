@@ -1,80 +1,5 @@
 # LeetCode
 
-### Two Pass (双指针)
-
-##### 905.Sort Array By Parity
-Given an array A of non-negative integers, return an array consisting of all the even elements of A, followed by all the odd elements of A. You may return any answer array that satisfies this condition.
-
-Example 1:  
-Input: [3,1,2,4]  
-Output: [2,4,3,1]  
-The outputs [4,2,3,1], [2,4,1,3], and [4,2,1,3] would also be accepted.  
- 
-Note:  
-1 <= A.length <= 5000  
-0 <= A[i] <= 5000  
-
-```go
-func sortArrayByParity(A []int) []int {
-    if A == nil || len(A) == 0 || len(A) == 1 {
-        return A
-    }
-    l := len(A)
-    i, j := 0, l-1
-    for i < j {
-        for i < j && A[i]%2 == 0 {
-            i++
-        }
-        for i < j && A[j]%2 != 0 {
-            j--
-        }
-        A[i], A[j] = A[j], A[i]
-    }
-    return A
-}
-```
-
-##### 977.Squares of a Sorted Array
-Given an array of integers A sorted in non-decreasing order, return an array of the squares of each number, also in sorted non-decreasing order.
-
-Example:  
-Input: [-4,-1,0,3,10]  
-Output: [0,1,9,16,100]  
-Input: [-7,-3,2,3,11]  
-Output: [4,9,9,49,121]  
- 
-Note:  
-1 <= A.length <= 10000  
--10000 <= A[i] <= 10000  
-A is sorted in non-decreasing order.  
-```go
-func sortedSquares(A []int) []int {
-    if A == nil || len(A) == 0 {
-        return A
-    }
-    l := len(A)
-    i := 0 // for positive
-    for i < l && A[i] < 0 {
-        i++
-    }
-    j := i - 1 //for negative
-    ans := []int{}
-    for i < l || j >= 0 {
-        if j < 0 || i < l && A[i]*A[i] <= A[j]*A[j] {
-            ans = append(ans, A[i]*A[i])
-            i++
-        } else {
-            ans = append(ans, A[j]*A[j])
-            j--
-        }
-    }
-    return ans
-}
-```
-
-
----
-
 ### String
 
 ##### 657.Robot Return to Origin
@@ -222,10 +147,48 @@ func encode(in string) string {
 }
 ```
 
+##### 557. Reverse Words in a String III
+Given a string, you need to reverse the order of characters in each word within a sentence while still preserving whitespace and initial word order.
+
+Example:  
+Input: "Let's take LeetCode contest"  
+Output: "s'teL ekat edoCteeL tsetnoc"  
+Note: In the string, each word is separated by single space and there will not be any extra space in the string.
+```go
+func reverseWords(s string) string {
+    arr := strings.Split(s, " ")
+    ans := []string{}
+    for _, w := range arr {
+        runes := []rune(w)
+        for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
+            runes[i], runes[j] = runes[j], runes[i]
+        }
+        ans = append(ans, string(runes))
+    }
+    return strings.Join(ans, " ")
+}
+```
+
+##### 344. Reverse String
+Write a function that reverses a string. The input string is given as an array of characters char[]. Do not allocate extra space for another array, you must do this by modifying the input array in-place with O(1) extra memory. You may assume all the characters consist of printable ascii characters.
+
+Example:  
+Input: ["h","e","l","l","o"]  
+Output: ["o","l","l","e","h"]  
+Input: ["H","a","n","n","a","h"]  
+Output: ["h","a","n","n","a","H"]  
+```go
+func reverseString(s []byte) {
+    for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
+        s[i], s[j] = s[j], s[i]
+    }
+}
+```
+
 
 ---
 
-### Map
+### Map 
 
 ##### 961.N-Repeated Element in Size 2N Array
 In a array A of size 2N, there are N+1 unique elements, and exactly one of these elements is repeated N times. Return the element repeated N times.
@@ -352,6 +315,68 @@ func uncommonFromSentences(A string, B string) []string {
         }
     }
     return res
+}
+```
+
+##### 500.Keyboard Row
+Given a List of words, return the words that can be typed using letters of alphabet on only one row's of American keyboard like the image below.
+
+Example:  
+Input: ["Hello", "Alaska", "Dad", "Peace"]  
+Output: ["Alaska", "Dad"]  
+ 
+Note:  
+You may use one character in the keyboard more than once.  
+You may assume the input string will only contain letters of alphabet.  
+```go
+func findWords(words []string) []string {
+    m := make(map[rune]int)
+
+    m['q'] = 1
+    m['w'] = 1
+    m['e'] = 1
+    m['r'] = 1
+    m['t'] = 1
+    m['y'] = 1
+    m['u'] = 1
+    m['i'] = 1
+    m['o'] = 1
+    m['p'] = 1
+
+    m['a'] = 2
+    m['s'] = 2
+    m['d'] = 2
+    m['f'] = 2
+    m['g'] = 2
+    m['h'] = 2
+    m['j'] = 2
+    m['k'] = 2
+    m['l'] = 2
+
+    m['z'] = 3
+    m['x'] = 3
+    m['c'] = 3
+    m['v'] = 3
+    m['b'] = 3
+    m['n'] = 3
+    m['m'] = 3
+
+    ans := []string{}
+    for _, w := range words {
+        wl := strings.ToLower(w)
+        flag := true
+        n := m[rune(wl[0])]
+        for _, l := range wl {
+            if m[l] != n {
+                flag = false
+                break
+            }
+        }
+        if flag {
+            ans = append(ans, w)
+        }
+    }
+    return ans
 }
 ```
 
@@ -534,11 +559,146 @@ func isDividingNumber(num int) bool {
 }
 ```
 
+##### 509. Fibonacci Number
+The Fibonacci numbers, commonly denoted F(n) form a sequence, called the Fibonacci sequence, such that each number is the sum of the two preceding ones, starting from 0 and 1. That is,
+
+F(0) = 0,   F(1) = 1
+F(N) = F(N - 1) + F(N - 2), for N > 1.
+Given N, calculate F(N).
+
+Example:  
+Input: 2  
+Output: 1  
+Explanation: F(2) = F(1) + F(0) = 1 + 0 = 1.  
+Input: 3  
+Output: 2  
+Explanation: F(3) = F(2) + F(1) = 1 + 1 = 2.  
+Input: 4  
+Output: 3  
+Explanation: F(4) = F(3) + F(2) = 2 + 1 = 3.  
+```go
+func fib(N int) int {
+    if N == 0 {
+        return 0
+    }
+    if N == 1 {
+        return 1
+    }
+    return fib(N-1) + fib(N-2)
+}
+```
+
+##### 908.Smallest Range I
+Given an array A of integers, for each integer A[i] we may choose any x with -K <= x <= K, and add x to A[i]. After this process, we have some array B. Return the smallest possible difference between the maximum value of B and the minimum value of B.
+
+Example:  
+Input: A = [1], K = 0  
+Output: 0  
+Explanation: B = [1]  
+Input: A = [0,10], K = 2  
+Output: 6  
+Explanation: B = [2,8]  
+Input: A = [1,3,6], K = 3   
+Output: 0   
+Explanation: B = [3,3,3] or B = [4,4,4]   
+ 
+Note:  
+1 <= A.length <= 10000  
+0 <= A[i] <= 10000  
+0 <= K <= 10000  
+```go
+func smallestRangeI(A []int, K int) int {
+    min, max := 10001, 0
+    for _, m := range A {
+        if m < min {
+            min = m
+        }
+        if m > max {
+            max = m
+        }
+    }
+    ans := max - min - 2*K
+    if ans < 0 {
+        return 0
+    }
+    return ans
+}
+```
+
 
 
 ---
 
-### Array 数组
+### Array 数组 and Two Pass 双指针
+##### 905.Sort Array By Parity
+Given an array A of non-negative integers, return an array consisting of all the even elements of A, followed by all the odd elements of A. You may return any answer array that satisfies this condition.
+
+Example 1:  
+Input: [3,1,2,4]  
+Output: [2,4,3,1]  
+The outputs [4,2,3,1], [2,4,1,3], and [4,2,1,3] would also be accepted.  
+ 
+Note:  
+1 <= A.length <= 5000  
+0 <= A[i] <= 5000  
+
+```go
+func sortArrayByParity(A []int) []int {
+    if A == nil || len(A) == 0 || len(A) == 1 {
+        return A
+    }
+    l := len(A)
+    i, j := 0, l-1
+    for i < j {
+        for i < j && A[i]%2 == 0 {
+            i++
+        }
+        for i < j && A[j]%2 != 0 {
+            j--
+        }
+        A[i], A[j] = A[j], A[i]
+    }
+    return A
+}
+```
+
+##### 977.Squares of a Sorted Array
+Given an array of integers A sorted in non-decreasing order, return an array of the squares of each number, also in sorted non-decreasing order.
+
+Example:  
+Input: [-4,-1,0,3,10]  
+Output: [0,1,9,16,100]  
+Input: [-7,-3,2,3,11]  
+Output: [4,9,9,49,121]  
+ 
+Note:  
+1 <= A.length <= 10000  
+-10000 <= A[i] <= 10000  
+A is sorted in non-decreasing order.  
+```go
+func sortedSquares(A []int) []int {
+    if A == nil || len(A) == 0 {
+        return A
+    }
+    l := len(A)
+    i := 0 // for positive
+    for i < l && A[i] < 0 {
+        i++
+    }
+    j := i - 1 //for negative
+    ans := []int{}
+    for i < l || j >= 0 {
+        if j < 0 || i < l && A[i]*A[i] <= A[j]*A[j] {
+            ans = append(ans, A[i]*A[i])
+            i++
+        } else {
+            ans = append(ans, A[j]*A[j])
+            j--
+        }
+    }
+    return ans
+}
+```
 
 ##### 852.Peak Index in a Mountain Array
 Let's call an array A a mountain if the following properties hold:
@@ -636,6 +796,207 @@ func sumEvenAfterQueries(A []int, queries [][]int) []int {
 }
 ```
 
+##### 561.Array Partition I
+Given an array of 2n integers, your task is to group these integers into n pairs of integer, say (a1, b1), (a2, b2), ..., (an, bn) which makes sum of min(ai, bi) for all i from 1 to n as large as possible.
+
+Example:  
+Input: [1,4,3,2]. 
+Output: 4. 
+Explanation: n is 2, and the maximum sum of pairs is 4 = min(1, 2) + min(3, 4).
+
+Note:  
+n is a positive integer, which is in the range of [1, 10000].  
+All the integers in the array will be in the range of [-10000, 10000].  
+```go
+func arrayPairSum(nums []int) int {
+    sort.Ints(nums)
+    l := len(nums)
+    ans := 0
+    for i := 0; i < l; i += 2 {
+        ans += nums[i]
+    }
+    return ans
+}
+```
+
+##### 922.Sort Array By Parity II
+Given an array A of non-negative integers, half of the integers in A are odd, and half of the integers are even. Sort the array so that whenever A[i] is odd, i is odd; and whenever A[i] is even, i is even. You may return any answer array that satisfies this condition.
+
+Example:  
+Input: [4,2,5,7].  
+Output: [4,5,2,7].  
+Explanation: [4,7,2,5], [2,5,4,7], [2,7,4,5] would also have been accepted.  
+ 
+Note:
+2 <= A.length <= 20000.  
+A.length % 2 == 0.  
+0 <= A[i] <= 1000.  
+```go
+func sortArrayByParityII(A []int) []int {
+    i, j := 0, 1
+    l := len(A)
+    for i < l || j < l {
+        for ; i < l; i = i + 2 {
+            if A[i]&1 == 1 {
+                break
+            }
+        }
+        for ; j < l; j = j + 2 {
+            if A[j]&1 == 0 {
+                break
+            }
+        }
+        if i < l && j < l {
+            A[i], A[j] = A[j], A[i]
+        }
+    }
+    return A
+}
+```
+
+##### 883.Projection Area of 3D Shapes
+On a N * N grid, we place some 1 * 1 * 1 cubes that are axis-aligned with the x, y, and z axes. Each value v = grid[i][j] represents a tower of v cubes placed on top of grid cell (i, j). Now we view the projection of these cubes onto the xy, yz, and zx planes. A projection is like a shadow, that maps our 3 dimensional figure to a 2 dimensional plane. Here, we are viewing the "shadow" when looking at the cubes from the top, the front, and the side. Return the total area of all three projections.
+
+Example:
+
+Input: [[2]]  
+Output: 5  
+Input: [[1,2],[3,4]]  
+Output: 17  
+Explanation:   
+Here are the three projections ("shadows") of the shape made with each axis-aligned plane.  
+Input: [[1,0],[0,2]]  
+Output: 8   
+Input: [[1,1,1],[1,0,1],[1,1,1]]  
+Output: 14  
+Input: [[2,2,2],[2,1,2],[2,2,2]]  
+Output: 21   
+ 
+Note:   
+1 <= grid.length = grid[0].length <= 50  
+0 <= grid[i][j] <= 50
+
+```go
+func projectionArea(grid [][]int) int {
+    //每行最大元素的和 + 每列最大元素的和 + 非零元素个数
+    ans := 0
+    l := len(grid)
+    for i := 0; i < l; i++ {
+        m := 0
+        for j := 0; j < l; j++ {
+            if grid[i][j] > m {
+                m = grid[i][j]
+            }
+            if grid[i][j] != 0 {
+                ans += 1
+            }
+        }
+        ans += m
+    }
+    for j := 0; j < l; j++ {
+        m := 0
+        for i := 0; i < l; i++ {
+            if grid[i][j] > m {
+                m = grid[i][j]
+            }
+        }
+        ans += m
+    }
+    return ans
+}
+```
+
+##### 821.Shortest Distance to a Character
+Given a string S and a character C, return an array of integers representing the shortest distance from the character C in the string.
+
+Example:  
+Input: S = "loveleetcode", C = 'e'   
+Output: [3, 2, 1, 0, 1, 0, 0, 1, 2, 2, 1, 0]   
+
+Note:  
+S string length is in [1, 10000].   
+C is a single character, and guaranteed to be in string S.   
+All letters in S and C are lowercase.   
+```go
+func shortestToChar(S string, C byte) []int {
+    l := len(S)
+    ans := []int{}
+    pos := []int{}
+    for i, c := range S {
+        if c == rune(C) {
+            pos = append(pos, i)
+        }
+    }
+    for i, _ := range S {
+        min := l
+        for _, p := range pos {
+            d := 0
+            if i < p {
+                d = p - i
+            } else {
+                d = i - p
+            }
+            if d < min {
+                min = d
+            }
+        }
+        ans = append(ans, min)
+    }
+    return ans
+}
+```
+
+##### 463.Island Perimeter
+You are given a map in form of a two-dimensional integer grid where 1 represents land and 0 represents water.
+
+Grid cells are connected horizontally/vertically (not diagonally). The grid is completely surrounded by water, and there is exactly one island (i.e., one or more connected land cells).
+
+The island doesn't have "lakes" (water inside that isn't connected to the water around the island). One cell is a square with side length 1. The grid is rectangular, width and height don't exceed 100. Determine the perimeter of the island.
+
+Example:  
+Input:  
+[[0,1,0,0],  
+ [1,1,1,0],  
+ [0,1,0,0],  
+ [1,1,0,0]]
+
+Output: 16
+
+Explanation: The perimeter is the 16 yellow stripes in the image below:
+```go
+func islandPerimeter(grid [][]int) int {
+    h := len(grid)
+    w := len(grid[0])
+    ans := 0
+    for i, _ := range grid {
+        for j, _ := range grid[i] {
+            if grid[i][j] == 1 {
+                edge := 4 - checkNeighbor(grid, i, j, h, w)
+                ans += edge
+            }
+
+        }
+    }
+    return ans
+}
+
+func checkNeighbor(grid [][]int, i, j, h, w int) int {
+    n := 0
+    if i-1 >= 0 && grid[i-1][j] == 1 {
+        n += 1
+    }
+    if i+1 < h && grid[i+1][j] == 1 {
+        n += 1
+    }
+    if j-1 >= 0 && grid[i][j-1] == 1 {
+        n += 1
+    }
+    if j+1 < w && grid[i][j+1] == 1 {
+        n += 1
+    }
+    return n
+}
+```
 
 
 ---
@@ -769,3 +1130,47 @@ func isUnivalTree(root *TreeNode) bool {
     return l && r
 }
 ```
+
+##### 700.Search in a Binary Search Tree
+Given the root node of a binary search tree (BST) and a value. You need to find the node in the BST that the node's value equals the given value. Return the subtree rooted with that node. If such node doesn't exist, you should return NULL.
+
+For example,   
+Given the tree:  
+        4   
+       / \   
+      2   7   
+     / \  
+    1   3    
+And the value to search: 2   
+You should return this subtree:   
+      2      
+     / \   
+    1   3      
+In the example above, if we want to search the value 5, since there is no node with value 5, we should return NULL. Note that an empty tree is represented by NULL, therefore you would see the expected output (serialized tree format) as [], not null.
+```go
+/**
+ * Definition for a binary tree node.
+ * type TreeNode struct {
+ *     Val int
+ *     Left *TreeNode
+ *     Right *TreeNode
+ * }
+ */
+func searchBST(root *TreeNode, val int) *TreeNode {
+    if root == nil {
+        return nil
+    }
+    if root.Val == val {
+        return root
+    } else if root.Val < val {
+        return searchBST(root.Right, val)
+    } else if root.Val > val {
+        return searchBST(root.Left, val)
+    }
+    return nil
+}
+```
+
+
+
+

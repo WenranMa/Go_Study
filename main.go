@@ -121,24 +121,35 @@ func p() *int {
 	return &v
 }
 
-/**
- * Definition for a binary tree node.
- * type TreeNode struct {
- *     Val int
- *     Left *TreeNode
- *     Right *TreeNode
- * }
- */
-func isUnivalTree(root *TreeNode) bool {
-	if root == nil {
-		return true
+func islandPerimeter(grid [][]int) int {
+	h := len(grid)
+	w := len(grid[0])
+	ans := 0
+	for i, _ := range grid {
+		for j, _ := range grid[i] {
+			if grid[i][j] == 1 {
+				edge := 4 - checkNeighbor(grid, i, j, h, w)
+				ans += edge
+			}
+
+		}
 	}
-	l, r := true, true
-	if root.Left != nil {
-		l = root.Left.Val == root.Val && isUnivalTree(root.Left)
+	return ans
+}
+
+func checkNeighbor(grid [][]int, i, j, h, w int) int {
+	n := 0
+	if i-1 >= 0 && grid[i-1][j] == 1 {
+		n += 1
 	}
-	if root.Right != nil {
-		r = root.Right.Val == root.Val && isUnivalTree(root.Right)
+	if i+1 < h && grid[i+1][j] == 1 {
+		n += 1
 	}
-	return l && r
+	if j-1 >= 0 && grid[i][j-1] == 1 {
+		n += 1
+	}
+	if j+1 < w && grid[i][j+1] == 1 {
+		n += 1
+	}
+	return n
 }

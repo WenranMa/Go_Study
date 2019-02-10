@@ -1078,8 +1078,110 @@ func largestPerimeter(A []int) int {
 }
 ```
 
+##### 896.Monotonic Array
+An array is monotonic if it is either monotone increasing or monotone decreasing.
+
+An array A is monotone increasing if for all i <= j, A[i] <= A[j].  An array A is monotone decreasing if for all i <= j, A[i] >= A[j].
+
+Return true if and only if the given array A is monotonic.
+
+Example:   
+Input: [1,2,2,3]   
+Output: true   
+Input: [6,5,4,4]    
+Output: true    
+Input: [1,3,2]    
+Output: false    
+Input: [1,1,1]    
+Output: true   
+ 
+Note:   
+1 <= A.length <= 50000    
+-100000 <= A[i] <= 100000    
+```go
+func isMonotonic(A []int) bool {
+    l := len(A)
+    increasing := true
+    decreasing := true
+    for i := 1; i < l; i++ {
+        if A[i-1] > A[i] {
+            increasing = false
+        }
+        if A[i-1] < A[i] {
+            decreasing = false
+        }
+    }
+    return increasing || decreasing
+}
+```
+
+##### 485.Max Consecutive Ones
+Given a binary array, find the maximum number of consecutive 1s in this array.
+
+Example:   
+Input: [1,1,0,1,1,1]   
+Output: 3   
+Explanation: The first two digits or the last three digits are consecutive 1s. The maximum number of consecutive 1s is 3.   
+
+Note:   
+The input array will only contain 0 and 1.   
+The length of input array is a positive integer and will not exceed 10,000   
+```go
+func findMaxConsecutiveOnes(nums []int) int {
+    ans := 0
+    c := 0
+    for _, e := range nums {
+        if e == 1 {
+            c += 1
+        } else {
+            if ans < c {
+                ans = c
+            }
+            c = 0
+        }
+    }
+    if ans < c {
+        ans = c
+    }
+    return ans
+}
+```
+
+##### 704.Binary Search
+Given a sorted (in ascending order) integer array nums of n elements and a target value, write a function to search target in nums. If target exists, then return its index, otherwise return -1.
+
+Example:   
+Input: nums = [-1,0,3,5,9,12], target = 9   
+Output: 4   
+Explanation: 9 exists in nums and its index is 4   
+Input: nums = [-1,0,3,5,9,12], target = 2   
+Output: -1   
+Explanation: 2 does not exist in nums so return -1 
+ 
+Note:   
+You may assume that all elements in nums are unique.   
+n will be in the range [1, 10000].   
+The value of each element in nums will be in the range [-9999, 9999].   
+```go
+func search(nums []int, target int) int {
+    l := 0
+    r := len(nums) - 1
+    for l <= r {
+        m := (l + r) / 2
+        if nums[m] == target {
+            return m
+        } else if nums[m] < target {
+            l = m + 1
+        } else if nums[m] > target {
+            r = m - 1
+        }
+    }
+    return -1
+}
+```
 
 ---
+
 
 ### Stack
 

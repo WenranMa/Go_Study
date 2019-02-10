@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strconv"
 )
 
 type S struct {
@@ -26,21 +27,23 @@ func main() {
 
 	//fmt.Println(a, b)
 
-	f := p()
+	// f := p()
 
-	fmt.Println(f)
-	fmt.Println(p() == p())
+	// fmt.Println(f)
+	// fmt.Println(p() == p())
 
-	var a = 3
-	//fmt.Println(a.(string))
+	// var a = 3
+	// //fmt.Println(a.(string))
 
-	_, ok := interface{}(a).(int)
-	fmt.Println(ok)
+	// _, ok := interface{}(a).(int)
+	// fmt.Println(ok)
 
-	var cc C = 12.0
-	var ff F = 123.0
+	// var cc C = 12.0
+	// var ff F = 123.0
 
-	fmt.Println(cc - ff)
+	// fmt.Println(cc - ff)
+
+	fmt.Println(convertToBase7(10))
 }
 
 func test2() {

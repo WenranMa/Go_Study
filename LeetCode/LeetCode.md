@@ -185,202 +185,86 @@ func reverseString(s []byte) {
 }
 ```
 
+##### 942.DI String Match
+Given a string S that only contains "I" (increase) or "D" (decrease), let N = S.length.
 
----
+Return any permutation A of [0, 1, ..., N] such that for all i = 0, ..., N-1:
 
-### Map 
-
-##### 961.N-Repeated Element in Size 2N Array
-In a array A of size 2N, there are N+1 unique elements, and exactly one of these elements is repeated N times. Return the element repeated N times.
-
-Example:  
-Input: [1,2,3,3]  
-Output: 3  
-Input: [2,1,2,5,3,2]  
-Output: 2  
-Input: [5,1,5,2,5,3,5,4]  
-Output: 5  
+If S[i] == "I", then A[i] < A[i+1]  
+If S[i] == "D", then A[i] > A[i+1]
  
-Note:  
-4 <= A.length <= 10000  
-0 <= A[i] < 10000  
-A.length is even  
-
-```go
-func repeatedNTimes(A []int) int {
-    m := make(map[int]int)
-    ans := 0
-    for _, n := range A {
-        m[n] += 1
-        if m[n] > 1 {
-            ans = n
-            break
-        }
-    }
-    return ans
-}
-```
-
-##### 771.Jewels and Stones
-You're given strings J representing the types of stones that are jewels, and S representing the stones you have.  Each character in S is a type of stone you have.  You want to know how many of the stones you have are also jewels.
-
-The letters in J are guaranteed distinct, and all characters in J and S are letters. Letters are case sensitive, so "a" is considered a different type of stone from "A".
-
 Example:  
-Input: J = "aA", S = "aAAbbbb"  
-Output: 3  
-Input: J = "z", S = "ZZ"  
-Output: 0  
+Input: "IDID"   
+Output: [0,4,1,3,2]   
+Input: "III"   
+Output: [0,1,2,3]   
+Input: "DDI"   
+Output: [3,2,0,1]
 
-Note:  
-S and J will consist of letters and have length at most 50.  
-The characters in J are distinct.
+Note:   
+1 <= S.length <= 10000   
+S only contains characters "I" or "D".   
 ```go
-func numJewelsInStones(J string, S string) int {
-    m := make(map[rune]int)
-    ans := 0
+func diStringMatch(S string) []int {
+    j := len(S)
+    i := 0
+    ans := []int{}
     for _, c := range S {
-        m[c] += 1
+        if c == 'I' {
+            ans = append(ans, i)
+            i++
+        } else if c == 'D' {
+            ans = append(ans, j)
+            j--
+        }
     }
-    for _, c := range J {
-        ans += m[c]
-    }
+    ans = append(ans, i)
     return ans
 }
 ```
 
-##### 804.Unique Morse Code Words
-International Morse Code defines a standard encoding where each letter is mapped to a series of dots and dashes, as follows: "a" maps to ".-", "b" maps to "-...", "c" maps to "-.-.", and so on.
-
-For convenience, the full table for the 26 letters of the English alphabet is given below:   
-[".-","-...","-.-.","-..",".","..-.","--.","....","..",".---","-.-",".-..","--","-.","---",".--.","--.-",".-.","...","-","..-","...-",".--","-..-","-.--","--.."]
-
-Now, given a list of words, each word can be written as a concatenation of the Morse code of each letter. For example, "cba" can be written as "-.-..--...", (which is the concatenation "-.-." + "-..." + ".-"). We'll call such a concatenation, the transformation of a word.  
-Return the number of different transformations among all words we have.
+##### 944.Delete Columns to Make Sorted
+We are given an array A of N lowercase letter strings, all of the same length. Now, we may choose any set of deletion indices, and for each string, we delete all the characters in those indices. For example, if we have an array A = ["abcdef","uvwxyz"] and deletion indices {0, 2, 3}, then the final array after deletions is ["bef", "vyz"], and the remaining columns of A are ["b","v"], ["e","y"], and ["f","z"].  (Formally, the c-th column is [A[0][c], A[1][c], ..., A[A.length-1][c]].). Suppose we chose a set of deletion indices D such that after deletions, each remaining column in A is in non-decreasing sorted order. Return the minimum possible value of D.length.
 
 Example:  
-Input: words = ["gin", "zen", "gig", "msg"]  
-Output: 2  
+Input: ["cba","daf","ghi"]  
+Output: 1  
 Explanation:   
-The transformation of each word is:  
-"gin" -> "--...-."  
-"zen" -> "--...-."  
-"gig" -> "--...--."  
-"msg" -> "--...--."  
-There are 2 different transformations, "--...-." and "--...--.".
-```go
-func uniqueMorseRepresentations(words []string) int {
-    morse := [26]string{".-", "-...", "-.-.", "-..", ".", "..-.", "--.", "....", "..", ".---", "-.-", ".-..", "--", "-.", "---", ".--.", "--.-", ".-.", "...", "-", "..-", "...-", ".--", "-..-", "-.--", "--.."}
-    m := make(map[string]int)
-    for _, w := range words {
-        s := ""
-        for _, c := range w {
-            s += morse[c-97]
-        }
-        m[s] = 1
-    }
-    return len(m)
-}
-```
+After choosing D = {1}, each column ["c","d","g"] and ["a","f","i"] are in non-decreasing sorted order.  
+If we chose D = {}, then a column ["b","a","h"] would not be in non-decreasing sorted order.
 
-##### 884.Uncommon Words from Two Sentences
-We are given two sentences A and B. (A sentence is a string of space separated words.  Each word consists only of lowercase letters.) A word is uncommon if it appears exactly once in one of the sentences, and does not appear in the other sentence. Return a list of all uncommon words. You may return the list in any order.
+Input: ["a","b"]
+Output: 0  
+Explanation: D = {}  
 
-Example:  
-Input: A = "this apple is sweet", B = "this apple is sour"  
-Output: ["sweet","sour"]  
-Input: A = "apple apple", B = "banana"  
-Output: ["banana"]  
-
-Note:  
-0 <= A.length <= 200  
-0 <= B.length <= 200  
-A and B both contain only spaces and lowercase letters.  
-
-```go
-func uncommonFromSentences(A string, B string) []string {
-    m := make(map[string]int)
-    res := []string{}
-    a := strings.Split(A, " ")
-    b := strings.Split(B, " ")
-    for _, s := range a {
-        m[s] += 1
-    }
-    for _, s := range b {
-        m[s] += 1
-    }
-    for k, _ := range m {
-        if m[k] == 1 {
-            res = append(res, k)
-        }
-    }
-    return res
-}
-```
-
-##### 500.Keyboard Row
-Given a List of words, return the words that can be typed using letters of alphabet on only one row's of American keyboard like the image below.
-
-Example:  
-Input: ["Hello", "Alaska", "Dad", "Peace"]  
-Output: ["Alaska", "Dad"]  
+Input: ["zyx","wvu","tsr"]  
+Output: 3  
+Explanation: D = {0, 1, 2}
  
 Note:  
-You may use one character in the keyboard more than once.  
-You may assume the input string will only contain letters of alphabet.  
+1 <= A.length <= 100  
+1 <= A[i].length <= 1000
 ```go
-func findWords(words []string) []string {
-    m := make(map[rune]int)
-
-    m['q'] = 1
-    m['w'] = 1
-    m['e'] = 1
-    m['r'] = 1
-    m['t'] = 1
-    m['y'] = 1
-    m['u'] = 1
-    m['i'] = 1
-    m['o'] = 1
-    m['p'] = 1
-
-    m['a'] = 2
-    m['s'] = 2
-    m['d'] = 2
-    m['f'] = 2
-    m['g'] = 2
-    m['h'] = 2
-    m['j'] = 2
-    m['k'] = 2
-    m['l'] = 2
-
-    m['z'] = 3
-    m['x'] = 3
-    m['c'] = 3
-    m['v'] = 3
-    m['b'] = 3
-    m['n'] = 3
-    m['m'] = 3
-
-    ans := []string{}
-    for _, w := range words {
-        wl := strings.ToLower(w)
-        flag := true
-        n := m[rune(wl[0])]
-        for _, l := range wl {
-            if m[l] != n {
-                flag = false
+func minDeletionSize(A []string) int {
+    l := len(A)
+    if l <= 1 {
+        return 0
+    }
+    sl := len(A[0])
+    ans := 0
+    for j := 0; j < sl; j++ {
+        for i := 1; i < l; i++ {
+            if A[i][j] < A[i-1][j] {
+                ans += 1
                 break
             }
         }
-        if flag {
-            ans = append(ans, w)
-        }
     }
     return ans
 }
 ```
 
-
+---
 
 
 ### Math and Bit Manipulation（位运算）
@@ -1180,8 +1064,329 @@ func search(nums []int, target int) int {
 }
 ```
 
+##### 973. K Closest Points to Origin
+We have a list of points on the plane.  Find the K closest points to the origin (0, 0). (Here, the distance between two points on a plane is the Euclidean distance.) You may return the answer in any order.  The answer is guaranteed to be unique (except for the order that it is in.) 
+
+Example:  
+Input: points = [[1,3],[-2,2]], K = 1   
+Output: [[-2,2]]   
+Explanation:   
+The distance between (1, 3) and the origin is sqrt(10).   
+The distance between (-2, 2) and the origin is sqrt(8).   
+Since sqrt(8) < sqrt(10), (-2, 2) is closer to the origin.    
+We only want the closest K = 1 points from the origin, so the answer is just [[-2,2]].   
+Input: points = [[3,3],[5,-1],[-2,4]], K = 2   
+Output: [[3,3],[-2,4]]   
+(The answer [[-2,4],[3,3]] would also be accepted.)   
+ 
+Note:  
+1 <= K <= points.length <= 10000   
+-10000 < points[i][0] < 10000   
+-10000 < points[i][1] < 10000   
+```go
+func kClosest(points [][]int, K int) [][]int {
+    if len(points) <= K {
+        return points
+    }
+    sort.Slice(points, func(i, j int) bool {
+        a := points[i][0]*points[i][0] + points[i][1]*points[i][1]
+        b := points[j][0]*points[j][0] + points[j][1]*points[j][1]
+        return a < b
+    })
+    ans := [][]int{}
+    for i := 0; i < K; i++ {
+        ans = append(ans, points[i])
+    }
+    return ans
+}
+```
+
+##### 867.Transpose Matrix
+Given a matrix A, return the transpose of A. The transpose of a matrix is the matrix flipped over it's main diagonal, switching the row and column indices of the matrix.
+
+Example:  
+Input: [[1,2,3],[4,5,6],[7,8,9]]   
+Output: [[1,4,7],[2,5,8],[3,6,9]]   
+
+Input: [[1,2,3],[4,5,6]]
+Output: [[1,4],[2,5],[3,6]]
+ 
+Note:   
+1 <= A.length <= 1000   
+1 <= A[0].length <= 1000   
+```go
+func transpose(A [][]int) [][]int {
+    r := len(A)
+    if r == 0 {
+        return A
+    }
+    c := len(A[0])
+    if c == 0 {
+        return A
+    }
+    ans := [][]int{}
+    for i := 0; i < c; i++ {
+
+        row := []int{}
+        for j := 0; j < r; j++ {
+            row = append(row, A[j][i])
+        }
+        ans = append(ans, row)
+    }
+    return ans
+}
+```
+
 ---
 
+### Map 
+
+##### 961.N-Repeated Element in Size 2N Array
+In a array A of size 2N, there are N+1 unique elements, and exactly one of these elements is repeated N times. Return the element repeated N times.
+
+Example:  
+Input: [1,2,3,3]  
+Output: 3  
+Input: [2,1,2,5,3,2]  
+Output: 2  
+Input: [5,1,5,2,5,3,5,4]  
+Output: 5  
+ 
+Note:  
+4 <= A.length <= 10000  
+0 <= A[i] < 10000  
+A.length is even  
+
+```go
+func repeatedNTimes(A []int) int {
+    m := make(map[int]int)
+    ans := 0
+    for _, n := range A {
+        m[n] += 1
+        if m[n] > 1 {
+            ans = n
+            break
+        }
+    }
+    return ans
+}
+```
+
+##### 771.Jewels and Stones
+You're given strings J representing the types of stones that are jewels, and S representing the stones you have.  Each character in S is a type of stone you have.  You want to know how many of the stones you have are also jewels.
+
+The letters in J are guaranteed distinct, and all characters in J and S are letters. Letters are case sensitive, so "a" is considered a different type of stone from "A".
+
+Example:  
+Input: J = "aA", S = "aAAbbbb"  
+Output: 3  
+Input: J = "z", S = "ZZ"  
+Output: 0  
+
+Note:  
+S and J will consist of letters and have length at most 50.  
+The characters in J are distinct.
+```go
+func numJewelsInStones(J string, S string) int {
+    m := make(map[rune]int)
+    ans := 0
+    for _, c := range S {
+        m[c] += 1
+    }
+    for _, c := range J {
+        ans += m[c]
+    }
+    return ans
+}
+```
+
+##### 804.Unique Morse Code Words
+International Morse Code defines a standard encoding where each letter is mapped to a series of dots and dashes, as follows: "a" maps to ".-", "b" maps to "-...", "c" maps to "-.-.", and so on.
+
+For convenience, the full table for the 26 letters of the English alphabet is given below:   
+[".-","-...","-.-.","-..",".","..-.","--.","....","..",".---","-.-",".-..","--","-.","---",".--.","--.-",".-.","...","-","..-","...-",".--","-..-","-.--","--.."]
+
+Now, given a list of words, each word can be written as a concatenation of the Morse code of each letter. For example, "cba" can be written as "-.-..--...", (which is the concatenation "-.-." + "-..." + ".-"). We'll call such a concatenation, the transformation of a word.  
+Return the number of different transformations among all words we have.
+
+Example:  
+Input: words = ["gin", "zen", "gig", "msg"]  
+Output: 2  
+Explanation:   
+The transformation of each word is:  
+"gin" -> "--...-."  
+"zen" -> "--...-."  
+"gig" -> "--...--."  
+"msg" -> "--...--."  
+There are 2 different transformations, "--...-." and "--...--.".
+```go
+func uniqueMorseRepresentations(words []string) int {
+    morse := [26]string{".-", "-...", "-.-.", "-..", ".", "..-.", "--.", "....", "..", ".---", "-.-", ".-..", "--", "-.", "---", ".--.", "--.-", ".-.", "...", "-", "..-", "...-", ".--", "-..-", "-.--", "--.."}
+    m := make(map[string]int)
+    for _, w := range words {
+        s := ""
+        for _, c := range w {
+            s += morse[c-97]
+        }
+        m[s] = 1
+    }
+    return len(m)
+}
+```
+
+##### 884.Uncommon Words from Two Sentences
+We are given two sentences A and B. (A sentence is a string of space separated words.  Each word consists only of lowercase letters.) A word is uncommon if it appears exactly once in one of the sentences, and does not appear in the other sentence. Return a list of all uncommon words. You may return the list in any order.
+
+Example:  
+Input: A = "this apple is sweet", B = "this apple is sour"  
+Output: ["sweet","sour"]  
+Input: A = "apple apple", B = "banana"  
+Output: ["banana"]  
+
+Note:  
+0 <= A.length <= 200  
+0 <= B.length <= 200  
+A and B both contain only spaces and lowercase letters.  
+
+```go
+func uncommonFromSentences(A string, B string) []string {
+    m := make(map[string]int)
+    res := []string{}
+    a := strings.Split(A, " ")
+    b := strings.Split(B, " ")
+    for _, s := range a {
+        m[s] += 1
+    }
+    for _, s := range b {
+        m[s] += 1
+    }
+    for k, _ := range m {
+        if m[k] == 1 {
+            res = append(res, k)
+        }
+    }
+    return res
+}
+```
+
+##### 500.Keyboard Row
+Given a List of words, return the words that can be typed using letters of alphabet on only one row's of American keyboard like the image below.
+
+Example:  
+Input: ["Hello", "Alaska", "Dad", "Peace"]  
+Output: ["Alaska", "Dad"]  
+ 
+Note:  
+You may use one character in the keyboard more than once.  
+You may assume the input string will only contain letters of alphabet.  
+```go
+func findWords(words []string) []string {
+    m := make(map[rune]int)
+
+    m['q'] = 1
+    m['w'] = 1
+    m['e'] = 1
+    m['r'] = 1
+    m['t'] = 1
+    m['y'] = 1
+    m['u'] = 1
+    m['i'] = 1
+    m['o'] = 1
+    m['p'] = 1
+
+    m['a'] = 2
+    m['s'] = 2
+    m['d'] = 2
+    m['f'] = 2
+    m['g'] = 2
+    m['h'] = 2
+    m['j'] = 2
+    m['k'] = 2
+    m['l'] = 2
+
+    m['z'] = 3
+    m['x'] = 3
+    m['c'] = 3
+    m['v'] = 3
+    m['b'] = 3
+    m['n'] = 3
+    m['m'] = 3
+
+    ans := []string{}
+    for _, w := range words {
+        wl := strings.ToLower(w)
+        flag := true
+        n := m[rune(wl[0])]
+        for _, l := range wl {
+            if m[l] != n {
+                flag = false
+                break
+            }
+        }
+        if flag {
+            ans = append(ans, w)
+        }
+    }
+    return ans
+}
+```
+
+##### 811.Subdomain Visit Count
+A website domain like "discuss.leetcode.com" consists of various subdomains. At the top level, we have "com", at the next level, we have "leetcode.com", and at the lowest level, "discuss.leetcode.com". When we visit a domain like "discuss.leetcode.com", we will also visit the parent domains "leetcode.com" and "com" implicitly.
+
+Now, call a "count-paired domain" to be a count (representing the number of visits this domain received), followed by a space, followed by the address. An example of a count-paired domain might be "9001 discuss.leetcode.com".
+
+We are given a list cpdomains of count-paired domains. We would like a list of count-paired domains, (in the same format as the input, and in any order), that explicitly counts the number of visits to each subdomain.
+
+Example 1:  
+Input:   
+["9001 discuss.leetcode.com"]   
+Output:    
+["9001 discuss.leetcode.com", "9001 leetcode.com", "9001 com"]   
+Explanation:   
+We only have one website domain: "discuss.leetcode.com". As discussed above, the subdomain "leetcode.com" and "com" will also be visited. So they will all be visited 9001 times.
+
+Example 2:   
+Input:    
+["900 google.mail.com", "50 yahoo.com", "1 intel.mail.com", "5 wiki.org"]   
+Output:   
+["901 mail.com","50 yahoo.com","900 google.mail.com","5 wiki.org","5 org","1 intel.mail.com","951 com"]   
+Explanation:    
+We will visit "google.mail.com" 900 times, "yahoo.com" 50 times, "intel.mail.com" once and "wiki.org" 5 times. For the subdomains, we will visit "mail.com" 900 + 1 = 901 times, "com" 900 + 50 + 1 = 951 times, and "org" 5 times.
+
+Notes:   
+The length of cpdomains will not exceed 100.   
+The length of each domain name will not exceed 100.   
+Each address will have either 1 or 2 "." characters.   
+The input count in any count-paired domain will not exceed 10000.   
+The answer output can be returned in any order.   
+```go
+func subdomainVisits(cpdomains []string) []string {
+    m := make(map[string]int)
+    for _, domain := range cpdomains {
+        d := strings.Split(domain, " ")
+        n, _ := strconv.Atoi(d[0])
+        m[d[1]] += n
+        for {
+            i := strings.IndexRune(d[1], '.')
+            if i == -1 {
+                break
+            }
+            d[1] = d[1][i+1:]
+            m[d[1]] += n
+        }
+    }
+    ans := []string{}
+    for k, v := range m {
+        n := strconv.Itoa(v)
+        s := n + " " + k
+        ans = append(ans, s)
+    }
+    return ans
+}
+```
+
+---
 
 ### Stack
 
@@ -1243,6 +1448,48 @@ func calPoints(ops []string) int {
     return ans
 }
 ```
+
+### Queue
+
+##### 933.Number of Recent Calls
+Write a class RecentCounter to count recent requests. It has only one method: ping(int t), where t represents some time in milliseconds. Return the number of pings that have been made from 3000 milliseconds ago until now. Any ping with time in [t - 3000, t] will count, including the current ping. It is guaranteed that every call to ping uses a strictly larger value of t than before.
+
+Example:  
+Input: inputs = ["RecentCounter","ping","ping","ping","ping"], inputs = [[],[1],[100],[3001],[3002]]  
+Output: [null,1,2,3,3]  
+ 
+Note:  
+Each test case will have at most 10000 calls to ping.   
+Each test case will call ping with strictly increasing values of t.   
+Each call to ping will have 1 <= t <= 10^9.
+```go
+type RecentCounter struct {
+    pings []int
+}
+
+func Constructor() RecentCounter {
+    rc := RecentCounter{}
+    return rc
+}
+
+func (this *RecentCounter) Ping(t int) int {
+    this.pings = append(this.pings, t)
+    l := len(this.pings)
+    for i := l - 1; i >= 0; i-- {
+        if this.pings[i] < t-3000 {
+            this.pings = this.pings[i+1:]
+            break
+        }
+    }
+    return len(this.pings)
+}
+/**
+ * Your RecentCounter object will be instantiated and called as such:
+ * obj := Constructor();
+ * param_1 := obj.Ping(t);
+ */
+```
+
 
 ---
 
@@ -1416,6 +1663,113 @@ func searchBST(root *TreeNode, val int) *TreeNode {
 }
 ```
 
+##### 897.Increasing Order Search Tree
+Given a tree, rearrange the tree in in-order so that the leftmost node in the tree is now the root of the tree, and every node has no left child and only 1 right child.
 
+Example 1:  
+Input: [5,3,6,2,4,null,8,1,null,null,null,7,9]  
+       5   
+      / \  
+    3    6  
+   / \    \  
+  2   4    8  
+ /        / \   
+1        7   9  
 
+Output: [1,null,2,null,3,null,4,null,5,null,6,null,7,null,8,null,9]   
+ 1  
+  \  
+   2  
+    \  
+     3  
+      \  
+       4  
+        \  
+         5  
+          \  
+           6  
+            \  
+             7   
+              \  
+               8  
+                \  
+                 9   
 
+Note:  
+The number of nodes in the given tree will be between 1 and 100.
+Each node will have a unique integer value from 0 to 1000.
+```go
+/**
+ * Definition for a binary tree node.
+ * type TreeNode struct {
+ *     Val int
+ *     Left *TreeNode
+ *     Right *TreeNode
+ * }
+ */
+func increasingBST(root *TreeNode) *TreeNode {
+    if root == nil {
+        return nil
+    }
+    values := dfs(root, []int{})
+    l := len(values)
+    r := &TreeNode{}
+    r.Val = values[0]
+    for i, node := 1, r; i < l; i++ {
+        node.Right = &TreeNode{values[i], nil, nil}
+        node = node.Right
+    }
+    return r
+}
+
+func dfs(node *TreeNode, values []int) []int {
+    if node == nil {
+        return values
+    }
+    values = dfs(node.Left, values)
+    values = append(values, node.Val)
+    values = dfs(node.Right, values)
+    return values
+}
+```
+
+##### 872.Leaf-Similar Trees
+Consider all the leaves of a binary tree.  From left to right order, the values of those leaves form a leaf value sequence. For example, in the given tree above, the leaf value sequence is (6, 7, 4, 9, 8). Two binary trees are considered leaf-similar if their leaf value sequence is the same. Return true if and only if the two given trees with head nodes root1 and root2 are leaf-similar.
+
+Note: Both of the given trees will have between 1 and 100 nodes.
+```go
+/**
+ * Definition for a binary tree node.
+ * type TreeNode struct {
+ *     Val int
+ *     Left *TreeNode
+ *     Right *TreeNode
+ * }
+ */
+func leafSimilar(root1 *TreeNode, root2 *TreeNode) bool {
+    v1 := dfs(root1, []int{})
+    v2 := dfs(root2, []int{})
+    l1 := len(v1)
+    l2 := len(v2)
+    if l1 != l2 {
+        return false
+    }
+    for i := 0; i < l1; i++ {
+        if v1[i] != v2[i] {
+            return false
+        }
+    }
+    return true
+}
+func dfs(node *TreeNode, values []int) []int {
+    if node == nil {
+        return values
+    }
+    if node.Left == nil && node.Right == nil {
+        values = append(values, node.Val)
+    }
+    values = dfs(node.Left, values)
+    values = dfs(node.Right, values)
+    return values
+}
+```

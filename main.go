@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strconv"
 )
 
 type S struct {
@@ -26,21 +27,23 @@ func main() {
 
 	//fmt.Println(a, b)
 
-	f := p()
+	// f := p()
 
-	fmt.Println(f)
-	fmt.Println(p() == p())
+	// fmt.Println(f)
+	// fmt.Println(p() == p())
 
-	var a = 3
-	//fmt.Println(a.(string))
+	// var a = 3
+	// //fmt.Println(a.(string))
 
-	_, ok := interface{}(a).(int)
-	fmt.Println(ok)
+	// _, ok := interface{}(a).(int)
+	// fmt.Println(ok)
 
-	var cc C = 12.0
-	var ff F = 123.0
+	// var cc C = 12.0
+	// var ff F = 123.0
 
-	fmt.Println(cc - ff)
+	// fmt.Println(cc - ff)
+
+	fmt.Println(convertToBase7(10))
 }
 
 func test2() {
@@ -119,37 +122,4 @@ func test5() (a int, b int) {
 func p() *int {
 	v := 1
 	return &v
-}
-
-func islandPerimeter(grid [][]int) int {
-	h := len(grid)
-	w := len(grid[0])
-	ans := 0
-	for i, _ := range grid {
-		for j, _ := range grid[i] {
-			if grid[i][j] == 1 {
-				edge := 4 - checkNeighbor(grid, i, j, h, w)
-				ans += edge
-			}
-
-		}
-	}
-	return ans
-}
-
-func checkNeighbor(grid [][]int, i, j, h, w int) int {
-	n := 0
-	if i-1 >= 0 && grid[i-1][j] == 1 {
-		n += 1
-	}
-	if i+1 < h && grid[i+1][j] == 1 {
-		n += 1
-	}
-	if j-1 >= 0 && grid[i][j-1] == 1 {
-		n += 1
-	}
-	if j+1 < w && grid[i][j+1] == 1 {
-		n += 1
-	}
-	return n
 }

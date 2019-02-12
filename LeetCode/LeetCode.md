@@ -1331,6 +1331,61 @@ func findWords(words []string) []string {
 }
 ```
 
+##### 811.Subdomain Visit Count
+A website domain like "discuss.leetcode.com" consists of various subdomains. At the top level, we have "com", at the next level, we have "leetcode.com", and at the lowest level, "discuss.leetcode.com". When we visit a domain like "discuss.leetcode.com", we will also visit the parent domains "leetcode.com" and "com" implicitly.
+
+Now, call a "count-paired domain" to be a count (representing the number of visits this domain received), followed by a space, followed by the address. An example of a count-paired domain might be "9001 discuss.leetcode.com".
+
+We are given a list cpdomains of count-paired domains. We would like a list of count-paired domains, (in the same format as the input, and in any order), that explicitly counts the number of visits to each subdomain.
+
+Example 1:  
+Input:   
+["9001 discuss.leetcode.com"]   
+Output:    
+["9001 discuss.leetcode.com", "9001 leetcode.com", "9001 com"]   
+Explanation:   
+We only have one website domain: "discuss.leetcode.com". As discussed above, the subdomain "leetcode.com" and "com" will also be visited. So they will all be visited 9001 times.
+
+Example 2:   
+Input:    
+["900 google.mail.com", "50 yahoo.com", "1 intel.mail.com", "5 wiki.org"]   
+Output:   
+["901 mail.com","50 yahoo.com","900 google.mail.com","5 wiki.org","5 org","1 intel.mail.com","951 com"]   
+Explanation:    
+We will visit "google.mail.com" 900 times, "yahoo.com" 50 times, "intel.mail.com" once and "wiki.org" 5 times. For the subdomains, we will visit "mail.com" 900 + 1 = 901 times, "com" 900 + 50 + 1 = 951 times, and "org" 5 times.
+
+Notes:   
+The length of cpdomains will not exceed 100.   
+The length of each domain name will not exceed 100.   
+Each address will have either 1 or 2 "." characters.   
+The input count in any count-paired domain will not exceed 10000.   
+The answer output can be returned in any order.   
+```go
+func subdomainVisits(cpdomains []string) []string {
+    m := make(map[string]int)
+    for _, domain := range cpdomains {
+        d := strings.Split(domain, " ")
+        n, _ := strconv.Atoi(d[0])
+        m[d[1]] += n
+        for {
+            i := strings.IndexRune(d[1], '.')
+            if i == -1 {
+                break
+            }
+            d[1] = d[1][i+1:]
+            m[d[1]] += n
+        }
+    }
+    ans := []string{}
+    for k, v := range m {
+        n := strconv.Itoa(v)
+        s := n + " " + k
+        ans = append(ans, s)
+    }
+    return ans
+}
+```
+
 ---
 
 ### Stack
@@ -1608,6 +1663,113 @@ func searchBST(root *TreeNode, val int) *TreeNode {
 }
 ```
 
+##### 897.Increasing Order Search Tree
+Given a tree, rearrange the tree in in-order so that the leftmost node in the tree is now the root of the tree, and every node has no left child and only 1 right child.
 
+Example 1:  
+Input: [5,3,6,2,4,null,8,1,null,null,null,7,9]  
+       5   
+      / \  
+    3    6  
+   / \    \  
+  2   4    8  
+ /        / \   
+1        7   9  
 
+Output: [1,null,2,null,3,null,4,null,5,null,6,null,7,null,8,null,9]   
+ 1  
+  \  
+   2  
+    \  
+     3  
+      \  
+       4  
+        \  
+         5  
+          \  
+           6  
+            \  
+             7   
+              \  
+               8  
+                \  
+                 9   
 
+Note:  
+The number of nodes in the given tree will be between 1 and 100.
+Each node will have a unique integer value from 0 to 1000.
+```go
+/**
+ * Definition for a binary tree node.
+ * type TreeNode struct {
+ *     Val int
+ *     Left *TreeNode
+ *     Right *TreeNode
+ * }
+ */
+func increasingBST(root *TreeNode) *TreeNode {
+    if root == nil {
+        return nil
+    }
+    values := dfs(root, []int{})
+    l := len(values)
+    r := &TreeNode{}
+    r.Val = values[0]
+    for i, node := 1, r; i < l; i++ {
+        node.Right = &TreeNode{values[i], nil, nil}
+        node = node.Right
+    }
+    return r
+}
+
+func dfs(node *TreeNode, values []int) []int {
+    if node == nil {
+        return values
+    }
+    values = dfs(node.Left, values)
+    values = append(values, node.Val)
+    values = dfs(node.Right, values)
+    return values
+}
+```
+
+##### 872.Leaf-Similar Trees
+Consider all the leaves of a binary tree.  From left to right order, the values of those leaves form a leaf value sequence. For example, in the given tree above, the leaf value sequence is (6, 7, 4, 9, 8). Two binary trees are considered leaf-similar if their leaf value sequence is the same. Return true if and only if the two given trees with head nodes root1 and root2 are leaf-similar.
+
+Note: Both of the given trees will have between 1 and 100 nodes.
+```go
+/**
+ * Definition for a binary tree node.
+ * type TreeNode struct {
+ *     Val int
+ *     Left *TreeNode
+ *     Right *TreeNode
+ * }
+ */
+func leafSimilar(root1 *TreeNode, root2 *TreeNode) bool {
+    v1 := dfs(root1, []int{})
+    v2 := dfs(root2, []int{})
+    l1 := len(v1)
+    l2 := len(v2)
+    if l1 != l2 {
+        return false
+    }
+    for i := 0; i < l1; i++ {
+        if v1[i] != v2[i] {
+            return false
+        }
+    }
+    return true
+}
+func dfs(node *TreeNode, values []int) []int {
+    if node == nil {
+        return values
+    }
+    if node.Left == nil && node.Right == nil {
+        values = append(values, node.Val)
+    }
+    values = dfs(node.Left, values)
+    values = dfs(node.Right, values)
+    return values
+}
+```

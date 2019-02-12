@@ -123,24 +123,3 @@ func p() *int {
 	v := 1
 	return &v
 }
-
-func transpose(A [][]int) [][]int {
-	r := len(A)
-	if r == 0 {
-		return A
-	}
-	c := len(A[0])
-	if c == 0 {
-		return A
-	}
-	ans := [][]int{}
-	for i := 0; i < c; i++ {
-
-		row := []int{}
-		for j := 0; j < r; j++ {
-			row = append(row, A[j][i])
-		}
-		ans = append(ans, row)
-	}
-	return ans
-}

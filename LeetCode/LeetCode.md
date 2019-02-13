@@ -264,6 +264,62 @@ func minDeletionSize(A []string) int {
 }
 ```
 
+##### 806. Number of Lines To Write String
+We are to write the letters of a given string S, from left to right into lines. Each line has maximum width 100 units, and if writing a letter would cause the width of the line to exceed 100 units, it is written on the next line. We are given an array widths, an array where widths[0] is the width of 'a', widths[1] is the width of 'b', ..., and widths[25] is the width of 'z'.
+
+Now answer two questions: how many lines have at least one character from S, and what is the width used by the last such line? Return your answer as an integer list of length 2.
+
+Example:  
+Input:   
+widths = [10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10]  
+S = "abcdefghijklmnopqrstuvwxyz"  
+Output: [3, 60]  
+Explanation:   
+All letters have the same length of 10. To write all 26 letters,
+we need two full lines and one line with 60 units.  
+Example:  
+Input:   
+widths = [4,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10]  
+S = "bbbcccdddaaa"  
+Output: [2, 4]  
+Explanation:   
+All letters except 'a' have the same length of 10, and 
+"bbbcccdddaa" will cover 9 * 10 + 2 * 4 = 98 units.
+For the last 'a', it is written on the second line because
+there is only 2 units left in the first line.
+So the answer is 2 lines, plus 4 units in the second line.
+ 
+Note:  
+The length of S will be in the range [1, 1000].  
+S will only contain lowercase letters.  
+widths is an array of length 26.  
+widths[i] will be in the range of [2, 10].  
+```go
+func numberOfLines(widths []int, S string) []int {
+    l := len(S)
+    // if l== 0 {
+    //     return []int{0,0}
+    // }
+    n := 0
+    row := 1
+    last := 0
+
+    for i := 0; i < l; i++ {
+        n += widths[S[i]-97]
+        if i == l-1 {
+            last = n
+        }
+        if n > 100 {
+            row += 1
+            i--
+            n = 0
+        }
+    }
+    return []int{row, last}
+}
+```
+
+
 ---
 
 
@@ -554,9 +610,177 @@ func fizzBuzz(n int) []string {
 }
 ```
 
+##### 762. Prime Number of Set Bits in Binary Representation
+Given two integers L and R, find the count of numbers in the range [L, R] (inclusive) having a prime number of set bits in their binary representation.
+
+(Recall that the number of set bits an integer has is the number of 1s present when written in binary. For example, 21 written in binary is 10101 which has 3 set bits. Also, 1 is not a prime.)
+
+Example:  
+Input: L = 6, R = 10  
+Output: 4  
+Explanation:  
+6 -> 110 (2 set bits, 2 is prime)  
+7 -> 111 (3 set bits, 3 is prime)   
+9 -> 1001 (2 set bits , 2 is prime)   
+10->1010 (2 set bits , 2 is prime)   
+
+Input: L = 10, R = 15  
+Output: 5   
+Explanation:   
+10 -> 1010 (2 set bits, 2 is prime)   
+11 -> 1011 (3 set bits, 3 is prime)  
+12 -> 1100 (2 set bits, 2 is prime)  
+13 -> 1101 (3 set bits, 3 is prime)  
+14 -> 1110 (3 set bits, 3 is prime)  
+15 -> 1111 (4 set bits, 4 is not prime)  
+
+Note:  
+L, R will be integers L <= R in the range [1, 10^6].  
+R - L will be at most 10000.  
+```go
+func countPrimeSetBits(L int, R int) int {
+    ans := 0
+    for i := L; i <= R; i++ {
+        b := countOnes(i)
+        if checkPrime(b) {
+            ans += 1
+        }
+    }
+    return ans
+}
+func checkPrime(n int) bool {
+    if n == 2 || n == 3 || n == 5 || n == 7 || n == 11 || n == 13 || n == 17 || n == 19 {
+        return true
+    }
+    return false
+}
+func countOnes(n int) int {
+    b := 0
+    for n != 0 {
+        if n&1 == 1 {
+            b++
+        }
+        n = n >> 1
+    }
+    return b
+}
+```
+
+
+
+
 ---
 
 ### Array 数组 and Two Pass 双指针
+
+##### 167.Two Sum II - Input array is sorted
+Given an array of integers that is already sorted in ascending order, find two numbers such that they add up to a specific target number. The function twoSum should return indices of the two numbers such that they add up to the target, where index1 must be less than index2.
+
+Note:  
+Your returned answers (both index1 and index2) are not zero-based. You may assume that each input would have exactly one solution and you may not use the same element twice.
+
+Example:  
+Input: numbers = [2,7,11,15], target = 9  
+Output: [1,2]  
+Explanation: The sum of 2 and 7 is 9. Therefore index1 = 1, index2 = 2.  
+```go
+func twoSum(numbers []int, target int) []int {
+    l, r := 0, len(numbers)-1
+    for l < r {
+        if numbers[l]+numbers[r] < target {
+            l++
+        } else if numbers[l]+numbers[r] > target {
+            r--
+        } else {
+            return []int{l + 1, r + 1}
+        }
+    }
+    return []int{-1, -1}
+}
+```
+
+##### 448.Find All Numbers Disappeared in an Array
+Given an array of integers where 1 ≤ a[i] ≤ n (n = size of array), some elements appear twice and others appear once. Find all the elements of [1, n] inclusive that do not appear in this array. Could you do it without extra space and in O(n) runtime? You may assume the returned list does not count as extra space.
+
+Example:  
+Input: [4,3,2,7,8,2,3,1]  
+Output: [5,6]
+```go
+func findDisappearedNumbers(nums []int) []int {
+    l := len(nums)
+    ans := []int{}
+    for i := 0; i < l; {
+        if nums[i] != i+1 && nums[i] != nums[nums[i]-1] {
+            nums[i], nums[nums[i]-1] = nums[nums[i]-1], nums[i]
+        } else {
+            i++
+        }
+    }
+    for i, n := range nums {
+        if n != i+1 {
+            ans = append(ans, i+1)
+        }
+    }
+    return ans
+}
+```
+
+##### 442. Find All Duplicates in an Array
+Given an array of integers, 1 ≤ a[i] ≤ n (n = size of array), some elements appear twice and others appear once. Find all the elements that appear twice in this array. Could you do it without extra space and in O(n) runtime?
+
+Example:  
+Input: [4,3,2,7,8,2,3,1]  
+Output: [2,3]
+```go 
+func findDuplicates(nums []int) []int {
+    l := len(nums)
+    ans := []int{}
+    for i := 0; i < l; {
+        if nums[i] != i+1 && nums[i] != nums[nums[i]-1] {
+            nums[i], nums[nums[i]-1] = nums[nums[i]-1], nums[i]
+        } else {
+            i++
+        }
+    }
+    for i, n := range nums {
+        if n != i+1 {
+            ans = append(ans, n)
+        }
+    }
+    return ans
+}
+```
+
+##### 268.Missing Number
+Given an array containing n distinct numbers taken from 0, 1, 2, ..., n, find the one that is missing from the array.
+
+Example:  
+Input: [3,0,1]   
+Output: 2  
+Input: [9,6,4,2,3,5,7,0,1]  
+Output: 8  
+
+Note:
+Your algorithm should run in linear runtime complexity. Could you implement it using only constant extra space complexity?
+```go
+func missingNumber(nums []int) int {
+    l := len(nums)
+    for i := 0; i < l; {
+        if nums[i] < l && nums[i] != i {
+            nums[i], nums[nums[i]] = nums[nums[i]], nums[i]
+        } else {
+            i++
+        }
+    }
+    for i, n := range nums {
+        if n != i {
+            return i
+        }
+    }
+    return l
+}
+```
+
 ##### 905.Sort Array By Parity
 Given an array A of non-negative integers, return an array consisting of all the even elements of A, followed by all the odd elements of A. You may return any answer array that satisfies this condition.
 
@@ -1137,9 +1361,87 @@ func transpose(A [][]int) [][]int {
 }
 ```
 
+##### 766.Toeplitz Matrix
+A matrix is Toeplitz if every diagonal from top-left to bottom-right has the same element. Now given an M x N matrix, return True if and only if the matrix is Toeplitz.
+ 
+Example:  
+Input:  
+matrix = [  
+  [1,2,3,4],  
+  [5,1,2,3],  
+  [9,5,1,2]  
+]  
+Output: True  
+Explanation:  
+In the above grid, the diagonals are:   
+"[9]", "[5, 5]", "[1, 1, 1]", "[2, 2, 2]", "[3, 3]", "[4]".   
+In each diagonal all elements are the same, so the answer is True.   
+
+Input:  
+matrix = [  
+  [1,2],  
+  [2,2]  
+]  
+Output: False  
+Explanation:  
+The diagonal "[1, 2]" has different elements.  
+
+Note:  
+matrix will be a 2D array of integers.  
+matrix will have a number of rows and columns in range [1, 20].  
+matrix[i][j] will be integers in range [0, 99].  
+```go
+func isToeplitzMatrix(matrix [][]int) bool {
+    row := len(matrix)
+    col := len(matrix[0])
+    for r := row - 1; r >= 0; r-- {
+        n := matrix[r][0]
+        for i, j := r, 0; i < row && j < col; i, j = i+1, j+1 {
+            if matrix[i][j] != n {
+                return false
+            }
+        }
+    }
+    for c := 1; c < col; c++ {
+        n := matrix[0][c]
+        for i, j := 0, c; i < row && j < col; i, j = i+1, j+1 {
+
+            if matrix[i][j] != n {
+                return false
+            }
+        }
+    }
+    return true
+}
+```
+
+
 ---
 
 ### Map 
+
+##### 1. Two Sum
+Given an array of integers, return indices of the two numbers such that they add up to a specific target. You may assume that each input would have exactly one solution, and you may not use the same element twice.
+
+Example:  
+Given nums = [2, 7, 11, 15], target = 9,  
+Because nums[0] + nums[1] = 2 + 7 = 9,  
+return [0, 1].  
+```go
+func twoSum(nums []int, target int) []int {
+    m := make(map[int]int)
+    ans := []int{}
+    for i, n := range nums {
+        x := target - n
+        if _, ok := m[x]; ok {
+            return []int{m[x], i}
+        } else {
+            m[n] = i
+        }
+    }
+    return ans
+}
+```
 
 ##### 961.N-Repeated Element in Size 2N Array
 In a array A of size 2N, there are N+1 unique elements, and exactly one of these elements is repeated N times. Return the element repeated N times.
@@ -1771,5 +2073,178 @@ func dfs(node *TreeNode, values []int) []int {
     values = dfs(node.Left, values)
     values = dfs(node.Right, values)
     return values
+}
+```
+
+##### 669.Trim a Binary Search Tree
+Given a binary search tree and the lowest and highest boundaries as L and R, trim the tree so that all its elements lies in [L, R] (R >= L). You might need to change the root of the tree, so the result should return the new root of the trimmed binary search tree.
+
+Example:  
+Input:   
+    1  
+   / \  
+  0   2  
+
+  L = 1
+  R = 2
+
+Output:   
+    1  
+      \  
+       2  
+
+Input:   
+    3  
+   / \  
+  0   4  
+   \  
+    2  
+   /  
+  1  
+
+  L = 1
+  R = 3
+
+Output:   
+      3  
+     /   
+   2     
+  /  
+ 1  
+```go
+/**
+ * Definition for a binary tree node.
+ * type TreeNode struct {
+ *     Val int
+ *     Left *TreeNode
+ *     Right *TreeNode
+ * }
+ */
+func trimBST(root *TreeNode, L int, R int) *TreeNode {
+    if root == nil {
+        return root
+    }
+    if root.Val < L {
+        return trimBST(root.Right, L, R)
+    } else if root.Val > R {
+        return trimBST(root.Left, L, R)
+    }
+    root.Left = trimBST(root.Left, L, R)
+    root.Right = trimBST(root.Right, L, R)
+    return root
+}
+```
+
+##### 637.Average of Levels in Binary Tree
+Given a non-empty binary tree, return the average value of the nodes on each level in the form of an array. 
+
+Example:  
+Input:  
+    3  
+   / \  
+  9  20  
+    /  \  
+   15   7  
+Output: [3, 14.5, 11]   
+Explanation:   
+The average value of nodes on level 0 is 3,  on level 1 is 14.5, and on level 2 is 11. Hence return [3, 14.5, 11].
+
+Note:  
+The range of node's value is in the range of 32-bit signed integer.
+```go
+/**
+ * Definition for a binary tree node.
+ * type TreeNode struct {
+ *     Val int
+ *     Left *TreeNode
+ *     Right *TreeNode
+ * }
+ */
+func averageOfLevels(root *TreeNode) []float64 {
+    if root == nil {
+        return []float64{}
+    }
+    ans := []float64{}
+    q := []*TreeNode{}
+    q = append(q, root)
+    for len(q) > 0 {
+        one := 0.0
+        l := len(q)
+        for _, n := range q {
+            one += float64(n.Val)
+            if n.Left != nil {
+                q = append(q, n.Left)
+            }
+            if n.Right != nil {
+                q = append(q, n.Right)
+            }
+        }
+        q = q[l:]
+        ans = append(ans, one/float64(l))
+    }
+    return ans
+}
+```
+
+##### 653. Two Sum IV - Input is a BST
+Given a Binary Search Tree and a target number, return true if there exist two elements in the BST such that their sum is equal to the given target.
+
+Example 1:
+
+Input:  
+    5  
+   / \  
+  3   6  
+ / \   \  
+2   4   7  
+
+Target = 9
+
+Output: True
+
+Example 2:
+
+Input:   
+    5  
+   / \  
+  3   6  
+ / \   \  
+2   4   7  
+
+Target = 28  
+
+Output: False
+```go
+/**
+ * Definition for a binary tree node.
+ * type TreeNode struct {
+ *     Val int
+ *     Left *TreeNode
+ *     Right *TreeNode
+ * }
+ */
+func findTarget(root *TreeNode, k int) bool {
+    nums := preOrder(root, []int{})
+    l, r := 0, len(nums)-1
+    for l < r {
+        if nums[l]+nums[r] < k {
+            l++
+        } else if nums[l]+nums[r] > k {
+            r--
+        } else {
+            return true
+        }
+    }
+    return false
+}
+
+func preOrder(root *TreeNode, nums []int) []int {
+    if root == nil {
+        return nums
+    }
+    nums = preOrder(root.Left, nums)
+    nums = append(nums, root.Val)
+    nums = preOrder(root.Right, nums)
+    return nums
 }
 ```

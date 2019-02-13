@@ -123,3 +123,26 @@ func p() *int {
 	v := 1
 	return &v
 }
+
+func missingNumber(nums []int) int {
+	l := len(nums)
+	for i := 0; i < l; {
+		if nums[i] < l && nums[i] != i {
+			nums[i], nums[nums[i]] = nums[nums[i]], nums[i]
+			//     fmt.Println(nums)
+		} else {
+			i++
+		}
+	}
+
+	//ans:= 0
+
+	for i, n := range nums {
+		if n != i {
+			return i
+		}
+	}
+
+	return l
+
+}

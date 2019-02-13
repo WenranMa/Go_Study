@@ -123,3 +123,36 @@ func p() *int {
 	v := 1
 	return &v
 }
+
+/**
+ * Definition for a binary tree node.
+ * type TreeNode struct {
+ *     Val int
+ *     Left *TreeNode
+ *     Right *TreeNode
+ * }
+ */
+func findTarget(root *TreeNode, k int) bool {
+	nums := preOrder(root, []int{})
+	l, r := 0, len(nums)-1
+	for l < r {
+		if nums[l]+nums[r] < k {
+			l++
+		} else if nums[l]+nums[r] > k {
+			r--
+		} else {
+			return true
+		}
+	}
+	return false
+}
+
+func preOrder(root *TreeNode, nums []int) []int {
+	if root == nil {
+		return nums
+	}
+	nums = preOrder(root.Left, nums)
+	nums = append(nums, root.Val)
+	nums = preOrder(root.Right, nums)
+	return nums
+}

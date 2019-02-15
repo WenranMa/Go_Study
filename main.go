@@ -123,29 +123,3 @@ func p() *int {
 	v := 1
 	return &v
 }
-
-/**
- * Definition for a binary tree node.
- * type TreeNode struct {
- *     Val int
- *     Left *TreeNode
- *     Right *TreeNode
- * }
- */
-func convertBST(root *TreeNode) *TreeNode {
-
-	preOrder(root, 0)
-	return root
-}
-
-func preOrder(root *TreeNode, n int) int {
-	if root == nil {
-		return n
-	}
-	n = preOrder(root.Right, n)
-	n += root.Val
-	root.Val = n
-	n = preOrder(root.Left, n)
-
-	return n
-}

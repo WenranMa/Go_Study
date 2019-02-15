@@ -124,25 +124,28 @@ func p() *int {
 	return &v
 }
 
-func missingNumber(nums []int) int {
-	l := len(nums)
-	for i := 0; i < l; {
-		if nums[i] < l && nums[i] != i {
-			nums[i], nums[nums[i]] = nums[nums[i]], nums[i]
-			//     fmt.Println(nums)
-		} else {
-			i++
-		}
+/**
+ * Definition for a binary tree node.
+ * type TreeNode struct {
+ *     Val int
+ *     Left *TreeNode
+ *     Right *TreeNode
+ * }
+ */
+func convertBST(root *TreeNode) *TreeNode {
+
+	preOrder(root, 0)
+	return root
+}
+
+func preOrder(root *TreeNode, n int) int {
+	if root == nil {
+		return n
 	}
+	n = preOrder(root.Right, n)
+	n += root.Val
+	root.Val = n
+	n = preOrder(root.Left, n)
 
-	//ans:= 0
-
-	for i, n := range nums {
-		if n != i {
-			return i
-		}
-	}
-
-	return l
-
+	return n
 }

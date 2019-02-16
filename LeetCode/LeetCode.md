@@ -1415,6 +1415,129 @@ func isToeplitzMatrix(matrix [][]int) bool {
 }
 ```
 
+##### 807.Max Increase to Keep City Skyline
+In a 2 dimensional array grid, each value grid[i][j] represents the height of a building located there. We are allowed to increase the height of any number of buildings, by any amount (the amounts can be different for different buildings). Height 0 is considered to be a building as well. 
+
+At the end, the "skyline" when viewed from all four directions of the grid, i.e. top, bottom, left, and right, must be the same as the skyline of the original grid. A city's skyline is the outer contour of the rectangles formed by all the buildings when viewed from a distance. See the following example.
+
+What is the maximum total sum that the height of the buildings can be increased?
+
+Example:  
+Input: grid = [[3,0,8,4],[2,4,5,7],[9,2,6,3],[0,3,1,0]]  
+Output: 35  
+Explanation:   
+The grid is:  
+[ [3, 0, 8, 4],   
+  [2, 4, 5, 7],  
+  [9, 2, 6, 3],  
+  [0, 3, 1, 0] ]  
+
+The skyline viewed from top or bottom is: [9, 4, 8, 7]  
+The skyline viewed from left or right is: [8, 7, 9, 3]
+
+The grid after increasing the height of buildings without affecting skylines is:
+
+gridNew = [ [8, 4, 8, 7],  
+            [7, 4, 7, 7],  
+            [9, 4, 8, 7],  
+            [3, 3, 3, 3] ]  
+
+Notes:  
+1 < grid.length = grid[0].length <= 50.  
+All heights grid[i][j] are in the range [0, 100].  
+All buildings in grid[i][j] occupy the entire grid cell: that is, they are a 1 x 1 x grid[i][j] rectangular prism.
+```go
+func maxIncreaseKeepingSkyline(grid [][]int) int {
+    rowMax := []int{}
+    colMax := []int{}
+    row := len(grid)
+    col := len(grid[0])
+    for i := 0; i < row; i++ {
+        max := 0
+        for j := 0; j < col; j++ {
+            if max < grid[i][j] {
+                max = grid[i][j]
+            }
+        }
+        rowMax = append(rowMax, max)
+    }
+    for j := 0; j < col; j++ {
+        max := 0
+        for i := 0; i < row; i++ {
+            if max < grid[i][j] {
+                max = grid[i][j]
+            }
+        }
+        colMax = append(colMax, max)
+    }
+    ans := 0
+    for i := 0; i < row; i++ {
+        for j := 0; j < col; j++ {
+            min := int(math.Min(float64(rowMax[i]), float64(colMax[j])))
+            if grid[i][j] < min {
+                ans += min - grid[i][j]
+            }
+        }
+    }
+    return ans
+}
+```
+
+##### 861. Score After Flipping Matrix
+We have a two dimensional matrix A where each value is 0 or 1. A move consists of choosing any row or column, and toggling each value in that row or column: changing all 0s to 1s, and all 1s to 0s. After making any number of moves, every row of this matrix is interpreted as a binary number, and the score of the matrix is the sum of these numbers. Return the highest possible score.
+
+Example:  
+Input: [[0,0,1,1],[1,0,1,0],[1,1,0,0]]  
+Output: 39  
+Explanation:  
+Toggled to [[1,1,1,1],[1,0,0,1],[1,1,1,1]].  
+0b1111 + 0b1001 + 0b1111 = 15 + 9 + 15 = 39  
+ 
+Note:  
+1 <= A.length <= 20  
+1 <= A[0].length <= 20  
+A[i][j] is 0 or 1.  
+```go
+func matrixScore(A [][]int) int {
+    A = flip(A)
+    ans := 0
+    for _, row := range A {
+        r := 0
+        for _, n := range row {
+            r = r << 1
+            r += n
+        }
+        ans += r
+    }
+    return ans
+}
+
+func flip(A [][]int) [][]int {
+    r := len(A)
+    c := len(A[0])
+    //change 1st col to 1s.
+    for i := 0; i < r; i++ {
+        if A[i][0] == 0 {
+            for j := 0; j < c; j++ {
+                A[i][j] ^= 1
+            }
+        }
+    }
+    //change the rest 0s to 1s, when 0s are more than 1s
+    for j := 1; j < c; j++ {
+        n := 0
+        for i := 0; i < r; i++ {
+            n += A[i][j]
+        }
+        if n <= r/2 { // 0s more than 1s
+            for i := 0; i < r; i++ {
+                A[i][j] ^= 1
+            }
+        }
+    }
+    return A
+}
+```
 
 ---
 
@@ -2246,5 +2369,224 @@ func preOrder(root *TreeNode, nums []int) []int {
     nums = append(nums, root.Val)
     nums = preOrder(root.Right, nums)
     return nums
+}
+```
+
+##### 38.Convert BST to Greater Tree
+Given a Binary Search Tree (BST), convert it to a Greater Tree such that every key of the original BST is changed to the original key plus sum of all keys greater than the original key in BST.
+
+Example:
+
+Input: The root of a Binary Search Tree like this:  
+              5  
+            /   \  
+           2     13  
+
+Output: The root of a Greater Tree like this:  
+             18  
+            /   \  
+          20     13  
+```go
+/**
+ * Definition for a binary tree node.
+ * type TreeNode struct {
+ *     Val int
+ *     Left *TreeNode
+ *     Right *TreeNode
+ * }
+ */
+func convertBST(root *TreeNode) *TreeNode {
+    preOrder(root, 0)
+    return root
+}
+func preOrder(root *TreeNode, n int) int {
+    if root == nil {
+        return n
+    }
+    n = preOrder(root.Right, n)
+    n += root.Val
+    root.Val = n
+    n = preOrder(root.Left, n)
+    return n
+}
+```
+
+##### 938.Range Sum of BST
+Given the root node of a binary search tree, return the sum of values of all nodes with value between L and R (inclusive). The binary search tree is guaranteed to have unique values.
+
+Example 1:
+
+Input: root = [10,5,15,3,7,null,18], L = 7, R = 15
+Output: 32
+Example 2:
+
+Input: root = [10,5,15,3,7,13,18,1,null,6], L = 6, R = 10
+Output: 23
+ 
+Note:
+
+The number of nodes in the tree is at most 10000.
+The final answer is guaranteed to be less than 2^31.
+```go
+/**
+ * Definition for a binary tree node.
+ * type TreeNode struct {
+ *     Val int
+ *     Left *TreeNode
+ *     Right *TreeNode
+ * }
+ */
+func rangeSumBST(root *TreeNode, L int, R int) int {
+    return helper(root, L, R, 0)
+}
+
+func helper(root *TreeNode, L, R, n int) int {
+    if root == nil {
+        return n
+    }
+    if root.Val < L {
+        n = helper(root.Right, L, R, n)
+    } else if root.Val > R {
+        n = helper(root.Left, L, R, n)
+    } else {
+        n += root.Val
+        n = helper(root.Left, L, R, n)
+        n = helper(root.Right, L, R, n)
+    }
+    return n
+}
+```
+
+##### 701.Insert into a Binary Search Tree
+Given the root node of a binary search tree (BST) and a value to be inserted into the tree, insert the value into the BST. Return the root node of the BST after the insertion. It is guaranteed that the new value does not exist in the original BST.
+
+Note that there may exist multiple valid ways for the insertion, as long as the tree remains a BST after insertion. You can return any of them.
+
+For example, 
+
+Given the tree:  
+        4  
+       / \  
+      2   7  
+     / \  
+    1   3  
+And the value to insert: 5  
+You can return this binary search tree:  
+         4    
+       /   \  
+      2     7  
+     / \   /  
+    1   3 5  
+```go 
+/**
+ * Definition for a binary tree node.
+ * type TreeNode struct {
+ *     Val int
+ *     Left *TreeNode
+ *     Right *TreeNode
+ * }
+ */
+func insertIntoBST(root *TreeNode, val int) *TreeNode {
+    if root == nil {
+        return &TreeNode{val, nil, nil}
+    }
+    if root.Val < val {
+        root.Right = insertIntoBST(root.Right, val)
+    } else if root.Val > val {
+        root.Left = insertIntoBST(root.Left, val)
+    }
+    return root
+}
+```
+
+##### 654.Maximum Binary Tree
+Given an integer array with no duplicates. A maximum tree building on this array is defined as follow:
+
+The root is the maximum number in the array.
+The left subtree is the maximum tree constructed from left part subarray divided by the maximum number.
+The right subtree is the maximum tree constructed from right part subarray divided by the maximum number.
+Construct the maximum tree by the given array and output the root node of this tree.
+
+Example 1:  
+Input: [3,2,1,6,0,5]  
+Output: return the tree root node representing the following tree:  
+      6  
+    /   \  
+   3     5  
+    \    /   
+     2  0   
+       \  
+        1  
+
+Note:  
+The size of the given array will be in the range [1,1000].
+```go
+/**
+ * Definition for a binary tree node.
+ * type TreeNode struct {
+ *     Val int
+ *     Left *TreeNode
+ *     Right *TreeNode
+ * }
+ */
+func constructMaximumBinaryTree(nums []int) *TreeNode {
+    l := len(nums)
+    if l == 0 {
+        return nil
+    }
+    index := 0
+    for i, n := range nums {
+        if nums[index] < n { //find the max
+            index = i
+        }
+    }
+    root := &TreeNode{nums[index], nil, nil}
+    root.Left = constructMaximumBinaryTree(nums[:index])
+    root.Right = constructMaximumBinaryTree(nums[index+1:])
+    return root
+}
+```
+
+##### 814. Binary Tree Pruning
+We are given the head node root of a binary tree, where additionally every node's value is either a 0 or a 1. Return the same tree where every subtree (of the given tree) not containing a 1 has been removed. (Recall that the subtree of a node X is X, plus every node that is a descendant of X.)
+
+Example 1:  
+Input: [1,null,0,0,1]  
+Output: [1,null,0,null,1]  
+
+Explanation:  
+Only the red nodes satisfy the property "every subtree not containing a 1".
+The diagram on the right represents the answer.
+
+Example 2:   
+Input: [1,0,1,0,0,0,1]   
+Output: [1,null,1,null,1]
+
+Example 3:   
+Input: [1,1,0,1,1,0,1,0]  
+Output: [1,1,0,1,1,null,1]
+
+Note:  
+The binary tree will have at most 100 nodes.
+The value of each node will only be 0 or 1.
+```go
+/**
+ * Definition for a binary tree node.
+ * type TreeNode struct {
+ *     Val int
+ *     Left *TreeNode
+ *     Right *TreeNode
+ * }
+ */
+func pruneTree(root *TreeNode) *TreeNode {
+    if root == nil {
+        return nil
+    }
+    root.Left = pruneTree(root.Left)
+    root.Right = pruneTree(root.Right)
+    if root.Val == 0 && root.Left == nil && root.Right == nil {
+        return nil
+    }
+    return root
 }
 ```

@@ -1413,3 +1413,10 @@ net/http
 
 
 const数组？？？？？
+
+
+//s是string
+for i, c:= range s {
+    s[i] 是byte
+    c 是 rune
+}

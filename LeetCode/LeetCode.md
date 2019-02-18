@@ -319,6 +319,50 @@ func numberOfLines(widths []int, S string) []int {
 }
 ```
 
+##### 520. Detect Capital
+Given a word, you need to judge whether the usage of capitals in it is right or not. We define the usage of capitals in a word to be right when one of the following cases holds:
+
+All letters in this word are capitals, like "USA".  
+All letters in this word are not capitals, like "leetcode".  
+Only the first letter in this word is capital if it has more than one letter, like "Google".  
+Otherwise, we define that this word doesn't use capitals in a right way.  
+Example:  
+Input: "USA"  
+Output: True  
+Input: "FlaG"  
+Output: False  
+
+Note: The input will be a non-empty word consisting of uppercase and lowercase latin letters.
+```go
+func detectCapitalUse(word string) bool {
+    l := len(word)
+    if l <= 1 {
+        return true
+    }
+    if word[0] >= 65 && word[0] <= 90 {
+        if word[1] >= 65 && word[1] <= 90 {
+            for i := 1; i < l; i++ {
+                if word[i] >= 97 && word[i] <= 122 {
+                    return false
+                }
+            }
+        } else if word[1] >= 97 && word[1] <= 122 {
+            for i := 1; i < l; i++ {
+                if word[i] >= 65 && word[i] <= 90 {
+                    return false
+                }
+            }
+        }
+    } else if word[0] >= 97 && word[0] <= 122 {
+        for i := 1; i < l; i++ {
+            if word[i] >= 65 && word[i] <= 90 {
+                return false
+            }
+        }
+    }
+    return true
+}
+```
 
 ---
 
@@ -1806,6 +1850,101 @@ func subdomainVisits(cpdomains []string) []string {
         n := strconv.Itoa(v)
         s := n + " " + k
         ans = append(ans, s)
+    }
+    return ans
+}
+```
+
+##### 349. Intersection of Two Arrays
+Given two arrays, write a function to compute their intersection.
+
+Example:  
+Input: nums1 = [1,2,2,1], nums2 = [2,2]   
+Output: [2]  
+Input: nums1 = [4,9,5], nums2 = [9,4,9,8,4]  
+Output: [9,4]  
+
+Note:  
+Each element in the result must be unique.
+The result can be in any order.
+```go
+func intersection(nums1 []int, nums2 []int) []int {
+    m := make(map[int]int)
+    for _, n := range nums1 {
+        m[n] = 1
+    }
+    ans := []int{}
+    for _, n := range nums2 {
+        if _, ok := m[n]; ok {
+            ans = append(ans, n)
+            delete(m, n)
+        }
+    }
+    return ans
+}
+```
+
+##### 697. Degree of an Array
+Given a non-empty array of non-negative integers nums, the degree of this array is defined as the maximum frequency of any one of its elements. Your task is to find the smallest possible length of a (contiguous) subarray of nums, that has the same degree as nums.
+
+Example:  
+Input: [1, 2, 2, 3, 1]  
+Output: 2  
+Explanation:   
+The input array has a degree of 2 because both elements 1 and 2 appear twice.
+Of the subarrays that have the same degree:  
+[1, 2, 2, 3, 1], [1, 2, 2, 3], [2, 2, 3, 1], [1, 2, 2], [2, 2, 3], [2, 2]   
+The shortest length is 2. So return 2.  
+Input: [1,2,2,3,1,4,2]  
+Output: 6  
+
+Note:
+nums.length will be between 1 and 50,000.
+nums[i] will be an integer between 0 and 49,999.
+```go
+func findShortestSubArray(nums []int) int {
+    //双指针 + Map
+    // find degree lists
+    m := make(map[int]int)
+    for _, n := range nums {
+        m[n] += 1
+    }
+    d := 0
+    for _, v := range m {
+        if d <= v {
+            d = v
+        }
+    }
+    ds := []int{}
+    for k, v := range m {
+        if d == v {
+            ds = append(ds, k)
+        }
+    }
+    // go over degree lists
+    dis := []int{}
+    for _, degree := range ds {
+        l := 0
+        r := len(nums) - 1
+        for i, n := range nums {
+            if n == degree {
+                l = i
+                break
+            }
+        }
+        for j := r; j > 0; j-- {
+            if nums[j] == degree {
+                r = j
+                break
+            }
+        }
+        dis = append(dis, r-l+1)
+    }
+    ans := 50001
+    for _, n := range dis {
+        if n <= ans {
+            ans = n
+        }
     }
     return ans
 }

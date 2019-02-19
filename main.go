@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"strconv"
+	//"strconv"
 )
 
 type S struct {
@@ -43,7 +43,30 @@ func main() {
 
 	// fmt.Println(cc - ff)
 
-	fmt.Println(convertToBase7(10))
+	//fmt.Println(convertToBase7(10))
+
+	var val []int = make([]int, 0, 0)
+
+	ans := [][]int{}
+	//val := []int{}
+	deepNum(5, val, &ans)
+
+	for _, v := range val {
+		fmt.Println(v)
+	}
+}
+
+func deepNum(deep int, ret []int, ans *[][]int) {
+	if deep > 0 {
+		ret = append(ret, deep)
+		*ans = append(*ans, ret)
+		fmt.Println(ret)
+		fmt.Println(ans)
+		deepNum(deep-1, ret, ans)
+	} else {
+		fmt.Println("here")
+
+	}
 }
 
 func test2() {
@@ -122,52 +145,4 @@ func test5() (a int, b int) {
 func p() *int {
 	v := 1
 	return &v
-}
-
-func findShortestSubArray(nums []int) int {
-	//双指针 + Map
-	// find degree lists
-	m := make(map[int]int)
-	for _, n := range nums {
-		m[n] += 1
-	}
-	d := 0
-	for _, v := range m {
-		if d <= v {
-			d = v
-		}
-	}
-	ds := []int{}
-	for k, v := range m {
-		if d == v {
-			ds = append(ds, k)
-		}
-	}
-
-	// go over degree lists
-	dis := []int{}
-	for _, degree := range ds {
-		l := 0
-		r := len(nums) - 1
-		for i, n := range nums {
-			if n == degree {
-				l = i
-				break
-			}
-		}
-		for j := r; j > 0; j-- {
-			if nums[j] == degree {
-				r = j
-				break
-			}
-		}
-		dis = append(dis, r-l+1)
-	}
-	ans := 50001
-	for _, n := range dis {
-		if n <= ans {
-			ans = n
-		}
-	}
-	return ans
 }

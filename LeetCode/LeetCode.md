@@ -1332,6 +1332,67 @@ func search(nums []int, target int) int {
 }
 ```
 
+##### 744.Find Smallest Letter Greater Than Target
+Given a list of sorted characters letters containing only lowercase letters, and given a target letter target, find the smallest element in the list that is larger than the given target.
+
+Letters also wrap around. For example, if the target is target = 'z' and letters = ['a', 'b'], the answer is 'a'.
+
+Examples:  
+Input:  
+letters = ["c", "f", "j"]  
+target = "a"  
+Output: "c"  
+
+Input:  
+letters = ["c", "f", "j"]  
+target = "c"  
+Output: "f"  
+
+Input:  
+letters = ["c", "f", "j"]  
+target = "d"  
+Output: "f"  
+
+Input:  
+letters = ["c", "f", "j"]  
+target = "g"  
+Output: "j"  
+
+Input:  
+letters = ["c", "f", "j"]  
+target = "j"  
+Output: "c"
+
+Input:  
+letters = ["c", "f", "j"]  
+target = "k"  
+Output: "c"  
+
+Note:
+letters has a length in range [2, 10000].
+letters consists of lowercase letters, and contains at least 2 unique letters.
+target is a lowercase letter.
+```go
+func nextGreatestLetter(letters []byte, target byte) byte {
+    l := 0
+    r := len(letters) - 1
+    for l < r {
+        m := (l + r) / 2
+
+        if letters[m] > target { //如果大于应保留m
+            r = m
+        } else if letters[m] <= target {
+            l = m + 1
+        }
+    } // l should be equal to (l+r)/2
+    if letters[l] <= target {
+        return letters[0]
+    }
+    return letters[l]
+}
+```
+
+
 ##### 973. K Closest Points to Origin
 We have a list of points on the plane.  Find the K closest points to the origin (0, 0). (Here, the distance between two points on a plane is the Euclidean distance.) You may return the answer in any order.  The answer is guaranteed to be unique (except for the order that it is in.) 
 
@@ -1884,6 +1945,44 @@ func intersection(nums1 []int, nums2 []int) []int {
 }
 ```
 
+##### 350.Intersection of Two Arrays II
+Given two arrays, write a function to compute their intersection.
+
+Example:  
+Input: nums1 = [1,2,2,1], nums2 = [2,2]  
+Output: [2,2]  
+
+Input: nums1 = [4,9,5], nums2 = [9,4,9,8,4]  
+Output: [4,9]  
+
+Note:  
+Each element in the result should appear as many times as it shows in both arrays.
+The result can be in any order.
+
+Follow up:  
+What if the given array is already sorted? How would you optimize your algorithm?  
+What if nums1's size is small compared to nums2's size? Which algorithm is better?  
+What if elements of nums2 are stored on disk, and the memory is limited such that you cannot load all elements into the memory at once?  
+```go
+func intersect(nums1 []int, nums2 []int) []int {
+    m := make(map[int]int)
+    ans := []int{}
+    for _, n := range nums1 {
+        m[n] += 1
+    }
+    for _, n := range nums2 {
+        if _, ok := m[n]; ok {
+            ans = append(ans, n)
+            m[n] -= 1
+            if m[n] == 0 {
+                delete(m, n)
+            }
+        }
+    }
+    return ans
+}
+```
+
 ##### 697. Degree of an Array
 Given a non-empty array of non-negative integers nums, the degree of this array is defined as the maximum frequency of any one of its elements. Your task is to find the smallest possible length of a (contiguous) subarray of nums, that has the same degree as nums.
 
@@ -2054,6 +2153,56 @@ func (this *RecentCounter) Ping(t int) int {
  */
 ```
 
+##### 950.Reveal Cards In Increasing Order
+In a deck of cards, every card has a unique integer.  You can order the deck in any order you want. Initially, all the cards start face down (unrevealed) in one deck. Now, you do the following steps repeatedly, until all cards are revealed:
+
+Take the top card of the deck, reveal it, and take it out of the deck.
+If there are still cards in the deck, put the next top card of the deck at the bottom of the deck.
+If there are still unrevealed cards, go back to step 1.  Otherwise, stop.
+Return an ordering of the deck that would reveal the cards in increasing order.
+
+The first entry in the answer is considered to be the top of the deck.
+
+Example:
+Input: [17,13,11,2,3,5,7]  
+Output: [2,13,3,11,5,17,7]  
+Explanation:   
+We get the deck in the order [17,13,11,2,3,5,7] (this order doesn't matter), and reorder it.  
+After reordering, the deck starts as [2,13,3,11,5,17,7], where 2 is the top of the deck.  
+We reveal 2, and move 13 to the bottom.  The deck is now [3,11,5,17,7,13].  
+We reveal 3, and move 11 to the bottom.  The deck is now [5,17,7,13,11].  
+We reveal 5, and move 17 to the bottom.  The deck is now [7,13,11,17].  
+We reveal 7, and move 13 to the bottom.  The deck is now [11,17,13].  
+We reveal 11, and move 17 to the bottom.  The deck is now [13,17].  
+We reveal 13, and move 17 to the bottom.  The deck is now [17].  
+We reveal 17.  
+Since all the cards revealed are in increasing order, the answer is correct.
+ 
+Note:  
+1 <= A.length <= 1000
+1 <= A[i] <= 10^6
+A[i] != A[j] for all i != j
+```go
+func deckRevealedIncreasing(deck []int) []int {
+    sort.Ints(deck)
+    l := len(deck)
+    q := []int{}
+    ans := []int{}
+    for i := l - 1; i >= 0; i-- {
+        s := len(q)
+        if s > 1 {
+            m := q[0]
+            q = q[1:s]
+            q = append(q, m)
+        }
+        q = append(q, deck[i])
+    }
+    for i := l - 1; i >= 0; i-- {
+        ans = append(ans, q[i])
+    }
+    return ans
+}
+```
 
 ---
 
@@ -2727,5 +2876,117 @@ func pruneTree(root *TreeNode) *TreeNode {
         return nil
     }
     return root
+}
+```
+
+##### 543.Diameter of Binary Tree
+Given a binary tree, you need to compute the length of the diameter of the tree. The diameter of a binary tree is the length of the longest path between any two nodes in a tree. This path may or may not pass through the root.
+
+Example:  
+Given a binary tree   
+          1  
+         / \  
+        2   3  
+       / \       
+      4   5      
+Return 3, which is the length of the path [4,2,1,3] or [5,2,1,3].
+
+Note: The length of path between two nodes is represented by the number of edges between them.
+```go
+/**
+ * Definition for a binary tree node.
+ * type TreeNode struct {
+ *     Val int
+ *     Left *TreeNode
+ *     Right *TreeNode
+ * }
+ */
+func Depth(node *TreeNode, s *int) int {
+    if node == nil {
+        return 0
+    }
+    l := Depth(node.Left, s)
+    r := Depth(node.Right, s)
+    if *s < l+r {
+        *s = l + r
+    }
+    if l > r {
+        return l + 1
+    } else {
+        return r + 1
+    }
+}
+func diameterOfBinaryTree(root *TreeNode) int {
+    s := 0
+    Depth(root, &s)
+    return s
+}
+
+//Old method, slower.
+func diameterOfBinaryTree(root *TreeNode) int {
+    if root == nil {
+        return 0
+    }
+    l := dfs(root.Left, 0)
+    r := dfs(root.Right, 0)
+    n := l + r
+    lh := diameterOfBinaryTree(root.Left)
+    rh := diameterOfBinaryTree(root.Right)
+    ans := math.Max(float64(n), math.Max(float64(lh), float64(rh)))
+    return int(ans)
+}
+func dfs(root *TreeNode, n int) int {
+    if root == nil {
+        return n
+    }
+    l := dfs(root.Left, n+1)
+    r := dfs(root.Right, n+1)
+    if l > r {
+        return l
+    } else {
+        return r
+    }
+}
+```
+
+
+### Graph
+
+##### 797.All Paths From Source to Target
+Given a directed, acyclic graph of N nodes.  Find all possible paths from node 0 to node N-1, and return them in any order.
+
+The graph is given as follows:  the nodes are 0, 1, ..., graph.length - 1.  graph[i] is a list of all nodes j for which the edge (i, j) exists.
+
+Example:  
+Input: [[1,2], [3], [3], []]   
+Output: [[0,1,3],[0,2,3]]   
+Explanation: The graph looks like this:  
+0--->1  
+|    |  
+v    v  
+2--->3  
+There are two paths: 0 -> 1 -> 3 and 0 -> 2 -> 3.  
+
+Note:
+The number of nodes in the graph will be in the range [2, 15].
+You can print different paths in any order, but you should keep the order of nodes inside one path.
+```go
+func allPathsSourceTarget(graph [][]int) [][]int {
+    ans := [][]int{}
+    dfs(graph, &ans, []int{}, 0)
+    return ans
+}
+
+func dfs(graph [][]int, ans *[][]int, path []int, cur int) {
+    path = append(path, cur)
+    if cur == len(graph)-1 {
+        temp := make([]int, len(path))
+        copy(temp, path)
+        *ans = append(*ans, temp)
+        return
+    }
+    for _, nei := range graph[cur] {
+        dfs(graph, ans, path, nei)
+    }
 }
 ```

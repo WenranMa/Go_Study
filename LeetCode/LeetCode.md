@@ -2153,6 +2153,56 @@ func (this *RecentCounter) Ping(t int) int {
  */
 ```
 
+##### 950.Reveal Cards In Increasing Order
+In a deck of cards, every card has a unique integer.  You can order the deck in any order you want. Initially, all the cards start face down (unrevealed) in one deck. Now, you do the following steps repeatedly, until all cards are revealed:
+
+Take the top card of the deck, reveal it, and take it out of the deck.
+If there are still cards in the deck, put the next top card of the deck at the bottom of the deck.
+If there are still unrevealed cards, go back to step 1.  Otherwise, stop.
+Return an ordering of the deck that would reveal the cards in increasing order.
+
+The first entry in the answer is considered to be the top of the deck.
+
+Example:
+Input: [17,13,11,2,3,5,7]  
+Output: [2,13,3,11,5,17,7]  
+Explanation:   
+We get the deck in the order [17,13,11,2,3,5,7] (this order doesn't matter), and reorder it.  
+After reordering, the deck starts as [2,13,3,11,5,17,7], where 2 is the top of the deck.  
+We reveal 2, and move 13 to the bottom.  The deck is now [3,11,5,17,7,13].  
+We reveal 3, and move 11 to the bottom.  The deck is now [5,17,7,13,11].  
+We reveal 5, and move 17 to the bottom.  The deck is now [7,13,11,17].  
+We reveal 7, and move 13 to the bottom.  The deck is now [11,17,13].  
+We reveal 11, and move 17 to the bottom.  The deck is now [13,17].  
+We reveal 13, and move 17 to the bottom.  The deck is now [17].  
+We reveal 17.  
+Since all the cards revealed are in increasing order, the answer is correct.
+ 
+Note:  
+1 <= A.length <= 1000
+1 <= A[i] <= 10^6
+A[i] != A[j] for all i != j
+```go
+func deckRevealedIncreasing(deck []int) []int {
+    sort.Ints(deck)
+    l := len(deck)
+    q := []int{}
+    ans := []int{}
+    for i := l - 1; i >= 0; i-- {
+        s := len(q)
+        if s > 1 {
+            m := q[0]
+            q = q[1:s]
+            q = append(q, m)
+        }
+        q = append(q, deck[i])
+    }
+    for i := l - 1; i >= 0; i-- {
+        ans = append(ans, q[i])
+    }
+    return ans
+}
+```
 
 ---
 
@@ -2895,6 +2945,48 @@ func dfs(root *TreeNode, n int) int {
         return l
     } else {
         return r
+    }
+}
+```
+
+
+### Graph
+
+##### 797.All Paths From Source to Target
+Given a directed, acyclic graph of N nodes.  Find all possible paths from node 0 to node N-1, and return them in any order.
+
+The graph is given as follows:  the nodes are 0, 1, ..., graph.length - 1.  graph[i] is a list of all nodes j for which the edge (i, j) exists.
+
+Example:  
+Input: [[1,2], [3], [3], []]   
+Output: [[0,1,3],[0,2,3]]   
+Explanation: The graph looks like this:  
+0--->1  
+|    |  
+v    v  
+2--->3  
+There are two paths: 0 -> 1 -> 3 and 0 -> 2 -> 3.  
+
+Note:
+The number of nodes in the graph will be in the range [2, 15].
+You can print different paths in any order, but you should keep the order of nodes inside one path.
+```go
+func allPathsSourceTarget(graph [][]int) [][]int {
+    ans := [][]int{}
+    dfs(graph, &ans, []int{}, 0)
+    return ans
+}
+
+func dfs(graph [][]int, ans *[][]int, path []int, cur int) {
+    path = append(path, cur)
+    if cur == len(graph)-1 {
+        temp := make([]int, len(path))
+        copy(temp, path)
+        *ans = append(*ans, temp)
+        return
+    }
+    for _, nei := range graph[cur] {
+        dfs(graph, ans, path, nei)
     }
 }
 ```

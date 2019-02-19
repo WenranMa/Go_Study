@@ -1332,6 +1332,67 @@ func search(nums []int, target int) int {
 }
 ```
 
+##### 744.Find Smallest Letter Greater Than Target
+Given a list of sorted characters letters containing only lowercase letters, and given a target letter target, find the smallest element in the list that is larger than the given target.
+
+Letters also wrap around. For example, if the target is target = 'z' and letters = ['a', 'b'], the answer is 'a'.
+
+Examples:  
+Input:  
+letters = ["c", "f", "j"]  
+target = "a"  
+Output: "c"  
+
+Input:  
+letters = ["c", "f", "j"]  
+target = "c"  
+Output: "f"  
+
+Input:  
+letters = ["c", "f", "j"]  
+target = "d"  
+Output: "f"  
+
+Input:  
+letters = ["c", "f", "j"]  
+target = "g"  
+Output: "j"  
+
+Input:  
+letters = ["c", "f", "j"]  
+target = "j"  
+Output: "c"
+
+Input:  
+letters = ["c", "f", "j"]  
+target = "k"  
+Output: "c"  
+
+Note:
+letters has a length in range [2, 10000].
+letters consists of lowercase letters, and contains at least 2 unique letters.
+target is a lowercase letter.
+```go
+func nextGreatestLetter(letters []byte, target byte) byte {
+    l := 0
+    r := len(letters) - 1
+    for l < r {
+        m := (l + r) / 2
+
+        if letters[m] > target { //如果大于应保留m
+            r = m
+        } else if letters[m] <= target {
+            l = m + 1
+        }
+    } // l should be equal to (l+r)/2
+    if letters[l] <= target {
+        return letters[0]
+    }
+    return letters[l]
+}
+```
+
+
 ##### 973. K Closest Points to Origin
 We have a list of points on the plane.  Find the K closest points to the origin (0, 0). (Here, the distance between two points on a plane is the Euclidean distance.) You may return the answer in any order.  The answer is guaranteed to be unique (except for the order that it is in.) 
 
@@ -1878,6 +1939,44 @@ func intersection(nums1 []int, nums2 []int) []int {
         if _, ok := m[n]; ok {
             ans = append(ans, n)
             delete(m, n)
+        }
+    }
+    return ans
+}
+```
+
+##### 350.Intersection of Two Arrays II
+Given two arrays, write a function to compute their intersection.
+
+Example:  
+Input: nums1 = [1,2,2,1], nums2 = [2,2]  
+Output: [2,2]  
+
+Input: nums1 = [4,9,5], nums2 = [9,4,9,8,4]  
+Output: [4,9]  
+
+Note:  
+Each element in the result should appear as many times as it shows in both arrays.
+The result can be in any order.
+
+Follow up:  
+What if the given array is already sorted? How would you optimize your algorithm?  
+What if nums1's size is small compared to nums2's size? Which algorithm is better?  
+What if elements of nums2 are stored on disk, and the memory is limited such that you cannot load all elements into the memory at once?  
+```go
+func intersect(nums1 []int, nums2 []int) []int {
+    m := make(map[int]int)
+    ans := []int{}
+    for _, n := range nums1 {
+        m[n] += 1
+    }
+    for _, n := range nums2 {
+        if _, ok := m[n]; ok {
+            ans = append(ans, n)
+            m[n] -= 1
+            if m[n] == 0 {
+                delete(m, n)
+            }
         }
     }
     return ans

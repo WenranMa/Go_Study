@@ -2729,3 +2729,73 @@ func pruneTree(root *TreeNode) *TreeNode {
     return root
 }
 ```
+
+##### 543.Diameter of Binary Tree
+Given a binary tree, you need to compute the length of the diameter of the tree. The diameter of a binary tree is the length of the longest path between any two nodes in a tree. This path may or may not pass through the root.
+
+Example:  
+Given a binary tree   
+          1  
+         / \  
+        2   3  
+       / \       
+      4   5      
+Return 3, which is the length of the path [4,2,1,3] or [5,2,1,3].
+
+Note: The length of path between two nodes is represented by the number of edges between them.
+```go
+/**
+ * Definition for a binary tree node.
+ * type TreeNode struct {
+ *     Val int
+ *     Left *TreeNode
+ *     Right *TreeNode
+ * }
+ */
+func Depth(node *TreeNode, s *int) int {
+    if node == nil {
+        return 0
+    }
+    l := Depth(node.Left, s)
+    r := Depth(node.Right, s)
+    if *s < l+r {
+        *s = l + r
+    }
+    if l > r {
+        return l + 1
+    } else {
+        return r + 1
+    }
+}
+func diameterOfBinaryTree(root *TreeNode) int {
+    s := 0
+    Depth(root, &s)
+    return s
+}
+
+//Old method, slower.
+func diameterOfBinaryTree(root *TreeNode) int {
+    if root == nil {
+        return 0
+    }
+    l := dfs(root.Left, 0)
+    r := dfs(root.Right, 0)
+    n := l + r
+    lh := diameterOfBinaryTree(root.Left)
+    rh := diameterOfBinaryTree(root.Right)
+    ans := math.Max(float64(n), math.Max(float64(lh), float64(rh)))
+    return int(ans)
+}
+func dfs(root *TreeNode, n int) int {
+    if root == nil {
+        return n
+    }
+    l := dfs(root.Left, n+1)
+    r := dfs(root.Right, n+1)
+    if l > r {
+        return l
+    } else {
+        return r
+    }
+}
+```

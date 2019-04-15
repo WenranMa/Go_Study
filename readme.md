@@ -516,6 +516,18 @@ var report = template.Must(template.New("issuelist"). Funcs(template.FuncMap{"da
 ---
 
 ## 函数
+#### 函数声明(Declaration)
+- parameter: 函数参数，局部变量，named result也是局部变量。
+- argument: parameter values, supplied by the caller.
+- 相同类型的参数可以只写一次类型。`func add(i, j int) int`.
+
+Arguments are passed by value, so the function receives a copy of each argument; modifications to the copy do not affect the caller. However, if the argument contains some kind of reference, like a __pointer, slice, map, function, or channel__, then the caller may be affected.
+
+#### 递归(Recursion)
+固定大小函数栈：Fixed-size function call stack; sizes from 64KB to 2MB are typical. Fixed-size stacks impose a limit on the depth of recursion.
+
+Go implementations use __variable-size stacks__ that start small and grow as needed up to a limit on the order of a gigabyte. This lets us use recursion safely and without worrying about overflow.
+
 #### 多值返回
 一个函数可以返回多个值。例如一个是期望得到的返回值，另一个是函数出错时的错误信息。一个函数内部可以将另一个有多返回值的函数作为返回值。
 
@@ -539,7 +551,7 @@ func CountWordsAndImages(url string) (words, images int, err error) {
 前两处return等价于 `return 0,0,err` (Go会将返回值words和images在函数体的开始处，根据它们的类型，将其初始化为0)，最后一处return等价于 `return words, image, nil`。
 
 #### Error
-对于将运行失败看作是预期结果的函数，会返回一个额外的返回值，通常是最后一个，来传递错误信息。如果导致失败的原因只有一个，额外的返回值可以是一个布尔值，通常被命名为ok：
+对于将运行失败看作是预期结果的函数，会返回一个额外的返回值，来传递错误信息。如果导致失败的原因只有一个，额外的返回值可以是一个布尔值，通常被命名为ok：
 `value, ok := cache.Lookup(key)` 。
 
 导致失败的原因不止一种，尤其是对I/O操作，用户需要了解更多的错误信息。所以额外的返回值不再是简单的布尔类型，而是error类型。内置的error是接口类型，可能是nil或者non­-nil，nil意味着函数运行成功，non­-nil表示失败。
@@ -552,16 +564,16 @@ io包保证任何由文件结束引起的读取失败都返回同一个错误 `i
 
 调用者只需通过简单的比较，就可以检测出这个错误。下面的例子展示了如何从标准输入中读取字符，以及判断文件结束。
 ```go
-    in := bufio.NewReader(os.Stdin)
-    for {
-        r, _, err := in.ReadRune()
-        if err == io.EOF {
-            break // finished reading
-        }
-        if err != nil {
-            return fmt.Errorf("read failed:%v", err)
-        }
+in := bufio.NewReader(os.Stdin)
+for {
+    r, _, err := in.ReadRune()
+    if err == io.EOF {
+        break // finished reading
     }
+    if err != nil {
+        return fmt.Errorf("read failed:%v", err)
+    }
+}
 ```
 
 #### 函数值
@@ -641,15 +653,15 @@ panic: runtime error: integer divide by zero
 
 如果在deferred函数中调用了内置函数recover，并且定义该defer语句的函数发生了panic异常， recover会使程序从panic中恢复，并返回panic value。导致panic异常的函数不会继续运行，但能 正常返回。在未发生panic时调用recover，recover会返回nil（选择性recover）。
 ```go
-    defer func() {
-        switch p := recover(); p {
-        case nil: // no panic
-        case bailout{}: // "expected" panic
-            err = fmt.Errorf("multiple title elements")
-        default:
-            panic(p) // unexpected panic; carry on panicking
-        }
-    }()
+defer func() {
+    switch p := recover(); p {
+    case nil: // no panic
+    case bailout{}: // "expected" panic
+        err = fmt.Errorf("multiple title elements")
+    default:
+        panic(p) // unexpected panic; carry on panicking
+    }
+}()
 ```
 
 ---

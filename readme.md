@@ -554,13 +554,18 @@ func CountWordsAndImages(url string) (words, images int, err error) {
 对于将运行失败看作是预期结果的函数，会返回一个额外的返回值，来传递错误信息。如果导致失败的原因只有一个，额外的返回值可以是一个布尔值，通常被命名为ok：
 `value, ok := cache.Lookup(key)` 。
 
-导致失败的原因不止一种，尤其是对I/O操作，用户需要了解更多的错误信息。所以额外的返回值不再是简单的布尔类型，而是error类型。内置的error是接口类型，可能是nil或者non­-nil，nil意味着函数运行成功，non­-nil表示失败。
+导致失败的原因不止一种，尤其是对I/O操作，用户需要了解更多的错误信息。所以额外的返回值不再是简单的布尔类型，而是error类型。内置的error是接口类型，可能是nil或者non-nil，nil意味着函数运行成功，non-nil表示失败。
 
 `fmt.Errorf`函数使用fmt.Sprintf格式化错误信息并返回。
+```go
+func Errorf(format string, a ...interface{}) error {
+    return errors.New(Sprintf(format, a...))
+}
+```
 
 处理错误的策略：1.传播错误。2.重试并限制重试的时间间隔或重试的次数。3.输出错误信息并结束程序`os.Exit(1)`或者`log.Fatalf`，这种策略只应在main中执行。4.只输出错误，不中断程序。
 
-io包保证任何由文件结束引起的读取失败都返回同一个错误 `io.EOF`: `var EOF = errors.New("EOF")`
+io包保证任何由文件结束引起的读取失败都返回同一个错误 `io.EOF`: `var EOF = errors.New("EOF")`。
 
 调用者只需通过简单的比较，就可以检测出这个错误。下面的例子展示了如何从标准输入中读取字符，以及判断文件结束。
 ```go
@@ -586,7 +591,7 @@ func main() {
     f := square
     fmt.Println(f(3)) // "9"
 
-    var v func(int) int
+    var v func(int) int //函数类型
     if v != nil {
         v(3)
     }
@@ -595,15 +600,53 @@ func main() {
 函数类型的零值是nil。调用值为nil的函数值会引起panic错误。但是函数值之间是不可比较的，也不能用函数值作为map的key。
 
 #### 匿名函数
+Named functions can be declared only at the package level, but we can use a function literal to denote a function value within any expression. A function literal is written like a function declaration, but without a name follow ing the `func` keyword. It is an expression, and its value is called an anonymous function.
+```go
+func squares() func() int {
+    var x int
+    return func() int {
+        x++
+        return x * x
+    }
+}
+func main() {
+    f := squares()
+    fmt.Println(f()) // "1"
+    fmt.Println(f()) // "4"
+    fmt.Println(f()) // "9"
+    fmt.Println(f()) // "16"
+
+    v := squares()
+    fmt.Println(v()) // 1
+    fmt.Println(v()) // 4
+    fmt.Println(v()) // 9
+    fmt.Println(v()) // 16
+}
+```
+在squares中定义的匿名内部函数可以访问和更新squares中的局部变量，这意味着匿名函数和squares中，存在变量引用。
+
+The squares example demonstrates that function values are not just code but can have state. The anonymous inner function can access and update the local variables of the enclosing function squares. These hidden variable references are why we classify functions as reference types and why function values are not comparable. Function values like these are implemented using a technique called closures(__闭包__), and Go programmers often use this term for function values.
+
+Here we see an example where the lifetime of a variable is not determined by its scope: the var iable x exists after squares has returned within main, even though x is hidden inside f.
 
 #### 可变参数
+variadic function: that can be calle d with varying numbers of arguments. 典型的例子就是fmt.Printf和其变体。Printf首先接收一个的必备参数，之后接收任意个数的后续参数。在声明可变参数函数时，需要在参数列表的最后一个参数类型之前加上省略符号`...`，这表示该函数会接收任意数量的该类型参数。
+```go
+func sum(vals ...int) int {
+    total := 0
+    for _, val := range vals {
+        total += val
+    }
+    return total
+}
+```
 
 #### Defer
 当defer语句被执行时，跟在defer后面的函数会被延迟执行。直到包含该defer语句的函数执行完毕时，defer后的函数才会被执行，不论包含defer语句的函数是通过return正常结束，还是由于panic导致的异常结束。可以在一个函数中执行多条defer语句，它们的执行顺序与声明顺序相反。
 
 defer语句经常被用于处理成对的操作，如打开、关闭、连接、断开连接、加锁、释放锁。通过defer机制，不论函数逻辑多复杂，都能保证在任何执行路径下，资源被释放。释放资源的defer应该直接跟在请求资源的语句后。
 
-我们知道，defer语句中的函数会在return语句更新返回值变量后再执行，又因为在函数中定义的匿名函数可以访问该函数包括返回值变量在内的所有变量，所以，对匿名函数采用defer机制，可以使其观察函数的返回值。
+defer语句中的函数会在return语句更新返回值变量后再执行，又因为在函数中定义的匿名函数可以访问该函数包括返回值变量在内的所有变量，所以，对匿名函数采用defer机制，可以使其观察函数的返回值。
 ```go
 func main() {
     _ = double(4) // "double(4) = 8"
@@ -614,17 +657,6 @@ func double(x int) (result int) {
         fmt.Printf("double(%d) = %d\n", x, result) 
     }()
     return x + x
-}
-```
-
-#### Panic
-Go的类型系统会在编译时捕获很多错误，但有些错误只能在运行时检查，如数组访问越界、空指
-针引用等。这些运行时错误会引起painc异常。当panic异常发生时，程序会中断运行，并立即执行在该goroutine中被延迟的函数(defer机制)。
-
-直接调用内置的panic函数也会引发panic异常;panic函数接受任何值作为参数。当某些不应该发生的场景发生时，我们就应该调用panic。
-```go
-if err != nil {
-    panic(err) 
 }
 ```
 Defer栈：
@@ -646,6 +678,17 @@ defer 2
 defer 3
 panic: runtime error: integer divide by zero
 */
+```
+
+#### Panic
+Go的类型系统会在编译时捕获很多错误，但有些错误只能在运行时检查，如数组访问越界、空指
+针引用等。这些运行时错误会引起painc异常。当panic异常发生时，程序会中断运行，并立即执行在该goroutine中被延迟的函数(defer机制)。
+
+直接调用 __内置的panic函数__也会引发panic异常，panic函数接受任何值作为参数。当某些不应该发生的场景发生时，我们就应该调用panic。
+```go
+if err != nil {
+    panic(err) 
+}
 ```
 
 #### Recover

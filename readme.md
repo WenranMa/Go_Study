@@ -707,6 +707,415 @@ defer func() {
 }()
 ```
 
+
+
+
+
+panic
+Golang里比较常见的错误处理方法是返回error给调用者，但如果是无法恢复的错误，返回error也没有意义，此时可以选择go die：主动触发panic。
+
+除了代码中主动触发的panic，程序运行过程中也会因为出现某些错误而触发panic，例如数组越界。
+
+panic会停掉当前正在执行的程序（注意，不只是协程），但是与os.Exit(-1)这种直愣愣的退出不同，panic的撤退比较有秩序，他会先处理完当前goroutine已经defer挂上去的任务，执行完毕后再退出整个程序。
+
+而defer的存在，让我们有更多的选择，比如在defer中通过recover截取panic，从而达到try..catch的效果。
+
+panic允许传递一个参数给他，参数通常是将出错的信息以字符串的形式来表示。panic会打印这个字符串，以及触发panic的调用栈。
+
+先来看个简单的例子。
+
+package main
+
+import (
+    "os"
+    "fmt"
+    "time"
+)
+
+func main() {
+    var user = os.Getenv("USER_")
+    go func() {
+        defer func() {
+            fmt.Println("defer here")
+        }()
+
+        if user == "" {
+            panic("should set user env.")
+        }
+    }()
+
+    time.Sleep(1 * time.Second)
+    fmt.Printf("get result %d\r\n", result)
+}
+如上例，go run这段代码，会发现defer中的字符串”defer here”打印出来了，而main流程中的”ger result”没有打印，说明panic坚守了自己的原则：
+
+执行，且只执行，当前goroutine的defer。
+
+如果当前函数中有多个defer呢？
+
+defer的特点就是LIFO，即后进先出，所以如果在同一个函数下多个defer的话，会逆序执行。
+
+那调用者的defer会被执行吗？
+
+panic仅保证当前goroutine下的defer都会被调到，但不保证其他协程的defer也会调到。如果是在同一goroutine下的调用者的defer，那么可以一路回溯回去执行；但如果是不同goroutine，那就不做保证了。
+
+package main
+
+import (
+    "os"
+    "fmt"
+    "time"
+)
+
+func main() {
+    defer fmt.Println("defer main") // will this be printed when panic?
+    var user = os.Getenv("USER_")
+    go func() {
+        defer fmt.Println("defer caller")
+        func() {
+            defer func() {
+                fmt.Println("defer here")
+            }()
+
+            if user == "" {
+                panic("should set user env.")
+            }
+        }()
+    }()
+
+    time.Sleep(1 * time.Second)
+    fmt.Printf("get result %d\r\n", result)
+}
+go run一下：
+
+defer here
+defer caller
+如上例，main中增加一个defer，但会睡1s，在这个过程中panic了，还没等到main睡醒，进程已经退出了，因此main的defer不会被调到；而跟panic同一个goroutine的”defer caller”还是会打印的，并且其打印在”defer here”之后。
+
+如果把time.Sleep()去掉，会发现main中的”ger result”和”defer main”都调用了，但我觉得这并不是一定的，只是因为并发的存在，panic的同时main也在往下执行。
+
+总结：
+
+遇到处理不了的错误，找panic
+panic有操守，退出前会执行本goroutine的defer，方式是原路返回(reverse order)
+panic不多管，不是本goroutine的defer，不执行
+recover
+有时我们不希望因为无法处理错误panic而导致整个进程挂掉，因此需要像java一样能够handle panic（异常处理机制）。
+
+try {
+    //
+} catch (Exeption e) {
+    //
+}
+golang在这种情况下可以在panic的当前goroutine的defer中使用recover来捕捉panic。
+
+注意recover只在defer的函数中有效，如果不是在refer上下文中调用，recover会直接返回nil。
+
+package main
+
+import (
+    "os"
+    "fmt"
+    "time"
+)
+
+func main() {
+    defer fmt.Println("defer main") // will this be called when panic?
+    var user = os.Getenv("USER_")
+    go func() {
+        defer func() {
+            fmt.Println("defer caller")
+            if err := recover(); err != nil {
+                fmt.Println("recover success.")
+            }
+        }()
+        func() {
+            defer func() {
+                fmt.Println("defer here")
+            }()
+
+            if user == "" {
+                panic("should set user env.")
+            }
+            fmt.Println("after panic")
+        }()
+    }()
+
+    time.Sleep(1 * time.Second)
+    fmt.Printf("get result %d\r\n", result)
+}
+go run一下：
+
+defer here
+defer caller
+recover success.
+get result 1
+defer main
+recover力挽狂澜，避免了因为panic导致的节节败退，最终main拿到了结果，有秩序的退场了。实际应用时，可能只会panic的goroutine正常结束，但main goroutine还会继续跑着。
+
+注意，panic后面的”after panic”字符串并没有打印，这正是我们想要的。遇到解决不了的难题，只管甩panic就行，外面总有人能接的住。
+
+通过panic+recover来简化错误处理
+下面是一个很好的示例。
+
+// Error is the type of a parse error; it satisfies the error interface.
+type Error string
+func (e Error) Error() string {
+    return string(e)
+}
+
+// error is a method of *Regexp that reports parsing errors by
+// panicking with an Error.
+func (regexp *Regexp) error(err string) {
+    panic(Error(err))
+}
+
+// Compile returns a parsed representation of the regular expression.
+func Compile(str string) (regexp *Regexp, err error) {
+    regexp = new(Regexp)
+    // doParse will panic if there is a parse error.
+    defer func() {
+        if e := recover(); e != nil {
+            regexp = nil    // Clear return value.
+            err = e.(Error) // Will re-panic if not a parse error.
+        }
+    }()
+    return regexp.doParse(str), nil
+}
+
+//
+if pos == 0 {
+    re.error("'*' illegal at start of expression")
+}
+在Compile函数中，遇到问题只管panic就行；recover会捕捉Error类型的panic，并将其转为string返回给client，调用Compile的client并不会感知到Compile的panic；对于其他类型(例如数组越界），在recover中做类型判断的时候仍然会panic，并不会因为有recover就掩盖了。
+
+这个例子也说明了在recover中如果再次panic，该panic还是会再次陷入，除非在recover中挂defer去再次recover，否则程序就真的退出了。
+
+这样，库就不需要err != nil到处飞了，有问题panic就可以。如下例，json库中对有格式问题的字符串解析失败时(d.value())，并不返回错误，而是直接panic；通过在解析函数前面挂的defer来捕捉panic，并转为错误信息统一返回给调用者。
+
+func (d *decodeState) unmarshal(v interface{}) (err error) {
+    defer func() {
+        if r := recover(); r != nil {
+            if _, ok := r.(runtime.Error); ok {
+                panic(r)
+            }
+            err = r.(error)
+        }
+    }()
+
+    rv := reflect.ValueOf(v)
+    if rv.Kind() != reflect.Ptr || rv.IsNil() {
+        return &InvalidUnmarshalError{reflect.TypeOf(v)}
+    }
+
+    d.scan.reset()
+    // We decode rv not rv.Elem because the Unmarshaler interface
+    // test must be applied at the top level of the value.
+    d.value(rv)
+    return d.savedError
+}
+recover是怎么实现的
+func gorecover(argp uintptr) interface{} {
+    // Must be in a function running as part of a deferred call during the panic.
+    // Must be called from the topmost function of the call
+    // (the function used in the defer statement).
+    // p.argp is the argument pointer of that topmost deferred function call.
+    // Compare against argp reported by caller.
+    // If they match, the caller is the one who can recover.
+    gp := getg()
+    p := gp._panic
+    if p != nil && !p.recovered && argp == uintptr(p.argp) {
+        p.recovered = true
+        return p.arg
+    }
+    return nil
+}
+recover会先检查gp(current goroutine)是否在panic流程中，如果不是，直接返回nil。所以在普通流程调用recover除了耗费cpu并不会有什么实际作用。
+
+如果确实当前goroutine在panic中，会设置recovered为true；panic流程中在调用完每个defer以后会检查recovered标记，如果为true则会退出panic流程，恢复正常。
+
+recover函数只是设置了recovered标记，那么gouroutine是怎么从panic返回的呢？
+
+我把跟切换相关的代码拆了出来，从gopanic函数来看，reflectcall调用完recover之后，会在pc、sp中记录当前defer的pc、sp，然后调用recovery；
+
+// The implementation of the predeclared function panic.
+func gopanic(e interface{}) {
+...
+    for {
+        d := gp._defer
+        if d == nil {
+            break
+        }
+...
+        p.argp = unsafe.Pointer(getargp(0))
+        reflectcall(nil, unsafe.Pointer(d.fn), deferArgs(d), uint32(d.siz), uint32(d.siz))
+        p.argp = nil
+
+...
+        pc := d.pc
+        sp := unsafe.Pointer(d.sp) // must be pointer so it gets adjusted during stack copy
+        freedefer(d)
+        if p.recovered {
+            atomic.Xadd(&runningPanicDefers, -1)
+...
+            // Pass information about recovering frame to recovery.
+            gp.sigcode0 = uintptr(sp)
+            gp.sigcode1 = pc
+            mcall(recovery)
+            throw("recovery failed") // mcall should not return
+        }
+    }
+而后，在recovery(注意最后有个y)中，设置当前goroutine的sched的sp/pc等，调用gogo切到defer的上下文去。
+
+为啥从defer上取的sp/pc能回到defer的返回流程上来？这得从defer开始说。
+
+defer
+defer是一个面向编译器的声明，他会让编译器做两件事：
+
+编译器会将defer声明编译为runtime.deferproc(fn)，这样运行时，会调用runtime.deferproc，在deferproc中将所有defer挂到goroutine的defer链上；
+编译器会在函数return之前（注意，是return之前，而不是return xxx之前，后者不是一条原子指令），增加runtime.deferreturn调用；这样运行时，开始处理前面挂在defer链上的所有defer。
+先来看看deferproc。
+
+// Create a new deferred function fn with siz bytes of arguments.
+// The compiler turns a defer statement into a call to this.
+//go:nosplit
+func deferproc(siz int32, fn *funcval) { // arguments of fn follow fn
+    if getg().m.curg != getg() {
+        // go code on the system stack can't defer
+        throw("defer on system stack")
+    }
+
+    // the arguments of fn are in a perilous state. The stack map
+    // for deferproc does not describe them. So we can't let garbage
+    // collection or stack copying trigger until we've copied them out
+    // to somewhere safe. The memmove below does that.
+    // Until the copy completes, we can only call nosplit routines.
+    sp := getcallersp(unsafe.Pointer(&siz))
+    argp := uintptr(unsafe.Pointer(&fn)) + unsafe.Sizeof(fn)
+    callerpc := getcallerpc(unsafe.Pointer(&siz))
+
+    d := newdefer(siz)
+    if d._panic != nil {
+        throw("deferproc: d.panic != nil after newdefer")
+    }
+    d.fn = fn
+    d.pc = callerpc
+    d.sp = sp
+    switch siz {
+    case 0:
+        // Do nothing.
+    case sys.PtrSize:
+        *(*uintptr)(deferArgs(d)) = *(*uintptr)(unsafe.Pointer(argp))
+    default:
+        memmove(deferArgs(d), unsafe.Pointer(argp), uintptr(siz))
+    }
+
+    // deferproc returns 0 normally.
+    // a deferred func that stops a panic
+    // makes the deferproc return 1.
+    // the code the compiler generates always
+    // checks the return value and jumps to the
+    // end of the function if deferproc returns != 0.
+    return0()
+    // No code can go here - the C return register has
+    // been set and must not be clobbered.
+}
+newdefer中会将新的defer挂到goroutine.defer链上，就不贴代码了。需要注意d.pc和d.sp和return0上面的一大坨注释，这个跟上面recover的流程关系很大，下面会单独说明。
+
+而deferreturn更好玩。
+
+先判断链表有没有defer，然后jmpdefer去做defer声明的事情，但jmpdefer魔幻的地方是它会跳回到deferreturn之前，也就是说，会再次deferreturn一下，如果defer链表还有没处理的defer，那么会再这么循环一把，如果空了，那就return，defer处理结束。
+
+// Run a deferred function if there is one.
+// The compiler inserts a call to this at the end of any
+// function which calls defer.
+// If there is a deferred function, this will call runtime·jmpdefer,
+// which will jump to the deferred function such that it appears
+// to have been called by the caller of deferreturn at the point
+// just before deferreturn was called. The effect is that deferreturn
+// is called again and again until there are no more deferred functions.
+// Cannot split the stack because we reuse the caller's frame to
+// call the deferred function.
+
+// The single argument isn't actually used - it just has its address
+// taken so it can be matched against pending defers.
+//go:nosplit
+func deferreturn(arg0 uintptr) {
+    gp := getg()
+    d := gp._defer
+    if d == nil {
+        return
+    }
+    sp := getcallersp(unsafe.Pointer(&arg0))
+    if d.sp != sp {
+        return
+    }
+
+    // Moving arguments around.
+    //
+    // Everything called after this point must be recursively
+    // nosplit because the garbage collector won't know the form
+    // of the arguments until the jmpdefer can flip the PC over to
+    // fn.
+    switch d.siz {
+    case 0:
+        // Do nothing.
+    case sys.PtrSize:
+        *(*uintptr)(unsafe.Pointer(&arg0)) = *(*uintptr)(deferArgs(d))
+    default:
+        memmove(unsafe.Pointer(&arg0), deferArgs(d), uintptr(d.siz))
+    }
+    fn := d.fn
+    d.fn = nil
+    gp._defer = d.link
+    freedefer(d)
+    jmpdefer(fn, uintptr(unsafe.Pointer(&arg0)))
+}
+不是特别明白为什么要这么做，相对在deferreturn中直接for循环defer链表，性能的确会高一点，但感觉应该不是最主要的原因。
+
+recovery是如何切回来的
+回到开始时的问题：recovery是如何从panic切回到normal流程的。
+
+func recovery(gp *g) {
+    // Info about defer passed in G struct.
+    sp := gp.sigcode0
+    pc := gp.sigcode1
+
+    // d's arguments need to be in the stack.
+    if sp != 0 && (sp < gp.stack.lo || gp.stack.hi < sp) {
+        print("recover: ", hex(sp), " not in [", hex(gp.stack.lo), ", ", hex(gp.stack.hi), "]\n")
+        throw("bad recovery")
+    }
+
+    // Make the deferproc for this d return again,
+    // this time returning 1.  The calling function will
+    // jump to the standard return epilogue.
+    gp.sched.sp = sp
+    gp.sched.pc = pc
+    gp.sched.lr = 0
+    gp.sched.ret = 1
+    gogo(&gp.sched)
+}
+recovery将调用recover函数的defer的pc和sp设置到了当前goroutine的sched上，并且将ret设置为1，然后gogo重新调度。
+
+前面代码可以看到，defer的pc和sp是deferproc下面的代码，也就是下一个defer或者normal处理流程。但这样设置，gogo重新调度不就又回到函数开始的地方了吗？
+
+原来，编译器为defer声明生成的代码，总是会在deferproc后面检查其返回值，如果返回值为0，那么deferproc成功，可以继续处理下一个defer声明或者后面的代码；如果返回值不为0，那么会跳到当前函数的最后，return之前。
+
+也就是说，gogo调度之后，相当于调用了deferproc；由于返回值为1，检查失败，直奔return之前的deferreturn，因此，可以再次进入defer流程。
+
+由于调用recover的defer已经从defer链表上摘掉了，所以可以继续执行之前没完成的defer，并最终返回当前函数的调用者。
+
+
+
+panic是怎么退出的
+panic退出时会打印调用栈，最终调用exit(-2)退出整个进程。
+
+
+
+
+
+
 ---
 
 ## 方法

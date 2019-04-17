@@ -14,46 +14,7 @@ type C float64
 type F float64
 
 func main() {
-	//test2()
-	//test3()
-
-	//fmt.Println(test4(1, 3))
-
-	//var a int = 11
-	//var b int = 12
-	//fmt.Println(a, b)
-
-	//a, b := test5()
-
-	//fmt.Println(a, b)
-
-	// f := p()
-
-	// fmt.Println(f)
-	// fmt.Println(p() == p())
-
-	// var a = 3
-	// //fmt.Println(a.(string))
-
-	// _, ok := interface{}(a).(int)
-	// fmt.Println(ok)
-
-	// var cc C = 12.0
-	// var ff F = 123.0
-
-	// fmt.Println(cc - ff)
-
-	//fmt.Println(convertToBase7(10))
-
-	var val []int = make([]int, 0, 0)
-
-	ans := [][]int{}
-	//val := []int{}
-	deepNum(5, val, &ans)
-
-	for _, v := range val {
-		fmt.Println(v)
-	}
+	test6()
 }
 
 func deepNum(deep int, ret []int, ans *[][]int) {
@@ -145,4 +106,28 @@ func test5() (a int, b int) {
 func p() *int {
 	v := 1
 	return &v
+}
+
+// ======
+
+func squares() func() int {
+	var x int
+	return func() int {
+		x++
+		return x * x
+	}
+}
+
+func test6() {
+	f := squares()
+	fmt.Println(f())
+	fmt.Println(f())
+	fmt.Println(f())
+	fmt.Println(f())
+
+	v := squares()
+	fmt.Println(v())
+	fmt.Println(v())
+	fmt.Println(v())
+	fmt.Println(v())
 }

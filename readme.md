@@ -659,7 +659,7 @@ func double(x int) (result int) {
     return x + x
 }
 ```
-Defer栈：
+Defer栈，defer的特点就是LIFO，即后进先出，所以如果在同一个函数下多个defer的话，会逆序执行。
 ```go
 func main() {
     f(3)
@@ -681,89 +681,18 @@ panic: runtime error: integer divide by zero
 ```
 
 #### Panic
-Go的类型系统会在编译时捕获很多错误，但有些错误只能在运行时检查，如数组访问越界、空指
-针引用等。这些运行时错误会引起painc异常。当panic异常发生时，程序会中断运行，并立即执行在该goroutine中被延迟的函数(defer机制)。
+有些错误只能在运行时检查，如数组访问越界、空指针引用等。这些运行时错误会引起painc异常。当panic异常发生时，程序会中断运行，并立即执行在该goroutine中被延迟的函数(defer机制)。
 
-直接调用 __内置的panic函数__也会引发panic异常，panic函数接受任何值作为参数。当某些不应该发生的场景发生时，我们就应该调用panic。
+panic会停掉当前正在执行的程序（注意，不只是协程），但是与os.Exit(-1)这种直愣愣的退出不同，panic的撤退比较有秩序，他会先处理完当前goroutine已经defer挂上去的任务，执行完毕后再退出整个程序。panic仅保证当前goroutine下的defer都会被调到，但不保证其他协程的defer也会调到。
+
+直接调用 __内置的panic函数__也会引发panic异常，panic函数接受任何值作为参数。参数通常是将出错的信息以字符串的形式来表示。panic会打印这个字符串，以及触发panic的调用栈。当某些不应该发生的场景发生时，我们就应该调用panic。
+
 ```go
-if err != nil {
-    panic(err) 
-}
-```
-
-#### Recover
-有时可以从异常中恢复，至少可以在程序崩溃前，做一些操作。例如当web服务器遇到问题时，在崩溃前应该将所有的连接关闭，否则会使得客户端一直于等待状态。
-
-如果在deferred函数中调用了内置函数recover，并且定义该defer语句的函数发生了panic异常， recover会使程序从panic中恢复，并返回panic value。导致panic异常的函数不会继续运行，但能 正常返回。在未发生panic时调用recover，recover会返回nil（选择性recover）。
-```go
-defer func() {
-    switch p := recover(); p {
-    case nil: // no panic
-    case bailout{}: // "expected" panic
-        err = fmt.Errorf("multiple title elements")
-    default:
-        panic(p) // unexpected panic; carry on panicking
-    }
-}()
-```
-
-
-
-
-
-panic
-Golang里比较常见的错误处理方法是返回error给调用者，但如果是无法恢复的错误，返回error也没有意义，此时可以选择go die：主动触发panic。
-
-除了代码中主动触发的panic，程序运行过程中也会因为出现某些错误而触发panic，例如数组越界。
-
-panic会停掉当前正在执行的程序（注意，不只是协程），但是与os.Exit(-1)这种直愣愣的退出不同，panic的撤退比较有秩序，他会先处理完当前goroutine已经defer挂上去的任务，执行完毕后再退出整个程序。
-
-而defer的存在，让我们有更多的选择，比如在defer中通过recover截取panic，从而达到try..catch的效果。
-
-panic允许传递一个参数给他，参数通常是将出错的信息以字符串的形式来表示。panic会打印这个字符串，以及触发panic的调用栈。
-
-先来看个简单的例子。
-
 package main
 
 import (
-    "os"
     "fmt"
-    "time"
-)
-
-func main() {
-    var user = os.Getenv("USER_")
-    go func() {
-        defer func() {
-            fmt.Println("defer here")
-        }()
-
-        if user == "" {
-            panic("should set user env.")
-        }
-    }()
-
-    time.Sleep(1 * time.Second)
-    fmt.Printf("get result %d\r\n", result)
-}
-如上例，go run这段代码，会发现defer中的字符串”defer here”打印出来了，而main流程中的”ger result”没有打印，说明panic坚守了自己的原则：
-
-执行，且只执行，当前goroutine的defer。
-
-如果当前函数中有多个defer呢？
-
-defer的特点就是LIFO，即后进先出，所以如果在同一个函数下多个defer的话，会逆序执行。
-
-那调用者的defer会被执行吗？
-
-panic仅保证当前goroutine下的defer都会被调到，但不保证其他协程的defer也会调到。如果是在同一goroutine下的调用者的defer，那么可以一路回溯回去执行；但如果是不同goroutine，那就不做保证了。
-
-package main
-
-import (
     "os"
-    "fmt"
     "time"
 )
 
@@ -782,35 +711,19 @@ func main() {
             }
         }()
     }()
-
     time.Sleep(1 * time.Second)
-    fmt.Printf("get result %d\r\n", result)
+    panic("main") 
 }
-go run一下：
+//defer here  
+//defer caller  
+//main中增加一个defer，但会睡1s，在这个过程中panic了，还没等到main睡醒，进程已经退出了，因此main的defer不会被调到；而跟panic同一个goroutine的”defer caller”还是会打印的，并且其打印在”defer here”之后。
+```
 
-defer here
-defer caller
-如上例，main中增加一个defer，但会睡1s，在这个过程中panic了，还没等到main睡醒，进程已经退出了，因此main的defer不会被调到；而跟panic同一个goroutine的”defer caller”还是会打印的，并且其打印在”defer here”之后。
+#### Recover
+有时可以从异常中恢复，至少可以在程序崩溃前，做一些操作。例如当web服务器遇到问题时，在崩溃前应该将所有的连接关闭，否则会使得客户端一直于等待状态。
 
-如果把time.Sleep()去掉，会发现main中的”ger result”和”defer main”都调用了，但我觉得这并不是一定的，只是因为并发的存在，panic的同时main也在往下执行。
-
-总结：
-
-遇到处理不了的错误，找panic
-panic有操守，退出前会执行本goroutine的defer，方式是原路返回(reverse order)
-panic不多管，不是本goroutine的defer，不执行
-recover
-有时我们不希望因为无法处理错误panic而导致整个进程挂掉，因此需要像java一样能够handle panic（异常处理机制）。
-
-try {
-    //
-} catch (Exeption e) {
-    //
-}
-golang在这种情况下可以在panic的当前goroutine的defer中使用recover来捕捉panic。
-
-注意recover只在defer的函数中有效，如果不是在refer上下文中调用，recover会直接返回nil。
-
+如果在deferred函数中调用了内置函数recover，并且定义该defer语句的函数发生了panic异常， recover会使程序从panic中恢复，并返回panic value。导致panic异常的函数不会继续运行，但能 正常返回。注意recover只在defer的函数中有效，如果不是在refer上下文中调用，或在未发生panic时调用recover，recover会返回nil（选择性recover）。
+```go
 package main
 
 import (
@@ -842,18 +755,13 @@ func main() {
     }()
 
     time.Sleep(1 * time.Second)
-    fmt.Printf("get result %d\r\n", result)
 }
-go run一下：
-
-defer here
-defer caller
-recover success.
-get result 1
-defer main
-recover力挽狂澜，避免了因为panic导致的节节败退，最终main拿到了结果，有秩序的退场了。实际应用时，可能只会panic的goroutine正常结束，但main goroutine还会继续跑着。
-
-注意，panic后面的”after panic”字符串并没有打印，这正是我们想要的。遇到解决不了的难题，只管甩panic就行，外面总有人能接的住。
+//defer here
+//defer caller
+//recover success.
+//defer main
+//recover力挽狂澜，避免了因为panic导致的节节败退，最终main拿到了结果，有秩序的退场了。注意，panic后面的”after panic”字符串并没有打印，这正是我们想要的。遇到解决不了的难题，只管甩panic就行，外面总有人能接的住。
+```
 
 通过panic+recover来简化错误处理
 下面是一个很好的示例。
@@ -1106,131 +1014,7 @@ recovery将调用recover函数的defer的pc和sp设置到了当前goroutine的sc
 
 由于调用recover的defer已经从defer链表上摘掉了，所以可以继续执行之前没完成的defer，并最终返回当前函数的调用者。
 
-
-
-panic是怎么退出的
 panic退出时会打印调用栈，最终调用exit(-2)退出整个进程。
-
-
-
-
-
-Go语言追求简洁优雅，所以，Go语言不支持传统的 try…catch…finally 这种异常，因为Go语言的设计者们认为，将异常与控制结构混在一起会很容易使得代码变得混乱。因为开发者很容易滥用异常，甚至一个小小的错误都抛出一个异常。在Go语言中，使用多值返回来返回错误。不要用异常代替错误，更不要用来控制流程。在极个别的情况下，也就是说，遇到真正的异常的情况下（比如除数为0了）。才使用Go中引入的Exception处理：defer, panic, recover。
-
-这几个异常的使用场景可以这么简单描述：Go中可以抛出一个panic的异常，然后在defer中通过recover捕获这个异常，然后正常处理。
-
- 
-
-例子代码：
-
-package main
- 
-import "fmt"
- 
-func main(){
-    defer func(){ // 必须要先声明defer，否则不能捕获到panic异常
-        fmt.Println("c")
-        if err:=recover();err!=nil{
-            fmt.Println(err) // 这里的err其实就是panic传入的内容，55
-        }
-        fmt.Println("d")
-    }()
-    f()
-}
- 
-func f(){
-    fmt.Println("a")
-    panic(55)
-    fmt.Println("b")
-    fmt.Println("f")
-}
-输出结果：
-a
-c
-55
-d
-exit code 0, process exited normally.
-
-参考： http://blog.csdn.net/ghost911_slb/article/details/7831574
-
- 
-
-defer
-defer 英文原意： vi. 推迟；延期；服从   vt. 使推迟；使延期。
-
-defer的思想类似于C++中的析构函数，不过Go语言中“析构”的不是对象，而是函数，defer就是用来添加函数结束时执行的语句。注意这里强调的是添加，而不是指定，因为不同于C++中的析构函数是静态的，Go中的defer是动态的。
-
-func f() (result int) {
-
-  defer func() {
-    result++
-  }()
-  return 0
-}
-上面函数返回1，因为defer中添加了一个函数，在函数返回前改变了命名返回值的值。是不是很好用呢。但是，要注意的是，如果我们的defer语句没有执行，那么defer的函数就不会添加，如果把上面的程序改成这样：
-
-func f() (result int) {
-
-  return 0
-  defer func() {
-    result++
-  }()
-  return 0
-}
-上面的函数就返回0了，因为还没来得及添加defer的东西，函数就返回了。
-
-另外值得一提的是，defer可以多次，这样形成一个defer栈，后defer的语句在函数返回时将先被调用。
-
-参考： http://weager.sinaapp.com/?p=31 
-
- 
-
-panic
-panic 英文原意：n. 恐慌，惊慌；大恐慌  adj. 恐慌的；没有理由的  vt. 使恐慌  vi. 十分惊慌
-
-panic 是用来表示非常严重的不可恢复的错误的。在Go语言中这是一个内置函数，接收一个interface{}类型的值（也就是任何值了）作为参数。panic的作用就像我们平常接触的异常。不过Go可没有try…catch，所以，panic一般会导致程序挂掉（除非recover）。所以，Go语言中的异常，那真的是异常了。你可以试试，调用panic看看，程序立马挂掉，然后Go运行时会打印出调用栈。
-但是，关键的一点是，即使函数执行的时候panic了，函数不往下走了，运行时并不是立刻向上传递panic，而是到defer那，等defer的东西都跑完了，panic再向上传递。所以这时候 defer 有点类似 try-catch-finally 中的 finally。
-panic就是这么简单。抛出个真正意义上的异常。
-
- 
-
-recover
-recover 英文原意： vt. 恢复；弥补；重新获得   vi. 恢复；胜诉；重新得球   n. 还原至预备姿势
-
-上面说到，panic的函数并不会立刻返回，而是先defer，再返回。这时候（defer的时候），如果有办法将panic捕获到，并阻止panic传递，那就异常的处理机制就完善了。
-
-Go语言提供了recover内置函数，前面提到，一旦panic，逻辑就会走到defer那，那我们就在defer那等着，调用recover函数将会捕获到当前的panic（如果有的话），被捕获到的panic就不会向上传递了，于是，世界恢复了和平。你可以干你想干的事情了。
-
-不过要注意的是，recover之后，逻辑并不会恢复到panic那个点去，函数还是会在defer之后返回。
-
- 
-
-用Go实现类似 try catch 的异常处理有个例子在：
-
-http://www.douban.com/note/238705941/
-
- 
-
- 
-
-结论：
-
-Go对待异常（准确的说是panic）的态度就是这样，没有全面否定异常的存在，同时极力不鼓励多用异常。
-
-参考：http://blog.dccmx.com/2012/01/exception-the-go-way/
-
-http://kejibo.com/golang-exceptions-handle-defer-try/
-
-http://bookjovi.iteye.com/blog/1335282
-
-https://github.com/astaxie/build-web-application-with-golang/blob/master/02.3.md
-
-
-
-
-
-
-
 
 ---
 

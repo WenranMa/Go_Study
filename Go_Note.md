@@ -917,6 +917,7 @@ func Sprintf(format string, args ...interface{}) string {
     Fprintf(&buf, format, args...)
     return buf.String()
 }
+//最新的源码中，Sprintf实现已经不同了。
 ```
 在Printf函数中的第一个参数os.Stdout是*os.File类型;在Sprintf函数中的第一个参数&buf是一个指向可以写入字节的内存缓冲区。
 

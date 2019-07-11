@@ -1,7 +1,89 @@
 # Go Libs
 
 ## fmt
-fmt库 fmt.Stringer接口？？？
+#### 常用函数：
+```go
+func Errorf(format string, a ...interface{}) error
+```
+Errorf returns the string as a value that satisfies error.
+```go
+package main
+import (
+    "fmt"
+)
+func main() {
+    const name, age = "wrma", 32
+    err := fmt.Errorf("user %q (age %d) not found", name, age)
+    fmt.Printf("Error: %v", err)
+}
+//Error: user "wrma" (age 32) not found
+```
+```go
+func Print(a ...interface{}) (n int, err error)
+//直接打印
+
+func Printf(format string, a ...interface{}) (n int, err error)
+//格式打印
+
+func Println(a ...interface{}) (n int, err error)
+//直接打印并换行
+
+以上三个函数分别用实现
+func Fprint(w io.Writer, a ...interface{}) (n int, err error)
+func Fprintf(w io.Writer, format string, a ...interface{}) (n int, err error)
+func Fprintln(w io.Writer, a ...interface{}) (n int, err error)
+```
+```go
+func Sprintf(format string, a ...interface{}) string
+```
+格式化并返回一个string。
+```go
+package main
+import (
+    "fmt"
+    "io"
+    "os"
+)
+func main() {
+    const name, age = "wrma", 32
+    s := fmt.Sprintf("%s is %d years old.\n", name, age)
+    io.WriteString(os.Stdout, s) // Ignoring error for simplicity.
+}
+// wrma is 32 years old.
+```
+以上函数接受的参数都是借口类型！
+
+#### fmt.Stringer接口：
+    该接口包含String()函数。任何类型只要定义了String()函数，进行Print输出时，就可以得到定制输出。
+    fmt.Println会判断这个变量是否实现了Stringer接口，如果实现了，则调用这个变量的String()方法。
+```go
+type Stringer interface {
+        String() string
+}
+
+package main
+import (
+    "fmt"
+)
+
+type Animal struct {
+    Name string
+    Age  uint
+}
+// String makes Animal satisfy the Stringer interface.
+func (a Animal) String() string {
+    return fmt.Sprintf("%v (%d)", a.Name, a.Age)
+}
+func main() {
+    a := Animal{
+        Name: "Gopher",
+        Age:  2,
+    }
+    fmt.Println(a)
+}
+// Gopher (2)
+```
+---
 
 ## time
 time包提供了时间的显示和计量用的功能。日历的计算采用的是公历。提供的主要类型有Time, Duration, Location, Timer, Ticker等。
@@ -217,7 +299,7 @@ func main() {
 
 
 
--------------
+---
 
 
 Linux Signal及Golang中的信号处理

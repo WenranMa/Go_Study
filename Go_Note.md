@@ -425,6 +425,8 @@ make([]T, len)
 make([]T, len, cap) // same as make([]T, cap)[:len]
 ```
 
+一个切片值的容量即为它的第一个元素值在其底层数组中的索引值与该数组长度的差值的绝对值。
+
 __append函数__
 
 通过appendInt函数模拟Go内置append函数。
@@ -452,6 +454,54 @@ func appendInt(x []int, y int) []int {
     return z
 }
 ```
+
+
+在进行“切片”操作的时候需要指定元素下界索引和元素上界索引，就像这样：
+
+numbers3[1:4]
+    在有些时候，我们还可以在方括号中放入第三个正整数，如下所示：
+
+numbers3[1:4:4] 
+    这第三个正整数被称为容量上界索引。它的意义在于可以把作为结果的切片值的容量设置得更小。换句话说，它可以限制我们通过这个切片值对其底层数组中的更多元素的访问。下面举个例子。让我们先来回顾下在上一节讲到的numbers3和slice1。针对它们的赋值语句是这样的：
+
+var numbers3 = [5]int{1, 2, 3, 4, 5}
+var slice1 = numbers3[1:4]  
+    这时，变量slice1的值是[]int{2, 3, 4}。但是我们可以通过如下操作将其长度延展得与其容量相同：
+
+slice1 = slice1[:cap(slice1)]   
+    通过此操作，变量slice1的值变为了[]int{2, 3, 4, 5}，且其长度和容量均为4。现在，numbers3的值中的索引值在[1,5)范围内的元素都被体现在了slice1的值中。这是以numbers3的值是slice1的值的底层数组为前提的。这意味着，我们可以轻而易举地通过切片值访问其底层数组中对应索引值更大的更多元素。如果我们编写的函数返回了这样一个切片值，那么得到它的程序很可能会通过这种技巧访问到本不应该暴露给它的元素。这是确确实实是一个安全隐患。
+  
+    如果我们在切片表达式中加入了第三个索引（即容量上界索引），如：
+
+var slice1 = numbers3[1:4:4]   
+    那么在这之后，无论我们怎样做都无法通过slice1访问到numbers3的值中的第五个元素。因为这超出了我们刚刚设定的slice1的容量。如果我们指定的元素上界索引或容量上界索引超出了被操作对象的容量，那么就会引发一个运行时恐慌（程序异常的一种），而不会有求值结果返回。因此，这是一个有力的访问控制手段。
+  
+    虽然切片值在上述方面受到了其容量的限制，但是我们却可以通过另外一种手段对其进行不受任何限制地扩展。这需要使用到内建函数append。append会对切片值进行扩展并返回一个新的切片值。使用方法如下：
+
+slice1 = append(slice1, 6, 7)
+    通过上述操作，slice1的值变为了[]int{2, 3, 4, 6, 7}。注意，一旦扩展操作超出了被操作的切片值的容量，那么该切片的底层数组就会被自动更换。这也使得通过设定容量上界索引来对其底层数组进行访问控制的方法更加严谨了。
+  
+    我们要介绍的最后一种操作切片值的方法是“复制”。该操作的实施方法是调用copy函数。该函数接受两个类型相同的切片值作为参数，并会把第二个参数值中的元素复制到第一个参数值中的相应位置（索引值相同）上。这里有两点需要注意：
+  
+  1. 这种复制遵循最小复制原则，即：被复制的元素的个数总是等于长度较短的那个参数值的长度。
+  2. 与append函数不同，copy函数会直接对其第一个参数值进行修改。
+  
+      举例如下：
+
+var slice4 = []int{0, 0, 0, 0, 0, 0, 0}
+copy(slice4, slice1)   
+    通过上述复制操作，slice4会变为[]int{2, 3, 4, 6, 7, 0, 0}。
+
+
+
+var numbers4 = [...]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+    slice5 := numbers4[4:6:8]
+    length := 2
+    capacity := 4
+
+
+
+
 
 #### Map
 一个无序的key/value对的集合，其中所有的key都是不同的，然后通过给定的key可以在__常数时间复杂度__内检索、更新或删除对应的value。map类型可以写为map[K]V，其中K和V分别对应key和value。map中所有的key都有相同的类型，所有的value也有着相同的类型，但是key和value之间可以是不同的数据类型。其中K对应的key必须是支持`==`比较运算符的数据类型，所以map可以通过测试key是否相等来判断是否已经存在。
@@ -512,6 +562,60 @@ Color成员的Tag还带了一个额外的omitempty选项，表示当Go语言结�
 var report = template.Must(template.New("issuelist"). Funcs(template.FuncMap{"daysAgo": daysAgo}). Parse(templ))
 ```
 调用链的顺序:`template.New`先创建并返回一个模板;`Funcs`方法将daysAgo等自定义函数注 册到模板中，并返回模板;最后调用`Parse`函数分析模板。`Execute`最终执行。
+
+---
+
+### 流程控制
+
+类型switch语句。它与一般形式有两点差别。第一点，紧随case关键字的不是表达式，而是类型说明符。类型说明符由若干个类型字面量组成，且多个类型字面量之间由英文逗号分隔。第二点，它的switch表达式是非常特殊的。这种特殊的表达式也起到了类型断言的作用，但其表现形式很特殊，如：v.(type)，其中v必须代表一个接口类型的值。注意，该类表达式只能出现在类型switch语句中，且只能充当switch表达式。一个类型switch语句的示例如下：
+
+v := 11
+switch i := interface{}(v).(type) {
+case int, int8, int16, int32, int64:
+    fmt.Printf("A signed integer: %d. The type is %T. \n", i, i)
+case uint, uint8, uint16, uint32, uint64:
+    fmt.Printf("A unsigned integer: %d. The type is %T. \n", i, i)
+default:
+    fmt.Println("Unknown!")
+}
+    请注意，我们在这里把switch表达式的结果赋给了一个变量。如此一来，我们就可以在该switch语句中使用这个结果了。这段代码被执行后，标准输出上会打印出A signed integer: 11. The type is int.。
+   
+    最后，我们来说一下fallthrough。它既是一个关键字，又可以代表一条语句。fallthrough语句可被包含在表达式switch语句中的case语句中。它的作用是使控制权流转到下一个case。不过要注意，fallthrough语句仅能作为case语句中的最后一条语句出现。并且，包含它的case语句不能是其所属switch语句的最后一条case语句。
+
+
+
+
+
+
+for i, v := range "Go语言" {
+    fmt.Printf("%d: %c\n", i, v)
+} 
+    对于字符串类型的被迭代值来说，for语句每次会迭代出两个值。第一个值代表第二个值在字符串中的索引，而第二个值则代表该字符串中的某一个字符。迭代是以索引递增的顺序进行的。例如，上面的for语句被执行后会在标准输出上打印出：
+
+0: G
+1: o
+2: 语
+5: 言   
+    可以看到，这里迭代出的索引值并不是连续的。下面我们简单剖析一下此表象的本质。我们知道，字符串的底层是以字节数组的形式存储的。而在Go语言中，字符串到字节数组的转换是通过对其中的每个字符进行UTF-8编码来完成的。字符串"Go语言"中的每一个字符与相应的字节数组之间的对应关系如下：
+
+
+
+    注意，一个中文字符在经过UTF-8编码之后会表现为三个字节。所以，我们用语[0]、语[1]和、语[2]分别表示字符'语'经编码后的第一、二、三个字节。对于字符'言'，我们如法炮制。
+
+  
+    对照这张表格，我们就能够解释上面那条for语句打印出的内容了，即：每次迭代出的第一个值所代表的是第二个字符值经编码后的第一个字节在该字符串经编码后的字节数组中的索引值。请大家真正理解这句话的含义。
+  
+    对于数组值、数组的指针值和切片之来说，range子句每次也会迭代出两个值。其中，第一个值会是第二个值在被迭代值中的索引，而第二个值则是被迭代值中的某一个元素。同样的，迭代是以索引递增的顺序进行的。
+  
+    对于字典值来说，range子句每次仍然会迭代出两个值。显然，第一个值是字典中的某一个键，而第二个值则是该键对应的那个值。注意，对字典值上的迭代，Go语言是不保证其顺序的。
+
+//s是string
+for i, c:= range s {
+    s[i] 是byte
+    c 是 rune
+}
+
+
 
 ---
 
@@ -628,6 +732,58 @@ func main() {
 The squares example demonstrates that function values are not just code but can have state. The anonymous inner function can access and update the local variables of the enclosing function squares. These hidden variable references are why we classify functions as reference types and why function values are not comparable. Function values like these are implemented using a technique called closures(__闭包__), and Go programmers often use this term for function values.
 
 Here we see an example where the lifetime of a variable is not determined by its scope: the var iable x exists after squares has returned within main, even though x is hidden inside f.
+
+
+ 在Go语言中，函数是一等（first-class）类型。这意味着，我们可以把函数作为值来传递和使用。函数代表着这样一个过程：它接受若干输入（参数），并经过一些步骤（语句）的执行之后再返回输出（结果）。特别的是，Go语言中的函数可以返回多个结果。
+  
+函数类型的字面量由关键字func、由圆括号包裹参数声明列表、空格以及可以由圆括号包裹的结果声明列表组成。其中，参数声明列表中的单个参数声明之间是由英文逗号分隔的。每个参数声明由参数名称、空格和参数类型组成。参数声明列表中的参数名称是可以被统一省略的。结果声明列表的编写方式与此相同。结果声明列表中的结果名称也是可以被统一省略的。并且，在只有一个无名称的结果声明时还可以省略括号。示例如下：
+
+func(input1 string ,input2 string) string
+    这一类型字面量表示了一个接受两个字符串类型的参数且会返回一个字符串类型的结果的函数。如果我们在它的左边加入type关键字和一个标识符作为名称的话，那就变成了一个函数类型声明，就像这样：
+
+type MyFunc func(input1 string ,input2 string) string
+    函数值（或简称函数）的写法与此不完全相同。编写函数的时候需要先写关键字func和函数名称，后跟参数声明列表和结果声明列表，最后是由花括号包裹的语句列表。例如：
+
+func myFunc(part1 string, part2 string) (result string) {
+    result = part1 + part2
+    return
+}
+    我们在这里用到了一个小技巧：如果结果声明是带名称的，那么它就相当于一个已被声明但未被显式赋值的变量。我们可以为它赋值且在return语句中省略掉需要返回的结果值。至于什么是return语句，我就不用多说了吧。显然，该函数还有一种更常规的写法：
+
+func myFunc(part1 string, part2 string) string {
+    return part1 + part2
+}  
+    注意，函数myFunc是函数类型MyFunc的一个实现。实际上，只要一个函数的参数声明列表和结果声明列表中的数据类型的顺序和名称与某一个函数类型完全一致，前者就是后者的一个实现。请大家回顾上面的示例并深刻理解这句话。
+  
+    我们可以声明一个函数类型的变量，如：
+
+var splice func(string, string) string // 等价于 var splice MyFunc
+    然后把函数myFunc赋给它：
+
+splice = myFunc
+    如此一来，我们就可以在这个变量之上实施调用动作了：
+
+splice("1", "2")
+    实际上，这是一个调用表达式。它由代表函数的标识符（这里是splice）以及代表调用动作的、由圆括号包裹的参数值列表组成。
+  
+    如果你觉得上面对splice变量声明和赋值有些啰嗦，那么可以这样来简化它：
+
+var splice = func(part1 string, part2 string) string {
+    return part1 + part2
+}   
+    在这个示例中，我们直接使用了一个匿名函数来初始化splice变量。顾名思义，匿名函数就是不带名称的函数值。匿名函数直接由函数类型字面量和由花括号包裹的语句列表组成。注意，这里的函数类型字面量中的参数名称是不能被忽略的。
+  
+    其实，我们还可以进一步简化——索性省去splice变量。既然我们可以在代表函数的变量上实施调用表达式，那么在匿名函数上肯定也是可行的。因为它们的本质是相同的。后者的示例如下：
+
+var result = func(part1 string, part2 string) string {
+    return part1 + part2
+}("1", "2")
+    可以看到，在这个匿名函数之后的即是代表调用动作的参数值列表。注意，这里的result变量的类型不是函数类型，而与后面的匿名函数的结果类型是相同的。
+  
+  最后，函数类型的零值是nil。这意味着，一个未被显式赋值的、函数类型的变量的值必为nil。
+
+
+
 
 #### 可变参数
 variadic function: that can be calle d with varying numbers of arguments. 典型的例子就是fmt.Printf和其变体。Printf首先接收一个的必备参数，之后接收任意个数的后续参数。在声明可变参数函数时，需要在参数列表的最后一个参数类型之前加上省略符号`...`，这表示该函数会接收任意数量的该类型参数。
@@ -893,6 +1049,51 @@ distance := Point.Distance  // method expression
 fmt.Println(distance(p, q))
 ```
 
+
+我们在前面多次提到过指针及指针类型。例如，*Person是Person的指针类型。又例如，表达式&p的求值结果是p的指针。方法的接收者类型的不同会给方法的功能带来什么影响？该方法所属的类型又会因此发生哪些潜移默化的改变？现在，我们就来解答第一个问题。至于第二个问题，我会在下一小节予以解答。
+
+    指针操作涉及到两个操作符——&和*。这两个操作符均有多个用途。但是当它们作为地址操作符出现时，前者的作用是取址，而后者的作用是取值。更通俗地讲，当地址操作符&被应用到一个值上时会取出指向该值的指针值，而当地址操作符*被应用到一个指针值上时会取出该指针指向的那个值。它们可以被视为相反的操作。
+  
+    除此之外，当*出现在一个类型之前（如*Person和*[3]string）时就不能被看做是操作符了，而应该被视为一个符号。如此组合而成的标识符所表达的含义是作为第二部分的那个类型的指针类型。我们也可以把其中的第二部分所代表的类型称为基底类型。例如，*[3]string是数组类型[3]string的指针类型，而[3]string是*[3]string的基底类型。
+  
+    好了，我们现在回过头去再看结构体类型Person。它及其两个方法的完整声明如下：
+
+type Person struct {
+    Name    string
+    Gender  string
+    Age     uint8
+    Address string
+}
+
+func (person *Person) Grow() {
+    person.Age++
+}
+
+func (person *Person) Move(newAddress string) string {
+    old := person.Address
+    person.Address = newAddress
+    return old
+}
+    注意，Person的两个方法Grow和Move的接收者类型都是*Person，而不是Person。只要一个方法的接收者类型是其所属类型的指针类型而不是该类型本身，那么我就可以称该方法为一个指针方法。上面的Grow方法和Move方法都是Person类型的指针方法。
+  
+    相对的，如果一个方法的接收者类型就是其所属的类型本身，那么我们就可以把它叫做值方法。我们只要微调一下Grow方法的接收者类型就可以把它从指针方法变为值方法：
+
+func (person Person) Grow() {
+    person.Age++
+}
+    那指针方法和值方法到底有什么区别呢？我们在保留上述修改的前提下编写如下代码：
+
+p := Person{"Robert", "Male", 33, "Beijing"}
+p.Grow()
+fmt.Printf("%v\n", p)   
+    这段代码被执行后，标准输出会打印出什么内容呢？直觉上，34会被打印出来，但是被打印出来的却是33。这是怎么回事呢？Grow方法的功能失效了？！
+  
+    解答这个问题需要引出一条定论：方法的接收者标识符所代表的是该方法当前所属的那个值的一个副本，而不是该值本身。例如，在上述代码中，Person类型的Grow方法的接收者标识符person代表的是p的值的一个拷贝，而不是p的值。我们在调用Grow方法的时候，Go语言会将p的值复制一份并将其作为此次调用的当前值。正因为如此，Grow方法中的person.Age++语句的执行会使这个副本的Age字段的值变为34，而p的Age字段的值却依然是33。这就是问题所在。
+  
+    只要我们把Grow变回指针方法就可以解决这个问题。原因是，这时的person代表的是p的值的指针的副本。指针的副本仍会指向p的值。另外，之所以选择表达式person.Age成立，是因为如果Go语言发现person是指针并且指向的那个值有Age字段，那么就会把该表达式视为(*person).Age。其实，这时的person.Age正是(*person).Age的速记法。
+
+
+
 #### Bit数组
 
 #### 封装
@@ -1021,6 +1222,89 @@ func f(out io.Writer) {
 }
 ```
 当main函数调用函数f时，它给f函数的out参数赋了一个*bytes.Buffer的空指针，所以out的动态值是nil。然而，它的动态类型是*bytes.Buffer，意思就是out变量是一个包含空指针值的非空接口，所以防御性检查out!=nil的结果依然是true。解决方案就是将main函数中的变量buf的类型改为io.Writer。
+
+
+
+
+
+ 在Go语言中，一个接口类型总是代表着某一种类型（即所有实现它的类型）的行为。一个接口类型的声明通常会包含关键字type、类型名称、关键字interface以及由花括号包裹的若干方法声明。示例如下：
+
+type Animal interface {
+    Grow()
+    Move(string) string
+}
+    注意，接口类型中的方法声明是普通的方法声明的简化形式。它们只包括方法名称、参数声明列表和结果声明列表。其中的参数的名称和结果的名称都可以被省略。不过，出于文档化的目的，我还是建议大家在这里写上它们。因此，Move方法的声明至少应该是这样的：
+
+Move(new string) (old string)
+    如果一个数据类型所拥有的方法集合中包含了某一个接口类型中的所有方法声明的实现，那么就可以说这个数据类型实现了那个接口类型。所谓实现一个接口中的方法是指，具有与该方法相同的声明并且添加了实现部分（由花括号包裹的若干条语句）。相同的方法声明意味着完全一致的名称、参数类型列表和结果类型列表。其中，参数类型列表即为参数声明列表中除去参数名称的部分。一致的参数类型列表意味着其长度以及顺序的完全相同。对于结果类型列表也是如此。
+  
+    例如，如果你正确地完成了上一小节的练习的话，*Person类型（注意，不是Person类型）就会拥有一个Move方法。该方法会是Animal接口的Move方法的一个实现。再加上我们在之前为它编写的那个Grow方法，*Person类型就可以被看做是Animal接口的一个实现类型了。
+  
+    你可能已经意识到，我们无需在一个数据类型中声明它实现了哪个接口。只要满足了“方法集合为其超集”的条件，就建立了“实现”关系。这是典型的无侵入式的接口实现方法。
+  
+    好了，现在我们已经认为*Person类型实现了Animal接口。但是Go语言编译器是否也这样认为呢？这显然需要一种显式的判定方法。在Go语言中，这种判定可以用类型断言来实现。不过，在这里，我们是不能在一个非接口类型的值上应用类型断言来判定它是否属于某一个接口类型的。我们必须先把前者转换成空接口类型的值。这又涉及到了Go语言的类型转换。
+  
+    Go语言的类型转换规则定义了是否能够以及怎样可以把一个类型的值转换另一个类型的值。另一方面，所谓空接口类型即是不包含任何方法声明的接口类型，用interface{}表示，常简称为空接口。正因为空接口的定义，Go语言中的包含预定义的任何数据类型都可以被看做是空接口的实现。我们可以直接使用类型转换表达式把一个*Person类型转换成空接口类型的值，就像这样：
+
+p := Person{"Robert", "Male", 33, "Beijing"}
+v := interface{}(&p)
+    请注意第二行。在类型字面量后跟由圆括号包裹的值（或能够代表它的变量、常量或表达式）就构成了一个类型转换表达式，意为将后者转换为前者类型的值。在这里，我们把表达式&p的求值结果转换成了一个空接口类型的值，并由变量v代表。注意，表达式&p（&是取址操作符）的求值结果是一个*Person类型的值，即p的指针。
+  
+    在这之后，我们就可以在v上应用类型断言了，即：
+
+h, ok := v.(Animal)    
+    类型断言表达式v.(Animal)的求值结果可以有两个。第一个结果是被转换后的那个目标类型（这里是Animal）的值，而第二个结果则是转换操作成功与否的标志。显然，ok代表了一个bool类型的值。它也是这里判定实现关系的重要依据。
+  
+    至此，我们掌握了接口类型、实现类型以及实现关系判定的重要知识和技巧。关于Go语言的类型转换规则的更多细节请参看Go语言规范或《Go并发编程实战》中的相关内容。而至于为什么只有*Person类型才实现了Animal接口，请参看后面两节。
+
+
+
+
+
+
+
+
+  我们在讲接口的时候说过，如果一个数据类型所拥有的方法集合中包含了某一个接口类型中的所有方法声明的实现，那么就可以说这个数据类型实现了那个接口类型。要获知一个数据类型都包含哪些方法并不难。但是要注意指针方法与值方法的区别。
+  
+    拥有指针方法Grow和Move的指针类型*Person是接口类型Animal的实现类型，但是它的基底类型Person却不是。这样的表象隐藏着另一条规则：一个指针类型拥有以它以及以它的基底类型为接收者类型的所有方法，而它的基底类型却只拥有以它本身为接收者类型的方法。
+  
+    以上一小节练习题中的类型MyInt为例，如果Increase方法是它的指针方法且Decrease方法是它的值方法，那么*MyInt类型会拥有这两个方法，而MyInt类型仅拥有Decrease方法。再以Person类型为例。即使我们把Grow和Move都改为值方法，*Person类型也仍会是Animal接口的实现类型。另一方面，Grow和Move中只要有一个是指针方法，Person类型就不可能是Animal接口的实现类型。
+  
+    另外，还有一点需要大家注意，我们在基底类型的值上仍然可以调用它的指针方法。例如，若我们有一个Person类型的变量bp，则调用表达式bp.Grow()是合法的。这是因为，如果Go语言发现我们调用的Grow方法是bp的指针方法，那么它会把该调用表达式视为(&bp).Grow()。实际上，这时的bp.Grow()是(&bp).Grow()的速记法。
+
+
+```go
+package main
+
+import "fmt"
+
+type Pet interface {
+    Name() string
+    Age() uint8
+}
+
+type Dog struct {
+    name string
+    age uint8
+}
+
+func (d Dog) Name() string {
+    return d.name
+}
+
+func (d Dog) Age() uint8 {
+    return d.age
+}
+
+func main() {
+    myDog := Dog{"Little D", 3}
+    _, ok1 := interface{}(&myDog).(Pet)
+    _, ok2 := interface{}(myDog).(Pet)
+    fmt.Printf("%v, %v\n", ok1, ok2)  //true
+    //如果其中一个方法 或 两个方法都是指针方法，则ok2 == false
+}
+```
+
 
 #### sort.Interface接口
 Go语言的sort.Sort函数不会对具体的序列和它的元素做任何假设。它使用了一个接口类型sort.Interface来指定通用的排序算法。序列的表示经常是一个切片。
@@ -1479,13 +1763,6 @@ func add(x, y int) (z int) {
 const数组？？？？？
 
 
-//s是string
-for i, c:= range s {
-    s[i] 是byte
-    c 是 rune
-}
-
-
 
 
 
@@ -1505,6 +1782,9 @@ go get 从远程仓库下载并安装代码包。
 -d 只下载不安装。
 -fix 修复老版本不兼容问题。
 -u 更新本地代码包。
+
+
+
 
 
 

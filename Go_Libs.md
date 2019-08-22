@@ -51,14 +51,14 @@ func main() {
 }
 // wrma is 32 years old.
 ```
-以上函数接受的参数都是借口类型！
+以上函数接受的参数都是接口类型！
 
 #### fmt.Stringer接口：
     该接口包含String()函数。任何类型只要定义了String()函数，进行Print输出时，就可以得到定制输出。
     fmt.Println会判断这个变量是否实现了Stringer接口，如果实现了，则调用这个变量的String()方法。
 ```go
 type Stringer interface {
-        String() string
+    String() string
 }
 
 package main
@@ -83,6 +83,77 @@ func main() {
 }
 // Gopher (2)
 ```
+
+---
+
+## io
+
+在Go中，输入和输出操作是使用原语实现的，这些原语将数据模拟成可读的或可写的字节流。Go的io包提供了io.Reader和io.Writer接口，分别用于数据的输入和输出，如图：
+![io](./file/img/io.png)
+
+### io.Reader
+io.Reader表示一个读取器，它将数据从某个资源读取到传输缓冲区。在缓冲区中，数据可以被流式传输和使用。对于要用作读取器的类型，它必须实现io.Reader接口的唯一方法 `Read(p []byte)`。换句话说，只要实现了`Read(p []byte)`，那它就是一个读取器。
+```go
+type Reader interface {
+    Read(p []byte) (n int, err error)
+}
+```
+Read()方法有两个返回值，一个是读取到的字节数，一个是发生错误时的错误。同时，如果资源内容已全部读取完毕，应该返回io.EOF错误。
+
+### io.Writer
+io.Writer表示一个编写器，它从缓冲区读取数据，并将数据写入目标资源。对于要用作编写器的类型，必须实现io.Writer接口的唯一方法`Write(p []byte)`，只要实现了`Write(p []byte)`，那它就是一个编写器。
+```go
+type Writer interface {
+    Write(p []byte) (n int, err error)
+}
+```
+Write()方法有两个返回值，一个是写入到目标资源的字节数，一个是发生错误时的错误。
+
+### 其他用到io.Reader/io.Writer的类型，方法
+类型os.File表示本地系统上的文件。它实现了io.Reader和io.Writer，因此可以在任何io上下文中使用。
+
+缓冲区io，标准库中bufio包支持缓冲区io操作，可以轻松处理文本内容。例如：bufio.Scanner。
+
+ioutil，io包下面的一个子包ioutil封装了一些非常方便的功能，例如，使用函数ReadFile将文件内容加载到[]byte中。ioutil.ReadFile和ioutil.WriteFile都使用*os.File的Read和Write方法。
+
+
+
+strings.NewReader方法，将string打包成reader返回
+
+os.Stdin
+
+os.Open
+
+
+---
+
+bufio
+
+bufio.NewReader
+bufio.NewREader.Peek()
+bufio.NewReader.ReadString()
+bufio.NewReader.Buffered()
+
+bufio
+NewWriter
+Flush
+
+
+os.Open 获取文件句柄，然后传入bufio new reader.
+reader 有readline函数
+isPrefix 判断？
+，
+
+
+读取图片文件头bmp
+binary.Read方法   传入图片句柄
+littelEndian 读取每个field.
+
+可以自定义文件头结构体
+直接将结构体实例传入binary.Read 
+
+
+
 ---
 
 ## time
@@ -493,35 +564,8 @@ server.Serve(l)
 ## text?
 text/tabwriter
 
-## io
 
-在Go中，输入和输出操作是使用原语实现的，这些原语将数据模拟成可读的或可写的字节流。Go的io包提供了io.Reader和io.Writer接口，分别用于数据的输入和输出，如图：
-![io](./file/img/io.png)
 
-### io.Reader
-io.Reader表示一个读取器，它将数据从某个资源读取到传输缓冲区。在缓冲区中，数据可以被流式传输和使用。对于要用作读取器的类型，它必须实现io.Reader接口的唯一方法 `Read(p []byte)`。换句话说，只要实现了`Read(p []byte)`，那它就是一个读取器。
-```go
-type Reader interface {
-    Read(p []byte) (n int, err error)
-}
-```
-Read()方法有两个返回值，一个是读取到的字节数，一个是发生错误时的错误。同时，如果资源内容已全部读取完毕，应该返回io.EOF错误。
-
-### io.Writer
-io.Writer表示一个编写器，它从缓冲区读取数据，并将数据写入目标资源。对于要用作编写器的类型，必须实现io.Writer接口的唯一方法`Write(p []byte)`，只要实现了`Write(p []byte)`，那它就是一个编写器。
-```go
-type Writer interface {
-    Write(p []byte) (n int, err error)
-}
-```
-Write()方法有两个返回值，一个是写入到目标资源的字节数，一个是发生错误时的错误。
-
-### 其他用到io.Reader/io.Writer的类型，方法
-类型os.File表示本地系统上的文件。它实现了io.Reader和io.Writer，因此可以在任何io上下文中使用。
-
-缓冲区io，标准库中bufio包支持缓冲区io操作，可以轻松处理文本内容。例如：bufio.Scanner。
-
-ioutil，io包下面的一个子包ioutil封装了一些非常方便的功能，例如，使用函数ReadFile将文件内容加载到[]byte中。ioutil.ReadFile和ioutil.WriteFile都使用*os.File的Read和Write方法。
 
 
 ### sort

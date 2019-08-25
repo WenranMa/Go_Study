@@ -2,6 +2,20 @@
 
 ### String
 
+##### 1108. Defanging an IP Address
+
+    Given a valid (IPv4) IP address, return a defanged version of that IP address.
+    A defanged IP address replaces every period "." with "[.]".
+
+    Example:
+    Input: address = "255.100.50.0"
+    Output: "255[.]100[.]50[.]0"
+```go
+func defangIPaddr(address string) string {
+    return strings.Replace(address, ".", "[.]", -1)
+}
+```
+
 ##### 657.Robot Return to Origin
 There is a robot starting at position (0, 0), the origin, on a 2D plane. Given a sequence of its moves, judge if this robot ends up at (0, 0) after it completes its moves.
 

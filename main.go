@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	//"strconv"
+	"io"
+	"os"
 )
 
 type S struct {
@@ -13,8 +15,14 @@ type S struct {
 type C float64
 type F float64
 
+// func main() {
+// 	test6()
+// }
+
 func main() {
-	test6()
+	file, _ := os.Open("./test.txt")
+	defer file.Close()
+	io.Copy(os.Stdout, file)
 }
 
 func deepNum(deep int, ret []int, ans *[][]int) {

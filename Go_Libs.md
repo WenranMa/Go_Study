@@ -1,7 +1,7 @@
 # Go Libs
 
 ## fmt
-#### 常用函数：
+### 常用函数：
 ```go
 func Errorf(format string, a ...interface{}) error
 ```
@@ -27,8 +27,9 @@ func Printf(format string, a ...interface{}) (n int, err error)
 
 func Println(a ...interface{}) (n int, err error)
 //直接打印并换行
-
-以上三个函数分别用实现
+```
+以上三个函数分别用下面三个函数实现：
+```go
 func Fprint(w io.Writer, a ...interface{}) (n int, err error)
 func Fprintf(w io.Writer, format string, a ...interface{}) (n int, err error)
 func Fprintln(w io.Writer, a ...interface{}) (n int, err error)
@@ -53,9 +54,8 @@ func main() {
 ```
 以上函数接受的参数都是接口类型！
 
-#### fmt.Stringer接口：
-    该接口包含String()函数。任何类型只要定义了String()函数，进行Print输出时，就可以得到定制输出。
-    fmt.Println会判断这个变量是否实现了Stringer接口，如果实现了，则调用这个变量的String()方法。
+### fmt.Stringer接口：
+该接口包含String()函数。任何类型只要定义了String()函数，进行Print输出时，就可以得到定制输出。fmt.Println会判断这个变量是否实现了Stringer接口，如果实现了，则调用这个变量的String()方法。
 ```go
 type Stringer interface {
     String() string
@@ -87,8 +87,7 @@ func main() {
 ---
 
 ## io
-
-在Go中，输入和输出操作是使用原语实现的，这些原语将数据模拟成可读的或可写的字节流。Go的io包提供了io.Reader和io.Writer接口，分别用于数据的输入和输出，如图：
+Go的io包提供了io.Reader和io.Writer接口，分别用于数据的输入和输出，如图：
 ![io](./file/img/io.png)
 
 ### io.Reader
@@ -110,47 +109,148 @@ type Writer interface {
 Write()方法有两个返回值，一个是写入到目标资源的字节数，一个是发生错误时的错误。
 
 ### 其他用到io.Reader/io.Writer的类型，方法
+#### os.File
 类型os.File表示本地系统上的文件。它实现了io.Reader和io.Writer，因此可以在任何io上下文中使用。
+```go
+func main() {
+    test := []string{"Hello ", "World\n",}
+    file, err := os.Create("./test.txt") //返回*os.File类型
+    if err != nil {
+        fmt.Println(err)
+        os.Exit(1)
+    }
+    defer file.Close()
+    for _, p := range test {
+        // file 类型实现了 io.Writer
+        n, err := file.Write([]byte(p))
+        if err != nil {
+            fmt.Println(err)
+            os.Exit(1)
+        }
+        if n != len(p) {
+            fmt.Println("failed to write data")
+            os.Exit(1)
+        }
+    }
+    fmt.Println("file write done")
+}
 
-缓冲区io，标准库中bufio包支持缓冲区io操作，可以轻松处理文本内容。例如：bufio.Scanner。
+func main() {
+    file, err := os.Open("./test.txt") //返回*os.File类型
+    if err != nil {
+        fmt.Println(err)
+        os.Exit(1)
+    }
+    defer file.Close()
+    p := make([]byte, 4)
+    for {
+        n, err := file.Read(p)
+        if err == io.EOF {
+            break
+        }
+        fmt.Print(string(p[:n]))
+    }
+}
+```
 
-ioutil，io包下面的一个子包ioutil封装了一些非常方便的功能，例如，使用函数ReadFile将文件内容加载到[]byte中。ioutil.ReadFile和ioutil.WriteFile都使用*os.File的Read和Write方法。
+#### os.Stdout/os.Stdin/os.Stderr
+os包中的三个变量，它们的类型为*os.File，分别代表系统标准输入，系统标准输出和系统标准错误的文件句柄。因为是*os.File类型，所以也实现了io.Read和io.Write方法。
+```go
+func main() {
+    test := []string{"Hello ", "World\n"}
+    for _, p := range test {
+        os.Stdout.Write([]byte(p))
+    }
+}
+```
+
+#### io.Copy()
+io.Copy()可以轻松地将数据从一个Reader拷贝到另一个Writer。接收的参数为writer和reader。
+```go
+func main() {
+    file, _ := os.Open("./test.txt")
+    defer file.Close()
+    io.Copy(os.Stdout, file) //os.Stdout, file都是*os.File类型，所以是writer和reader.
+}
+```
+
+#### io.WriteString()
+将字符串类型写入一个Writer：`io.WriteString(file, "Go is fun!")`
+
+#### bufio
+缓冲区io，标准库中bufio包支持缓冲区io操作，可以轻松处理文本内容。
+例如`bufio.NewReader`和`bufio.NewWriter`本别可以接收一个`io.Reader`和`io.Writer`参数，然后返回`*bufio.Reader`和`*bufio.Writer`。可以实现更高效的读写操作。
+
+#### ioutil
+io包下面的一个子包ioutil封装了一些非常方便的功能，例如，使用函数ReadFile将文件内容加载到[]byte中。`ioutil.ReadFile`和`ioutil.WriteFile`都使用`*os.File`的Read和Write方法。
+
+#### strings.NewReader()
+strings包下也有strings.Reader类型，可以将string打包，返回`*strings.Reader`返回。
+
+---
+
+## stirngs
+Contains,
+用Index实现，返回字符index.
+Split 切割字符串 返回字符串数组
+Join 合并字符串
+
+HasPrefix
+HasSuffix
+判断是否有前缀或后缀，返回bool
+
+字符串类型转换
+strconv包：
+Itoa
+Aoti
+
+ParseBool
+ParseFloat
+
+FormatBool
+FormatInt
+
+### encoding/xml encoding/json
+Marshal() 返回[]byte数组
+print(string([]byte))
+
+MarshalIndent()
+
+Unmarshl
+
+可以用于sturct to xml
+结构体加tag `xml:"age,attr"` 可以把结构体的field变成 xml标签中的属性。
+
+xml.NewDecoder
+for循环遍历decoder.Tocken()
 
 
 
-strings.NewReader方法，将string打包成reader返回
+### os.Args
 
-os.Stdin
+### flag
+flag.String()
+flag.Int()
+flag.Parse()
 
-os.Open
+flag.StringVar()
+flag.IntVar()
+
+NArg()
+Usage()
+
 
 
 ---
 
-bufio
 
-bufio.NewReader
-bufio.NewREader.Peek()
-bufio.NewReader.ReadString()
-bufio.NewReader.Buffered()
-
-bufio
-NewWriter
-Flush
+## text
+text/tabwriter
 
 
-os.Open 获取文件句柄，然后传入bufio new reader.
-reader 有readline函数
-isPrefix 判断？
-，
 
 
-读取图片文件头bmp
-binary.Read方法   传入图片句柄
-littelEndian 读取每个field.
 
-可以自定义文件头结构体
-直接将结构体实例传入binary.Read 
 
 
 
@@ -173,14 +273,11 @@ time包提供了时间的显示和计量用的功能。日历的计算采用的�
 代表一个地区，并表示该地区所在的时区（可能多个）。Location 通常代表地理位置的偏移，比如 CEST 和 CET 表示中欧。下一节将详细讲解 Location。
 
 1.4. Timer 和 Ticker
-这是定时器相关类型。本章最后会讨论定时器。
 
 1.5. Weekday 和 Month
 这两个类型的原始类型都是 int，定义它们，语义更明确，同时，实现 fmt.Stringer 接口，方便输出。
 
-## os
-os.Stdin
-os.Stderr??
+---
 
 ## os/signal
 信号是事件发生时对进程的通知机制。有时也称之为软件中断。因为一个具有合适权限的进程可以向另一个进程发送信号，这可以称为进程间的一种同步技术。当然，进程也可以向自身发送信号。然而，发往进程的诸多信号，通常都是源于内核。引发内核为进程产生信号的各类事件有：
@@ -331,7 +428,7 @@ Unix 和信号处理相关的很多系统调用，Go 都隐藏起来了，Go 中
 
 
 
-------
+---
 
 
 golang中对信号的处理主要使用os/signal包中的两个方法：一个是Notify方法用来监听收到的信号；一个是Stop方法用来取消监听。
@@ -554,18 +651,7 @@ server.Serve(l)
 
 
 
-
-
-
-## flag
-
 ## net
-
-## text?
-text/tabwriter
-
-
-
 
 
 ### sort
@@ -574,3 +660,6 @@ text/tabwriter
 
 
 
+---
+
+LittelEndian

@@ -4,8 +4,8 @@
 ### 常用函数：
 ```go
 func Errorf(format string, a ...interface{}) error
+//Errorf returns the string as a value that satisfies error.
 ```
-Errorf returns the string as a value that satisfies error.
 ```go
 package main
 import (
@@ -87,8 +87,7 @@ func main() {
 ---
 
 ## io
-Go的io包提供了io.Reader和io.Writer接口，分别用于数据的输入和输出，如图：
-![io](./file/img/io.png)
+Go的io包提供了io.Reader和io.Writer接口，分别用于数据的输入和输出。
 
 ### io.Reader
 io.Reader表示一个读取器，它将数据从某个资源读取到传输缓冲区。在缓冲区中，数据可以被流式传输和使用。对于要用作读取器的类型，它必须实现io.Reader接口的唯一方法 `Read(p []byte)`。换句话说，只要实现了`Read(p []byte)`，那它就是一个读取器。
@@ -190,25 +189,32 @@ strings包下也有strings.Reader类型，可以将string打包，返回`*string
 ---
 
 ## stirngs
-Contains,
-用Index实现，返回字符index.
-Split 切割字符串 返回字符串数组
-Join 合并字符串
+Package strings implements simple functions to manipulate UTF-8 encoded strings.
+##### 常用函数：
+```go
+Contains(s, substr string) bool, //用Index()函数实现。
+Index(s, substr string) int //返回字符index。
+Split(s sep string) []string //切割字符串，返回字符串数组。
+Join(a []string, sep string) string //合并字符串。
+HasPrefix(s, prefix string) bool
+HasSuffix(s, suffix string) bool //判断是否有前缀或后缀，返回bool。
+```
 
-HasPrefix
-HasSuffix
-判断是否有前缀或后缀，返回bool
+## strconv
+Package strconv implements conversions to and from string representations of basic data types.
+##### 常用函数：
+```go
+Aoti(s string) (int, error) //String to Integer.
+Itoa(i int) string // Integer to string. FormatInt()函数实现。
+ParseBool(s string) (bool, error) //字符串1,t,T,TRUE,true,True,0,f,F,FALSE,false,False都可以返回。
+//还有其他类型的parse函数。将字符串parse成对应类型。
+FormatBool(b bool) string //将boolean转成string.
+//还有其他类型的format函数，将该类型转成string.
+```
 
-字符串类型转换
-strconv包：
-Itoa
-Aoti
+https://blog.golang.org/strings
 
-ParseBool
-ParseFloat
-
-FormatBool
-FormatInt
+---
 
 ### encoding/xml encoding/json
 Marshal() 返回[]byte数组
@@ -246,11 +252,6 @@ Usage()
 
 ## text
 text/tabwriter
-
-
-
-
-
 
 
 
@@ -654,11 +655,15 @@ server.Serve(l)
 ## net
 
 
-### sort
+## sort
 
+## bytes
 
+## encoding
 
+## template
 
+## reflect
 
 ---
 

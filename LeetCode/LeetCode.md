@@ -70,6 +70,63 @@ func removeOuterParentheses(S string) string {
 }
 ```
 
+##### 763. Partition Labels
+A string S of lowercase letters is given. We want to partition this string into as many parts as possible so that each letter appears in at most one part, and return a list of integers representing the size of these parts.
+
+Example:
+
+    Input: S = "ababcbacadefegdehijhklij"
+    Output: [9,7,8]
+    Explanation:
+    The partition is "ababcbaca", "defegde", "hijhklij".
+    This is a partition so that each letter appears in at most one part.
+    A partition like "ababcbacadefegde", "hijhklij" is incorrect, because it splits S into less parts.
+Note:
+
+    S will have length in range [1, 500].
+    S will consist of lowercase letters ('a' to 'z') only.
+
+```go
+func partitionLabels(S string) []int {
+    l := len(S)
+    res := []int{}
+    tail := 0
+    for head := 0; head < l; head = tail + 1 {
+        tail = head
+        for j := head; j <= tail; j++ {
+            for k := l - 1; k > tail; k-- {
+                if S[j] == S[k] && k > tail {
+                    tail = k
+                }
+            }
+        }
+        res = append(res, tail-head+1)
+    }
+    return res
+}
+//O(n^3) ?
+
+//Better solution O(n) time, O(n) space.
+func partitionLabels(S string) []int {
+    res := []int{}
+    tail := 0
+    head := 0
+    lastIndex := make(map[rune]int) // map[int32]int is also ok.
+    for i, c := range S {
+        lastIndex[c] = i
+    }
+    for i, c := range S {
+        m := math.Max(float64(tail), float64(lastIndex[c]))
+        tail = int(m)
+        if i == tail {
+            res = append(res, tail-head+1)
+            head = tail + 1
+        }
+    }
+    return res
+}
+```
+
 ##### 657.Robot Return to Origin
 There is a robot starting at position (0, 0), the origin, on a 2D plane. Given a sequence of its moves, judge if this robot ends up at (0, 0) after it completes its moves.
 
@@ -784,6 +841,85 @@ func countOnes(n int) int {
 ---
 
 ### Array 数组 and Two Pass 双指针
+
+##### 1046. Last Stone Weight
+We have a collection of rocks, each rock has a positive integer weight.
+
+Each turn, we choose the two heaviest rocks and smash them together.  Suppose the stones have weights x and y with x <= y.  The result of this smash is:
+
+If x == y, both stones are totally destroyed;
+If x != y, the stone of weight x is totally destroyed, and the stone of weight y has new weight y-x.
+At the end, there is at most 1 stone left.  Return the weight of this stone (or 0 if there are no stones left.)
+
+Example:
+
+    Input: [2,7,4,1,8,1]
+    Output: 1
+    Explanation:
+    We combine 7 and 8 to get 1 so the array converts to [2,4,1,1,1] then,
+    we combine 2 and 4 to get 2 so the array converts to [2,1,1,1] then,
+    we combine 2 and 1 to get 1 so the array converts to [1,1,1] then,
+    we combine 1 and 1 to get 0 so the array converts to [1] then that's the value of last stone.
+
+Note:
+
+    1 <= stones.length <= 30
+    1 <= stones[i] <= 1000
+
+```go
+func lastStoneWeight(stones []int) int {
+    for len(stones) > 1 {
+        sort.Ints(stones)
+        l := len(stones)
+        m1 := 0
+        m2 := 0
+        if l > 1 {
+            m1 = stones[l-1]
+            m2 = stones[l-2]
+            stones = stones[0 : l-2]
+            if m1 > m2 {
+                stones = append(stones, m1-m2)
+            }
+        }
+    }
+    if len(stones) == 1 {
+        return stones[0]
+    }
+    return 0
+}
+```
+
+##### 1051. Height Checker
+Students are asked to stand in non-decreasing order of heights for an annual photo.
+
+Return the minimum number of students not standing in the right positions.  (This is the number of students that must move in order for all students to be standing in non-decreasing order of height.)
+
+Example:
+
+    Input: [1,1,4,2,1,3]
+    Output: 3
+    Explanation:
+    Students with heights 4, 3 and the last 1 are not standing in the right positions.
+
+Note:
+
+    1 <= heights.length <= 100
+    1 <= heights[i] <= 100
+```go
+func heightChecker(heights []int) int {
+    sorted := make([]int, len(heights))
+    copy(sorted, heights)
+    sort.Ints(sorted)
+    res := 0
+    for i, e := range heights {
+        if e != sorted[i] {
+            res += 1
+        }
+    }
+    return res
+}
+```
+
 
 ##### 167.Two Sum II - Input array is sorted
 Given an array of integers that is already sorted in ascending order, find two numbers such that they add up to a specific target number. The function twoSum should return indices of the two numbers such that they add up to the target, where index1 must be less than index2.
@@ -1716,6 +1852,113 @@ func flip(A [][]int) [][]int {
 
 ### Map 
 
+#### 890. Find and Replace Pattern
+You have a list of words and a pattern, and you want to know which words in words matches the pattern.
+
+A word matches the pattern if there exists a permutation of letters p so that after replacing every letter x in the pattern with p(x), we get the desired word.
+
+(Recall that a permutation of letters is a bijection from letters to letters: every letter maps to another letter, and no two letters map to the same letter.)
+
+Return a list of the words in words that match the given pattern.
+
+You may return the answer in any order.
+
+Example:
+
+    Input: words = ["abc","deq","mee","aqq","dkd","ccc"], pattern = "abb"
+    Output: ["mee","aqq"]
+    Explanation: "mee" matches the pattern because there is a permutation {a -> m, b -> e, ...}.
+    "ccc" does not match the pattern because {a -> c, b -> c, ...} is not a permutation,
+    since a and b map to the same letter.
+
+Note:
+
+    1 <= words.length <= 50
+    1 <= pattern.length = words[i].length <= 20
+
+```go
+//Two maps
+// O(N*K) time, space
+func findAndReplacePattern(words []string, pattern string) []string {
+    res := []string{}
+    for _, s := range words {
+        if check(s, pattern) {
+            res = append(res, s)
+        }
+    }
+    return res
+}
+
+func check(s, pattern string) bool {
+    mptos := make(map[byte]byte)
+    mstop := make(map[byte]byte)
+    l := len(s)
+    for i := 0; i < l; i++ {
+        if _, ok := mptos[pattern[i]]; !ok {
+            mptos[pattern[i]] = s[i]
+        }
+        if _, ok := mstop[s[i]]; !ok {
+            mstop[s[i]] = pattern[i]
+        }
+        if mptos[pattern[i]] != s[i] || mstop[s[i]] != pattern[i] {
+            return false
+        }
+    }
+    return true
+}
+```
+
+##### 1160. Find Words That Can Be Formed by Characters
+You are given an array of strings words and a string chars.
+
+A string is good if it can be formed by characters from chars (each character can only be used once).
+
+Return the sum of lengths of all good strings in words.
+
+Example:
+
+    Input: words = ["cat","bt","hat","tree"], chars = "atach"
+    Output: 6
+    Explanation:
+    The strings that can be formed are "cat" and "hat" so the answer is 3 + 3 = 6.
+
+    Input: words = ["hello","world","leetcode"], chars = "welldonehoneyr"
+    Output: 10
+    Explanation:
+    The strings that can be formed are "hello" and "world" so the answer is 5 + 5 = 10.
+
+Note:
+
+    1 <= words.length <= 1000
+    1 <= words[i].length, chars.length <= 100
+    All strings contain lowercase English letters only.
+
+```go
+func countCharacters(words []string, chars string) int {
+    res := 0
+    for _, w := range words {
+        if check(w, chars) {
+            res = res + len(w)
+        }
+    }
+    return res
+}
+
+func check(w, chars string) bool {
+    m := make(map[rune]int)
+    for _, c := range chars {
+        m[c] += 1
+    }
+    for _, c := range w {
+        m[c] -= 1
+        if m[c] < 0 {
+            return false
+        }
+    }
+    return true
+}
+```
+
 ##### 1. Two Sum
 Given an array of integers, return indices of the two numbers such that they add up to a specific target. You may assume that each input would have exactly one solution, and you may not use the same element twice.
 
@@ -2120,6 +2363,55 @@ func findShortestSubArray(nums []int) int {
 ---
 
 ### Stack
+
+##### 921. Minimum Add to Make Parentheses Valid
+Given a string S of '(' and ')' parentheses, we add the minimum number of parentheses ( '(' or ')', and in any positions ) so that the resulting parentheses string is valid.
+
+Formally, a parentheses string is valid if and only if:
+
+It is the empty string, or
+It can be written as AB (A concatenated with B), where A and B are valid strings, or
+It can be written as (A), where A is a valid string.
+Given a parentheses string, return the minimum number of parentheses we must add to make the resulting string valid.
+
+Example:
+
+    Input: "())"
+    Output: 1
+
+    Input: "((("
+    Output: 3
+
+    Input: "()"
+    Output: 0
+
+    Input: "()))(("
+    Output: 4
+
+Note:
+
+    S.length <= 1000
+    S only consists of '(' and ')' characters.
+
+```go
+// Double counter, simulate stack, O(1) space, O(N) time.
+func minAddToMakeValid(S string) int {
+    c1 := 0
+    c2 := 0
+    for _, c := range S {
+        if c == '(' {
+            c1 += 1
+        } else {
+            if c1 == 0 {
+                c2 += 1
+            } else if c1 > 0 {
+                c1 -= 1
+            }
+        }
+    }
+    return c1 + c2
+}
+```
 
 ##### 682. Baseball Game
 You're now a baseball game point recorder. Given a list of strings, each string can be one of the 4 following types: 

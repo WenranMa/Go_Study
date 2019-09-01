@@ -250,9 +250,8 @@ fmt.Printf("%d %[1]x %#[1]x %#[1]X\n", x)
 ```
 %之后的[1]副词告诉Printf函数再次使用第一个操作数。%后的#副词告诉Printf在用%o、%x或%X输出时生成0、0x或0X前缀。
 
-
-
-一个rune类型的值即可表示一个Unicode字符。Unicode是一个可以表示世界范围内的绝大部分字符的编码规范。关于它的详细信息，大家可以参看其官网（http://unicode.org/）上的文档，或在Google上搜索。用于代表Unicode字符的编码值也被称为Unicode代码点。一个Unicode代码点通常由“U+”和一个以十六进制表示法表示的整数表示。例如，英文字母“A”的Unicode代码点为“U+0041”。
+##### rune
+一个rune类型的值即可表示一个Unicode字符。Unicode是一个可以表示世界范围内的绝大部分字符的编码规范。关于它的详细信息，大家可以参看其官网(http://unicode.org/)上的文档，或在Google上搜索。用于代表Unicode字符的编码值也被称为Unicode代码点。一个Unicode代码点通常由“U+”和一个以十六进制表示法表示的整数表示。例如，英文字母“A”的Unicode代码点为“U+0041”。
 
     rune类型的值需要由单引号“'”包裹。例如，'A'或'郝'。这种表示方法一目了然。不过，我们还可以用另外几种形式表示rune类型值。请看下表。  
 
@@ -290,7 +289,7 @@ fmt.Println(real(x*y))
 fmt.Println(imag(x*y))
 ```
 
-#### 字符串
+#### 字符串 String
 一个字符串是一个不可改变的字节序列。文本字符串通常被解释为采用UTF8编码的Unicode码点(Unicode码点对应Go语言中的rune整数类型，rune是int32等价类型)序列。内置的len函数可以返回一个字符串中的字节数目(不是rune字符数目)，索引操作s[i]返回第i个字节的字节值，i必须满足`0 ≤ i < len(s)`条件约束。子字符串操作s[i:j]。+操作符将两个字符串链接构造一个新字符串:
 ```go
 s := "hello, world"
@@ -322,6 +321,9 @@ import "unicode/utf8"
 s := "Hello, 世界"
 fmt.Println(len(s)) // "13" 
 fmt.Println(utf8.RuneCountInString(s)) // "9"
+
+//通过rune类型处理unicode字符
+fmt.Println("rune:", len([]rune(s))) // "9"
 ```
 range循环在处理字符串的时候，会自动隐式解码UTF8字符串。
 ```go
@@ -346,6 +348,36 @@ UTF8字符解码，如果遇到一个错误的UTF8编码输入，将生成一个
 
 一个`[]byte(str)` 转换是分配了一个新的字节数组用于保存字符串str的拷贝。
 将一个字节slice转到字符串的 string(b)操作则是构造一个字符串拷贝，以确保字符串是只读的。
+
+
+
+byte 等同于uint8，常用来处理ascii字符
+rune 等同于int32,常用来处理unicode或utf-8字符
+
+
+
+for loop of string
+```go
+func main() {
+    s := "abc"
+    for i := 0; i < len(s); i++ {
+        fmt.Println(reflect.TypeOf(s[i]))
+    }
+    for _, c := range s {
+        fmt.Println(reflect.TypeOf(c))
+    }
+}
+
+// uint8
+// uint8
+// uint8
+// int32
+// int32
+// int32
+```
+
+
+
 
 #### 常量
 常量表达式的值在编译期计算，而不是在运行期。常量的值不可修改，这样可以防止在运行期被意外或恶意的修改。如：`const pi = 3.14159` 。可以批量声明多个常量：

@@ -835,9 +835,6 @@ func countOnes(n int) int {
 }
 ```
 
-
-
-
 ---
 
 ### Array 数组 and Two Pass 双指针
@@ -920,6 +917,53 @@ func heightChecker(heights []int) int {
 }
 ```
 
+##### 1002. Find Common Characters
+Given an array A of strings made only from lowercase letters, return a list of all characters that show up in all strings within the list (including duplicates).  For example, if a character occurs 3 times in all strings but not 4 times, you need to include that character three times in the final answer.
+
+You may return the answer in any order.
+
+Example:
+
+    Input: ["bella","label","roller"]
+    Output: ["e","l","l"]
+
+    Input: ["cool","lock","cook"]
+    Output: ["c","o"]
+
+Note:
+
+    1 <= A.length <= 100
+    1 <= A[i].length <= 100
+    A[i][j] is a lowercase letter
+
+```go
+// Use one array "count" to store the frequency fo char in words.
+// If the chars frequency decrease, update "count"
+func commonChars(A []string) []string {
+    count := [26]int{}
+    for i, _ := range count {
+        count[i] = math.MaxUint16
+    }
+    for _, word := range A {
+        chars := [26]int{}
+        for _, c := range word {
+            chars[c-'a'] += 1
+        }
+        for i := 0; i < 26; i++ {
+            if chars[i] < count[i] {
+                count[i] = chars[i]
+            }
+        }
+    }
+    res := []string{}
+    for i, n := range count {
+        for j := 1; j <= n; j++ {
+            res = append(res, string('a'+i))
+        }
+    }
+    return res
+}
+```
 
 ##### 167.Two Sum II - Input array is sorted
 Given an array of integers that is already sorted in ascending order, find two numbers such that they add up to a specific target number. The function twoSum should return indices of the two numbers such that they add up to the target, where index1 must be less than index2.

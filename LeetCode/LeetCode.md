@@ -70,6 +70,43 @@ func removeOuterParentheses(S string) string {
 }
 ```
 
+##### 917. Reverse Only Letters
+Given a string S, return the "reversed" string where all characters that are not a letter stay in the same place, and all letters reverse their positions.
+
+Example:
+
+    Input: "ab-cd"
+    Output: "dc-ba"
+
+    Input: "a-bC-dEf-ghIj"
+    Output: "j-Ih-gfE-dCba"
+
+    Input: "Test1ng-Leet=code-Q!"
+    Output: "Qedo1ct-eeLg=ntse-T!"
+```go
+func reverseOnlyLetters(S string) string {
+    chars := []byte(S)
+    l := len(chars)
+    for i, j := 0, l-1; i < j; {
+        if !isChar(chars[i]) {
+            i++
+        }
+        if !isChar(chars[j]) {
+            j--
+        }
+        if isChar(chars[i]) && isChar(chars[j]) {
+            chars[i], chars[j] = chars[j], chars[i]
+            i++
+            j--
+        }
+    }
+    return string(chars)
+}
+func isChar(c byte) bool {
+    return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z'
+}
+```
+
 ##### 763. Partition Labels
 A string S of lowercase letters is given. We want to partition this string into as many parts as possible so that each letter appears in at most one part, and return a list of integers representing the size of these parts.
 
@@ -962,6 +999,120 @@ func commonChars(A []string) []string {
         }
     }
     return res
+}
+```
+
+##### 1103. Distribute Candies to People
+We distribute some number of candies, to a row of n = num_people people in the following way:
+
+We then give 1 candy to the first person, 2 candies to the second person, and so on until we give n candies to the last person.
+
+Then, we go back to the start of the row, giving n + 1 candies to the first person, n + 2 candies to the second person, and so on until we give 2 * n candies to the last person.
+
+This process repeats (with us giving one more candy each time, and moving to the start of the row after we reach the end) until we run out of candies.  The last person will receive all of our remaining candies (not necessarily one more than the previous gift).
+
+Return an array (of length num_people and sum candies) that represents the final distribution of candies.
+
+Example:
+
+    Input: candies = 7, num_people = 4
+    Output: [1,2,3,1]
+    Explanation:
+    On the first turn, ans[0] += 1, and the array is [1,0,0,0].
+    On the second turn, ans[1] += 2, and the array is [1,2,0,0].
+    On the third turn, ans[2] += 3, and the array is [1,2,3,0].
+    On the fourth turn, ans[3] += 1 (because there is only one candy left), and the final array is [1,2,3,1].
+
+    Input: candies = 10, num_people = 3
+    Output: [5,2,3]
+    Explanation:
+    On the first turn, ans[0] += 1, and the array is [1,0,0].
+    On the second turn, ans[1] += 2, and the array is [1,2,0].
+    On the third turn, ans[2] += 3, and the array is [1,2,3].
+    On the fourth turn, ans[0] += 4, and the final array is [5,2,3].
+```go
+func distributeCandies(candies int, num_people int) []int {
+    res := []int{}
+    for i := 0; i < num_people; i++ {
+        res = append(res, 0)
+    }
+    n := 0
+    for candies > 0 {
+        for i := 0; i < num_people; i++ {
+            if candies-(n*num_people+i+1) > 0 {
+                res[i] += (n*num_people + i + 1)
+                candies -= (n*num_people + i + 1)
+            } else {
+                res[i] += candies
+                candies = 0
+                continue
+            }
+        }
+        n += 1
+    }
+    return res
+}
+```
+
+##### 739. Daily Temperatures   ??????????
+Given a list of daily temperatures T, return a list such that, for each day in the input, tells you how many days you would have to wait until a warmer temperature. If there is no future day for which this is possible, put 0 instead.
+
+For example, given the list of temperatures T = [73, 74, 75, 71, 69, 72, 76, 73], your output should be [1, 1, 4, 2, 1, 1, 0, 0].
+
+Note: The length of temperatures will be in the range [1, 30000]. Each temperature will be an integer in the range [30, 100].
+
+```go
+func dailyTemperatures(T []int) []int {
+    res := []int{}
+    l := len(T)
+    for i := 0; i < l; i++ {
+        res = append(res, 0)
+    }
+    for i, t := range T {
+        for j := i; j < l; j++ {
+            if T[j] > t {
+                res[i] = j - i
+                break
+            }
+        }
+    }
+    return res
+}
+```
+
+##### 1089. Duplicate Zeros
+Given a fixed length array arr of integers, duplicate each occurrence of zero, shifting the remaining elements to the right.
+
+Note that elements beyond the length of the original array are not written.
+
+Do the above modifications to the input array in place, do not return anything from your function.
+
+Example:
+
+    Input: [1,0,2,3,0,4,5,0]
+    Output: null
+    Explanation: After calling your function, the input array is modified to: [1,0,0,2,3,0,0,4]
+
+    Input: [1,2,3]
+    Output: null
+    Explanation: After calling your function, the input array is modified to: [1,2,3]
+
+Note:
+
+    1 <= arr.length <= 10000
+    0 <= arr[i] <= 9
+
+```go
+func duplicateZeros(arr []int) {
+    l := len(arr)
+    for i := 0; i < l; i++ {
+        if arr[i] == 0 {
+            for j := l - 1; j > i; j-- {
+                arr[j] = arr[j-1]
+            }
+            i += 1
+        }
+    }
 }
 ```
 
@@ -1896,7 +2047,46 @@ func flip(A [][]int) [][]int {
 
 ### Map 
 
-#### 890. Find and Replace Pattern
+##### 575. Distribute Candies
+Given an integer array with even length, where different numbers in this array represent different kinds of candies. Each number means one candy of the corresponding kind. You need to distribute these candies equally in number to brother and sister. Return the maximum number of kinds of candies the sister could gain.
+
+Example:
+
+    Input: candies = [1,1,2,2,3,3]
+    Output: 3
+    Explanation:
+    There are three different kinds of candies (1, 2 and 3), and two candies for each kind.
+    Optimal distribution: The sister has candies [1,2,3] and the brother has candies [1,2,3], too.
+    The sister has three different kinds of candies.
+
+    Input: candies = [1,1,2,3]
+    Output: 2
+    Explanation: For example, the sister has candies [2,3] and the brother has candies [1,1].
+    The sister has two different kinds of candies, the brother has only one kind of candies.
+
+Note:
+
+    The length of the given array is in range [2, 10,000], and will be even.
+    The number in given array is in range [-100,000, 100,000].
+```go
+func distributeCandies(candies []int) int {
+    m := make(map[int]int)
+    for _, c := range candies {
+        m[c] = 1
+    }
+    l := len(candies)
+    k := len(m)
+    res := 0
+    if k > l/2 {
+        res = l / 2
+    } else {
+        res = k
+    }
+    return res
+}
+```
+
+##### 890. Find and Replace Pattern
 You have a list of words and a pattern, and you want to know which words in words matches the pattern.
 
 A word matches the pattern if there exists a permutation of letters p so that after replacing every letter x in the pattern with p(x), we get the desired word.

@@ -974,6 +974,42 @@ func countOnes(n int) int {
 
 ### Array 数组 and Two Pass 双指针
 
+##### 287. Find the Duplicate Number
+Given an array nums containing n + 1 integers where each integer is between 1 and n (inclusive), prove that at least one duplicate number must exist. Assume that there is only one duplicate number, find the duplicate one.
+
+Example:
+
+    Input: [1,3,4,2,2]
+    Output: 2
+    Example 2:
+
+    Input: [3,1,3,4,2]
+    Output: 3
+
+Note:
+
+    You must not modify the array (assume the array is read only).
+    You must use only constant, O(1) extra space.
+    Your runtime complexity should be less than O(n2).
+    There is only one duplicate number in the array, but it could be repeated more than once.
+```go
+func findDuplicate(nums []int) int {
+    slow := nums[0]
+    fast := nums[nums[0]]
+    for fast != slow {
+        slow = nums[slow]
+        fast = nums[nums[fast]]
+    }
+    fast = 0
+    for fast != slow {
+        slow = nums[slow]
+        fast = nums[fast]
+    }
+    return slow
+}
+//linked list cycle
+```
+
 ##### 1046. Last Stone Weight
 We have a collection of rocks, each rock has a positive integer weight.
 
@@ -2144,6 +2180,45 @@ func flip(A [][]int) [][]int {
 ---
 
 ### Map 
+
+##### 387. First Unique Character in a String
+Given a string, find the first non-repeating character in it and return it's index. If it doesn't exist, return -1.
+
+Examples:
+
+    s = "leetcode"
+    return 0.
+
+    s = "loveleetcode",
+    return 2.
+```go
+func firstUniqChar(s string) int {
+    m := make(map[rune]int)
+    for _, c := range s {
+        m[c] += 1
+    }
+    for i, c := range s {
+        if m[c] == 1 {
+            return i
+        }
+    }
+    return -1
+}
+
+// Use array instead of map, Faster!
+func firstUniqChar(s string) int {
+    m := [26]int{}
+    for _, c := range s {
+        m[c-'a'] += 1
+    }
+    for i, c := range s {
+        if m[c-'a'] == 1 {
+            return i
+        }
+    }
+    return -1
+}
+```
 
 ##### 575. Distribute Candies
 Given an integer array with even length, where different numbers in this array represent different kinds of candies. Each number means one candy of the corresponding kind. You need to distribute these candies equally in number to brother and sister. Return the maximum number of kinds of candies the sister could gain.

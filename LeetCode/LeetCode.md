@@ -531,6 +531,104 @@ func detectCapitalUse(word string) bool {
 
 ### Math and Bit Manipulation（位运算）
 
+##### 888. Fair Candy Swap
+Alice and Bob have candy bars of different sizes: A[i] is the size of the i-th bar of candy that Alice has, and B[j] is the size of the j-th bar of candy that Bob has.
+
+Since they are friends, they would like to exchange one candy bar each so that after the exchange, they both have the same total amount of candy.  (The total amount of candy a person has is the sum of the sizes of candy bars they have.)
+
+Return an integer array ans where ans[0] is the size of the candy bar that Alice must exchange, and ans[1] is the size of the candy bar that Bob must exchange.
+
+If there are multiple answers, you may return any one of them.  It is guaranteed an answer exists.
+
+Example:
+
+    Input: A = [1,1], B = [2,2]
+    Output: [1,2]
+    Example 2:
+
+    Input: A = [1,2], B = [2,3]
+    Output: [1,2]
+    Example 3:
+
+    Input: A = [2], B = [1,3]
+    Output: [2,3]
+    Example 4:
+
+    Input: A = [1,2,5], B = [2,4]
+    Output: [5,4]
+```go
+func fairCandySwap(A []int, B []int) []int {
+    suma := 0
+    sumb := 0
+    mb := make(map[int]int)
+    for _, a := range A {
+        suma += a
+    }
+    for _, b := range B {
+        sumb += b
+        mb[b] = 1
+    }
+    // solve the equation: suma - x +y = sumb - y + x
+    // y = x + (sumb - suma)/2
+    res := []int{}
+    for _, a := range A {
+        b := a + (sumb-suma)/2
+        if _, ok := mb[b]; ok {
+            res = append(res, a)
+            res = append(res, b)
+            break
+        }
+    }
+    return res
+}
+```
+
+
+##### 781. Rabbits in Forest
+In a forest, each rabbit has some color. Some subset of rabbits (possibly all of them) tell you how many other rabbits have the same color as them. Those answers are placed in an array.
+
+Return the minimum number of rabbits that could be in the forest.
+
+Examples:
+
+    Input: answers = [1, 1, 2]
+    Output: 5
+    Explanation:
+    The two rabbits that answered "1" could both be the same color, say red.
+    The rabbit than answered "2" can't be red or the answers would be inconsistent.
+    Say the rabbit that answered "2" was blue.
+    Then there should be 2 other blue rabbits in the forest that didn't answer into the array.
+    The smallest possible number of rabbits in the forest is therefore 5: 3 that answered plus 2 that didn't.
+
+    Input: answers = [10, 10, 10]
+    Output: 11
+
+    Input: answers = []
+    Output: 0
+```go
+// Map and math.
+// 用map记录每个数字出现次数。
+// 1. 如果数字N出现少于或等于N+1次，则这个颜色的兔子个数为N+1。
+// 2. 如果数字N出现大于N+1次，则要算出出现次数对N+1的倍数b，结果就是b*(N+1)。
+// 代码中(v-1)与(n+1)都是编程技巧，例如N=3, N+1=4, 则5~8的倍数都是2.
+func numRabbits(answers []int) int {
+    m := make(map[int]int)
+    for _, a := range answers {
+        m[a] += 1
+    }
+    res := 0
+    for k, v := range m {
+        if v <= k+1 {
+            res += (k + 1)
+        } else {
+            n := (v - 1) / (k + 1)
+            res += (k + 1) * (n + 1)
+        }
+    }
+    return res
+}
+```
+
 ##### 461. Hamming Distance
 The Hamming distance between two integers is the number of positions at which the corresponding bits are different.  
 Given two integers x and y, calculate the Hamming distance.

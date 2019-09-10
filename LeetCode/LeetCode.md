@@ -974,6 +974,32 @@ func countOnes(n int) int {
 
 ### Array 数组 and Two Pass 双指针
 
+##### 1122. Relative Sort Array
+Given two arrays arr1 and arr2, the elements of arr2 are distinct, and all elements in arr2 are also in arr1.
+
+Sort the elements of arr1 such that the relative ordering of items in arr1 are the same as in arr2.  Elements that don't appear in arr2 should be placed at the end of arr1 in ascending order.
+
+Example 1:
+
+    Input: arr1 = [2,3,1,3,2,4,6,7,9,2,19], arr2 = [2,1,4,3,9,6]
+    Output: [2,2,2,1,4,3,3,9,6,7,19]
+```go
+func relativeSortArray(arr1 []int, arr2 []int) []int {
+    res := []int{}
+    for _, n := range arr2 {
+        for j := len(arr1) - 1; j >= 0; j-- {
+            if n == arr1[j] {
+                res = append(res, n)
+                arr1 = append(arr1[:j], arr1[j+1:]...) // arr[j+1:] j+1 最大可以等于l,否则溢出。
+            }
+        }
+    }
+    sort.Ints(arr1)
+    res = append(res, arr1...)
+    return res
+}
+```
+
 ##### 287. Find the Duplicate Number
 Given an array nums containing n + 1 integers where each integer is between 1 and n (inclusive), prove that at least one duplicate number must exist. Assume that there is only one duplicate number, find the duplicate one.
 
@@ -1305,7 +1331,7 @@ func findDisappearedNumbers(nums []int) []int {
 ##### 442. Find All Duplicates in an Array
 Given an array of integers, 1 ≤ a[i] ≤ n (n = size of array), some elements appear twice and others appear once. Find all the elements that appear twice in this array. Could you do it without extra space and in O(n) runtime?
 
-Example:  
+Example:
 Input: [4,3,2,7,8,2,3,1]  
 Output: [2,3]
 ```go 
@@ -2770,6 +2796,78 @@ func findShortestSubArray(nums []int) int {
 ---
 
 ### Stack
+
+##### 1047. Remove All Adjacent Duplicates In String
+Given a string S of lowercase letters, a duplicate removal consists of choosing two adjacent and equal letters, and removing them.
+
+We repeatedly make duplicate removals on S until we no longer can.
+
+Return the final string after all such duplicate removals have been made.  It is guaranteed the answer is unique.
+
+Example 1:
+
+    Input: "abbaca"
+    Output: "ca"
+    Explanation:
+    For example, in "abbaca" we could remove "bb" since the letters are adjacent and equal, and this is the only possible move.  The result of this move is that the string is "aaca", of which only "aa" is possible, so the final string is "ca".
+
+Note:
+
+    1 <= S.length <= 20000
+    S consists only of English lowercase letters.
+```go
+func removeDuplicates(S string) string {
+    stack := []rune{}
+    for _, c := range S {
+        l := len(stack)
+        if l > 0 && stack[l-1] == c {
+            stack = stack[:l-1]
+        } else {
+            stack = append(stack, c)
+        }
+    }
+    return string(stack)
+}
+/*
+func removeDuplicates(S string) string {
+    b := Stack{}
+    for _, c := range S {
+        if b.peek() == c {
+            b.pop()
+        } else if b.peek() != c {
+            b.push(c)
+        }
+    }
+    return string(b.bs)
+}
+
+type Stack struct {
+    bs []rune
+}
+
+func (s *Stack) push(char rune) {
+    s.bs = append(s.bs, char)
+}
+
+func (s *Stack) pop() rune {
+    l := len(s.bs)
+    if l > 0 {
+        char := s.bs[l-1]
+        s.bs = s.bs[:l-1]
+        return char
+    }
+    return 0
+}
+
+func (s *Stack) peek() rune {
+    l := len(s.bs)
+    if l > 0 {
+        return s.bs[l-1]
+    }
+    return 0
+}
+*/
+```
 
 ##### 921. Minimum Add to Make Parentheses Valid
 Given a string S of '(' and ')' parentheses, we add the minimum number of parentheses ( '(' or ')', and in any positions ) so that the resulting parentheses string is valid.

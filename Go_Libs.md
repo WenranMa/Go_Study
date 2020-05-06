@@ -668,3 +668,76 @@ server.Serve(l)
 ---
 
 LittelEndian
+
+
+
+
+
+---
+
+## gRPC
+RPC is a acronym for Remote Procedure Call
+
+### Types of gRPC applications
+
+gRPC applications can be written using 3 types of processing, as follows:
+
+Unary RPCs: The simplest type and more close to classical RPC, consists of a client sending one message to a server, that makes some processing and returns one message as response;
+
+Server streams: On this type, the client sends one message for the server, but receives a stream of messages from the server. The client keeps reading the messages from the server until there is no more messages to read;
+
+Client streams: This type is the opposite of the server streams one, where on this case is the client who sends a stream of messages to make a request for the server and them waits for the server to produce a single response for the series of request messages provided;
+
+Bidirecional stream RPC: This is the more complex but also more dynamic of all the types. On this model, we have both client and server reading and writing on streams, which are stablished between the server and client. This streams are independent from each other, which means that could be possible for a client to send a message to a server by one stream and vice-versa at the same time. This allows us to make multiple processing scenarios, such as clients sending all the messages before the responses, clients and servers “ping-poinging” messages between each other and so on.
+
+Synch vs. Asynch
+As the name implies, synchronous processing occurs when we have a communication where the client thread is blocked when a message is sent and is been processed.
+
+Asynchronous processing occurs when we have this communication with the processing been done by other threads, making the whole process been non-blocking.
+
+On gRPC we have both styles of processing supported, so it is up to the developer to use the better approach for his solutions.
+
+Deadlines & timeouts
+A deadline stipulates how much time a gRPC client will wait on a RPC call to return before assuming a problem has happened. On the server’s side, the gRPC services can query this time, verifying how much time it has left.
+
+If a response couldn’t be received before the deadline is met, a DEADLINE_EXCEEDED error is thrown and the RPC call is terminated.
+
+RPC termination
+On gRPC, both clients and servers decide if a RPC call is finished or not locally and independently. This means that a server can decide to end a call before a client has transmitted all their messages and a client can decide to end a call before a server has transmitted one or all of their responses.
+
+This point is important to remember specially when working with streams, in a sense that logic must pay attention to possible RPC terminations when treating sequences of messages.
+
+Channels
+Channels are the way a client stub can connect with gRPC services on a given host and port. Channels can be configured specific by client, such as turning message compression on and off for a specific client.
+
+
+
+---
+
+## go mod 包管理
+
+#### 环境变量 GO111MODULE
+
+GO111MODULE 有三个值：off, on和auto（默认值）。
+
+- GO111MODULE=off，go命令行将不会支持module功能，寻找依赖包的方式将会沿用旧版本那种通过vendor目录或者GOPATH模式来查找。
+- GO111MODULE=on，go命令行会使用modules，而一点也不会去GOPATH目录下查找。
+- GO111MODULE=auto，默认值，go命令行将会根据当前目录来决定是否启用module功能。
+
+当modules 功能启用时，依赖包的存放位置变更为$GOPATH/pkg，允许同一个package多个版本并存，且多个项目可以共享缓存的 module。
+
+#### go mod
+golang 提供了 go mod命令来管理包。
+
+go mod 有以下命令：
+
+|命令   |说明   |
+| ------ | ------ |
+|download | download modules to local cache(下载依赖包) |
+|edit     | edit go.mod from tools or scripts（编辑go.mod |
+|graph    | print module requirement graph (打印模块依赖图) |
+|init     | initialize new module in current directory（在当前目录初始化mod）|
+|tidy     | add missing and remove unused modules(拉取缺少的模块，移除不用的模块) |
+|vendor   | make vendored copy of dependencies(将依赖复制到vendor下) |
+|verify   | verify dependencies have expected content (验证依赖是否正确）|
+|why      |explain why packages or modules are needed(解释为什么需要依赖)|

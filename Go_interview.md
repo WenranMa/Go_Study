@@ -392,7 +392,7 @@ A错在没有写类型，C错在字符串的空值是 `""` 而不是nil。
 5. 一个包被引用多次，如A import B，C import B，A import C，B被引用多次，但B包只会初始化一次；
 6. 引入包，不可出现死循环。即A import B，B import A，这种情况下编译失败；
 
-![image.png](file/img/init.png)
+![init](file/img/init.png)
 
 
 ## 17. 下面这段代码输出什么以及原因？
@@ -828,7 +828,7 @@ func main() {
 
 知识点：指针
 
-incr() 函数里的 p 是 `*int` 类型的指针，指向的是 main() 函数的变量 p 的地址。第 2 行代码是将该地址的值执行一个自增操作，incr() 返回自增后的结果。
+incr() 函数里的 p 是 `*int` 类型的指针，指向的是 main() 函数的变量 p 的地址。`*p++`操作的意思是取出变量的值并执行加一操作，incr() 返回自增后的结果。
 
 ## 36. 对 add() 函数调用正确的是（）
 
@@ -1578,7 +1578,7 @@ func main() {
 编译错误 `Student does not implement People (Speak method has pointer receiver)`，值类型 `Student` 没有实现接口的 `Speak()` 方法，而是指针类型 `*Student` 实现该方法。要通过编译应该写成 ` var peo People = &Student{}`。
 
 
-## 61. 下面这段代码输出什么？ --- TBD
+## 61. 下面这段代码输出什么？
 
 ```go
 const (
@@ -1642,6 +1642,8 @@ func main() {
 
 **解析：**
 
+结合26题。
+
 这道题会不会有点诧异，我们分配给变量 p 的值明明是 nil，然而 p 却不是 nil。记住一点，**当且仅当动态值和动态类型都为 nil 时，接口类型值才为 nil**。上面的代码，给变量 p 赋值之后，p 的动态值是 nil，但是动态类型却是 *Student，是一个 nil 指针，所以相等条件不成立。
 
 ## 63. 下面这段代码输出什么？
@@ -1670,6 +1672,8 @@ func main() {
 **解析：**
 
 知识点：iota 的用法、类型的 String() 方法。
+
+分别对应0，1，2，3。如果类型实现 String() 方法，当格式化输出时会自动使用 String() 方法。
 
 ## 64. 下面代码输出什么？
 
@@ -1732,7 +1736,7 @@ func main() {
    func main() {
        m["foo"].x = 4
        fmt.Println(m["foo"].x)
-       fmt.Printf("%#v", m["foo"])   // %#v 格式化输出详细信息
+       fmt.Printf("%#v", m["foo"])   // %#v 格式化输出详细信息，&main.Math{x:4, y:3}
    }
    ```
 
@@ -1809,7 +1813,7 @@ func main() {
 ```go
 func main() {
     v := []int{1, 2, 3}
-    for i := range v {
+    for i:= range v {
         v = append(v, i)
     }
 }
@@ -1821,7 +1825,7 @@ func main() {
 
 循环次数在循环开始前就已经确定，循环内改变切片的长度，不影响循环次数。
 
-## 68. 下面这段代码输出什么？为什么？
+## 68. 下面这段代码输出什么？为什么？  --- TBD
 
 ```go
 func main() {
@@ -1864,8 +1868,6 @@ for range 使用短变量声明(:=)的形式迭代变量，需要注意的是，
    }
    ```
 
-   
-
 2. **使用临时变量保留当前值**
 
    ```go
@@ -1878,9 +1880,7 @@ for range 使用短变量声明(:=)的形式迭代变量，需要注意的是，
    }
    ```
 
-   
-
-## 69. 下面这段代码输出什么？
+## 69. 下面这段代码输出什么？ -- TBD
 
 ```go
 func f(n int) (r int) {
@@ -2008,9 +2008,40 @@ func main() {
 
 知识点：可变函数、append()操作。
 
-Go 提供的语法糖`...`，可以将 slice 传进可变函数，不会创建新的切片。第一次调用 change() 时，append() 操作使切片底层数组发生了扩容，原 slice 的底层数组不会改变；第二次调用change() 函数时，使用了操作符`[i,j]`获得一个新的切片，假定为 slice1，它的底层数组和原切片底层数组是重合的，不过 slice1 的长度、容量分别是 2、5，所以在 change() 函数中对 slice1 底层数组的修改会影响到原切片。
+Go 提供的语法糖`...`，可以将 slice 传进可变函数，不会创建新的切片。第一次调用 change() 时，append() 操作使切片底层数组发生了扩容，change函数内部s的地址发生了变化，原 slice 的底层数组不会改变；第二次调用change() 函数时，使用了操作符`[i,j]`获得一个新的切片，假定为 slice1，它的底层数组和原切片底层数组是重合的，不过 slice1 的长度、容量分别是 2、5，所以在 change() 函数中对 slice1 底层数组的修改会影响到原切片。
 
-![golang](https://mmbiz.qpic.cn/mmbiz_png/zVM9HMBJAjNBQ3DzCQUrUbz7JAjAr57j8dQg8FHl2ic4oE0iajKxDSsgGxabGt1wJJEl9eHj76rE8XwcRXzXGorQ/640?wx_fmt=png&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
+```go
+// 这个代码帮助理解
+func change(s ...int) {
+	fmt.Println("IN: ", s, &s, &s[0])
+	s = append(s, 3)
+	fmt.Println("IN: ", s, &s, &s[0])
+}
+
+func main() {
+	slice := make([]int, 5, 5)
+	slice[0] = 1
+	slice[1] = 2
+
+	fmt.Println(slice, len(slice), cap(slice))
+	change(slice...)
+	fmt.Println(slice, len(slice), cap(slice))
+	change(slice[0:2]...)
+	fmt.Println(slice, len(slice), cap(slice))
+}
+
+/* 结果：
+[1 2 0 0 0] 5 5
+IN:  [1 2 0 0 0] &[1 2 0 0 0] 0xc00011a000
+IN:  [1 2 0 0 0 3] &[1 2 0 0 0 3] 0xc000124000
+[1 2 0 0 0] 5 5
+IN:  [1 2] &[1 2] 0xc00011a000
+IN:  [1 2 3] &[1 2 3] 0xc00011a000
+[1 2 3 0 0] 5 5
+*/
+```
+
+![slice](file/img/slice_01.webp)
 
 ## 72. 下面这段代码输出什么？
 
@@ -2038,13 +2069,13 @@ r =  [1 12 13 4 5]
 a =  [1 12 13 4 5]
 ```
 
-
-
 **解析：**
 
-切片在 go 的内部结构有一个指向底层数组的指针，当 range 表达式发生复制时，副本的指针依旧指向原底层数组，所以对切片的修改都会反应到底层数组上，所以通过 v 可以获得修改后的数组元素。
+结合70题，70题中a是数组。
 
-## 73. 下面这段代码输出结果正确正确吗？
+此题为切片，切片在 go 的内部结构有一个指向底层数组的指针，当 range 表达式发生复制时，副本的指针依旧指向原底层数组，所以对切片的修改都会反应到底层数组上，所以通过 v 可以获得修改后的数组元素。
+
+## 73. 下面这段代码输出结果正确正确吗？ --- TBD
 
 ```go
 type Foo struct {
@@ -2068,11 +2099,13 @@ func main() {
 &{A} &{B} &{C}
 ```
 
-**答：s2 的输出结果错误**
+**答：结果没有问题 --- ~~s2 的输出结果错误~~**
 
 **解析：**
 
-s2 的输出是 `&{C} &{C} &{C}`，for range 使用短变量声明(:=)的形式迭代变量时，变量 i、value 在每次循环体中都会被重用，而不是重新声明。所以 s2 每次填充的都是临时变量 value 的地址，而在最后一次循环中，value 被赋值为{c}。因此，s2 输出的时候显示出了三个 &{c}。
+结合第2题。
+
+~~s2 的输出是 `&{C} &{C} &{C}`，for range 使用短变量声明(:=)的形式迭代变量时，变量 i、value 在每次循环体中都会被重用，而不是重新声明。所以 s2 每次填充的都是临时变量 value 的地址，而在最后一次循环中，value 被赋值为{c}。因此，s2 输出的时候显示出了三个 &{c}。~~
 
 可行的解决办法如下：
 
@@ -2082,13 +2115,10 @@ for i := range s1 {
 }
 ```
 
-
-
-## 74. 下面代码里的 counter 的输出值？
+## 74. 下面代码里的 counter 的输出值？--- TBD
 
 ```go
 func main() {
-
     var m = map[string]int{
         "A": 21,
         "B": 22,
@@ -2161,7 +2191,7 @@ func main() {
 
 所以本例，会先计算 s[i-1]，等号右边是两个表达式是常量，所以赋值运算等同于 `i, s[0] = 2, "Z"`。
 
-## 78. 关于类型转化，下面选项正确的是？
+## 78. 关于类型转化，下面选项正确的是？-- TBD
 
 ```go
 A.
@@ -2191,7 +2221,7 @@ var j MyInt = i.(MyInt)
 
 知识点：强制类型转化
 
-## 79. 关于switch语句，下面说法正确的有?
+## 79. 关于switch语句，下面说法正确的有?  --- TBD
 
 - A. 条件表达式必须为常量或者整数；
 - B. 单个case中，可以出现多个结果选项；
@@ -2200,7 +2230,7 @@ var j MyInt = i.(MyInt)
 
 **答：B D**
 
-## 80. 如果 Add() 函数的调用代码为：
+## 80. 已知 Add() 函数的调用代码，则Add函数定义正确的是() --- TBD
 
 ```go
 func main() {
@@ -2211,8 +2241,6 @@ func main() {
     fmt.Println(sum)
 }
 ```
-
-则Add函数定义正确的是()
 
 ```go
 A.
@@ -2255,6 +2283,12 @@ func (a *Integer) Add(b *Integer) Integer {
 
 **答：B C**
 
+**解析**
+
+B: `cannot use 1 (untyped int constant) as bool value in assignment`
+
+C: `cannot convert 1 (untyped int constant) to type bool`
+
 ## 82. 关于变量的自增和自减操作，下面语句正确的是？
 
 ```go
@@ -2287,13 +2321,13 @@ i++ 和 i-- 在 Go 语言中是语句，不是表达式，因此不能赋值给�
 
 ```go
 type Fragment interface {
-        Exec(transInfo *TransInfo) error
+    Exec(transInfo *TransInfo) error
 }
 type GetPodAction struct {
 }
 func (g GetPodAction) Exec(transInfo *TransInfo) error {
-        ...
-        return nil
+    ...
+    return nil
 }
 ```
 
@@ -2304,6 +2338,10 @@ func (g GetPodAction) Exec(transInfo *TransInfo) error {
 
 **答：A C D**
 
+**解析**
+
+结合第5题。
+
 ## 84. 关于函数声明，下面语法正确的是？
 
 - A. func f(a, b int) (value int, err error)
@@ -2312,6 +2350,10 @@ func (g GetPodAction) Exec(transInfo *TransInfo) error {
 - D. func f(a int, b int) (int, int, error)
 
 **答：A B D**
+
+**解析**
+
+结合第4题。
 
 ## 85. 关于整型切片的初始化，下面正确的是？
 
@@ -2344,7 +2386,7 @@ func main() {
 
 `select` 会随机选择一个可用通道做收发操作，所以可能触发异常，也可能不会。
 
-## 87. 关于channel的特性，下面说法正确的是？
+## 87. 关于channel的特性，下面说法正确的是？--- TBD
 
 - A. 给一个 nil channel 发送数据，造成永远阻塞
 - B. 从一个 nil channel 接收数据，造成永远阻塞
@@ -2408,7 +2450,6 @@ func main() {
 
 **答：A B C D**
 
-
 ## 91. 下面代码输出什么？
 
 ```go
@@ -2434,7 +2475,6 @@ func main() {
     }
 }
 ```
-
 
 ## 92. 下面这段代码能否编译通过？如果通过，输出什么？
 
@@ -2464,7 +2504,7 @@ func main() {
 
 第 2 行代码基于类型 User 创建了新类型 User1，第 3 行代码是创建了 User 的类型别名 User2，注意使用 = 定义类型别名。因为 User2 是别名，完全等价于 User，所以 User2 具有 User 所有的方法。但是 i1.m1() 是不能执行的，因为 User1 没有定义该方法。
 
-## 93. 关于无缓冲和有冲突的channel，下面说法正确的是？
+## 93. 关于无缓冲和有冲突的channel，下面说法正确的是？--- TBD
 
 - A. 无缓冲的channel是默认的缓冲为1的channel；
 - B. 无缓冲的channel和有缓冲的channel都是同步的；
@@ -2477,14 +2517,14 @@ func main() {
 
 ```go
 func Foo(x interface{}) {
-     if x == nil {
-         fmt.Println("empty interface")
-         return
-     }
-     fmt.Println("non-empty interface")
- }
- func main() {
-     var x *int = nil
+    if x == nil {
+        fmt.Println("empty interface")
+        return
+    }
+    fmt.Println("non-empty interface")
+}
+func main() {
+    var x *int = nil
     Foo(x)
 }
 ```
@@ -2493,20 +2533,22 @@ func Foo(x interface{}) {
 
 **解析：**
 
+结合26，62题。
+
 考点：interface 的内部结构，我们知道接口除了有静态类型，还有动态类型和动态值，当且仅当动态值和动态类型都为 nil 时，接口类型值才为 nil。这里的 x 的动态类型是 `*int`，所以 x 不为 nil。
 
 ## 95. 下面代码输出什么？
 
 ```go
 func main() {
-     ch := make(chan int, 100)
-     // A
-     go func() {              
-         for i := 0; i < 10; i++ {
-             ch <- i
-         }
-     }()
-     // B
+    ch := make(chan int, 100)
+    // A
+    go func() {              
+        for i := 0; i < 10; i++ {
+            ch <- i
+        }
+    }()
+    // B
     go func() {
         for {
             a, ok := <-ch
@@ -2538,7 +2580,7 @@ func main() {
 
 **答：A B C**
 
-## 97. 下面的代码有什么问题？
+## 97. 下面的代码有什么问题？--- TBD
 
 ```go
 func Stop(stop <-chan bool) {
@@ -2578,7 +2620,7 @@ func main() {
        p := make(Param)
        p["day"] = 2
        s.Param = &p
-       tmp := *s.Param
+       tmp := *s.Param //指针不能索引
        fmt.Println(tmp["day"])
    }
    ```
@@ -2626,27 +2668,7 @@ func main() {
 
 字面量初始化切片时候，可以指定索引，没有指定索引的元素会在前一个索引基础之上加一，所以输出`[1 0 2 3]`，而不是`[1 3 2]`。
 
-## 101. 下面这段代码输出什么？
-
-```go
-func incr(p *int) int {
-    *p++
-    return *p
-}
-func main() {
-    v := 1
-    incr(&v)
-    fmt.Println(v)
-}
-```
-
-**答：2**
-
-**解析：**
-
-知识点：指针。
-
-p 是指针变量，指向变量 v，`*p++`操作的意思是取出变量 v 的值并执行加一操作，所以 v 的最终值是 2。
+## 101. duplicated.
 
 ## 102. 请指出下面代码的错误？
 

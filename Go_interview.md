@@ -2697,7 +2697,7 @@ func main() {
 
 如果有未使用的变量代码将编译失败。但也有例外，函数中声明的变量必须要使用，但可以有未使用的全局变量。函数的参数未使用也是可以的。
 
-如果你给未使用的变量分配了一个新值，代码也还是会编译失败。你需要在某个地方使用这个变量，才能让编译器愉快的编译。
+如果你给未使用的变量分配了一个新值，代码也还是会编译失败。你需要在某个地方使用这个变量，才能让编译器编译。
 
 修复代码：
 
@@ -2744,11 +2744,11 @@ func main() {
 如果类型实现 String() 方法，当格式化输出时会自动使用 String() 方法。上面这段代码是在该类型的 String() 方法内使用格式化输出，导致递归调用，最后抛错。
 
 ```shell
+fmt.Sprintf format %v with arg c causes recursive (*play.ConfigOne).String method call
+
 runtime: goroutine stack exceeds 1000000000-byte limit
 fatal error: stack overflow
 ```
-
-
 
 ## 104. 下面代码输出什么？
 
@@ -2811,7 +2811,7 @@ func main() {
 }
 ```
 
-## 106. 下面代码输出什么？
+## 106. 下面代码输出什么？--- TBD
 
 ```go
 func main() {
@@ -2892,6 +2892,8 @@ func main() {
 ```
 
 **解析：**
+
+`use of untyped nil in variable declaration`
 
 nil 用于表示 interface、函数、maps、slices 和 channels 的“零值”。如果不指定变量的类型，编译器猜不出变量的具体类型，导致编译错误。
 
@@ -2995,14 +2997,14 @@ func main() {
 
 ```go
 func main() {
-    x := []int{    // 多行
-        1,
-        2,
-    }
-    x = x
+	x := []int{ // 多行
+		1,
+		2,
+	}
+	_ = x
 
-    y := []int{3,4,} // 一行 no error
-    y = y
+	y := []int{3, 4,} // 一行 no error
+	_ = y
 }
 ```
 
@@ -3024,6 +3026,8 @@ func main() {
 **答：34**
 
 **解析：**
+
+0x11是16进制，相当于10进制17。
 
 与 rune 是 int32 的别名一样，byte 是 uint8 的别名，别名类型无序转换，可直接转换。
 
@@ -3154,8 +3158,6 @@ func main() {
 
 使用变量简短声明符号 := 时，如果符号左边有多个变量，只需要保证至少有一个变量是新声明的，并对已定义的变量尽进行赋值操作。但如果出现作用域之后，就会导致变量隐藏的问题，就像这个例子一样。
 
-这个坑很容易挖，但又很难发现。即使对于经验丰富的 Go 开发者而言，这也是一个非常常见的陷阱。
-
 ## 119. 下面代码有什么问题？
 
 ```go
@@ -3177,9 +3179,11 @@ non-name f.bar on left side of :=
 
 **解析：**
 
+结合110题。
+
 `:=` 操作符不能用于结构体字段赋值。
 
-## 120. 下面的代码输出什么？
+## 120. 下面的代码输出什么？ --- TBD
 
 ```go
 func main() {  
@@ -3190,12 +3194,11 @@ func main() {
 **答：编译错误**
 
 ```shell
-invalid character U+007E '~'
+cannot use ~ outside of interface or type constraint (use ^ for bitwise complement)
 ```
 
 **解析：**
-
-很多语言都是采用 `~` 作为按位取反运算符，Go 里面采用的是` ^` 。按位取反之后返回一个每个 bit 位都取反的数，对于有符号的整数来说，是按照补码进行取反操作的（快速计算方法：对数 a 取反，结果为 -(a+1) ），对于无符号整数来说就是按位取反。例如：
+位取反运算符，Go 里面采用的是` ^` 。按位取反之后返回一个每个 bit 位都取反的数，对于有符号的整数来说，是按照补码进行取反操作的（快速计算方法：对数 a 取反，结果为 -(a+1) ），对于无符号整数来说就是按位取反。例如：
 
 ```go
 func main() {
@@ -3243,7 +3246,6 @@ y: 01011100
 x | y: 11011110
 x &^ y: 10000010
 ```
-
 
 ## 121. 下面代码输出什么？
 
@@ -3451,13 +3453,13 @@ func main() {
 }
 ```
 
-## 127. 下面的代码有什么问题？
+## 127. 下面的代码有什么问题？---- TBD
 
 ```go
 type X struct {}
 
 func (x *X) test()  {
-    println(x)
+    println(x)  // 这个为啥可以直接调用？
 }
 
 func main() {
@@ -3472,6 +3474,8 @@ func main() {
 **答：X{} 是不可寻址的，不能直接调用方法**
 
 **解析：**
+
+`cannot call pointer method test on X`
 
 知识点：在方法中，指针类型的接收者必须是合法指针（包括 nil）,或能获取实例地址。
 
@@ -3588,9 +3592,7 @@ func (n *N) pointer(){
     fmt.Printf("v:%p,%v\n",n,*n)
 }
 
-
 func main() {
-
     var a N = 25
 
     p := &a
@@ -3611,6 +3613,32 @@ calling method pointer with receiver p1 (type **N) requires explicit dereference
 **解析：**
 
 不能使用多级指针调用方法。
+
+正确做法：
+```go
+type N int
+
+func (n N) value() {
+	n++
+	fmt.Printf("v:%p,%v\n", &n, n)
+}
+
+func (n *N) pointer() {
+	*n++
+	fmt.Printf("v:%p,%v\n", n, *n)
+}
+
+func main() {
+	var a N = 25
+
+	p := &a
+	p.value()
+	p.pointer()
+}
+// 注意输出：
+// v:0xc0000aa018,26
+// v:0xc0000aa010,26
+```
 
 ## 132. 下面的代码输出什么？
 
@@ -3691,7 +3719,7 @@ cannot assign to getT().n
 
 **解析：**
 
-直接返回的 T{} 无法寻址，不可直接赋值。
+结合130题。直接返回的 T{} 无法寻址，不可直接赋值。
 
 修复代码：
 
@@ -3764,7 +3792,7 @@ func main()  {
 
 **解析：**
 
-知识点：方法值。
+知识点：方法值。结合132题。
 
 当指针值赋值给变量或者作为函数参数传递时，会立即计算并复制该方法执行所需的接收者对象，与其绑定，以便在稍后执行时，能隐式第传入接收者参数。
 
@@ -3782,9 +3810,11 @@ func main() {
 }
 ```
 
-**答：第 8 行**
+**答：第 8 行 _ = y == y**
 
 **解析：**
+
+`comparing uncomparable type []int`
 
 因为两个比较值的动态类型为同一个不可比较类型。
 
@@ -3901,25 +3931,25 @@ func main()  {
 
 **解析：**
 
-知识点：方法值。
+知识点：方法值。结合136题。
 
 当目标方法的接收者是指针类型时，那么被复制的就是指针。
 
-## 142. 下面哪一行代码会 panic，请说明原因？
+## 142. 下面哪一行代码会 panic，请说明原因？ --- TBD
 
 ```go
 package main
 
 func main() {
-  var m map[int]bool // nil
-  _ = m[123]
-  var p *[5]string // nil
-  for range p {
-    _ = len(p)
-  }
-  var s []int // nil
-  _ = s[:]
-  s, s[0] = []int{1, 2}, 9
+    var m map[int]bool // nil
+    _ = m[123]
+    var p *[5]string // nil
+    for range p {
+        _ = len(p)
+    }
+    var s []int // nil
+    _ = s[:]
+    s, s[0] = []int{1, 2}, 9
 }
 ```
 
@@ -4089,8 +4119,7 @@ func main() {
 
 所以本例，会先计算 s[k]，等号右边是两个表达式是常量，所以赋值运算等同于 `k, s[1] = 0, 3`。
 
-## 146. 下面代码输出什么？
-
+## 146. 下面代码输出什么？--- TBD
 ```go
 func main() {
     var k = 9
@@ -4100,7 +4129,6 @@ func main() {
     for k = 0; k < 3; k++ {
     }
     fmt.Println(k)
-
 
     for k = range (*[3]int)(nil) {
     }
@@ -4157,6 +4185,7 @@ func main() {
 func F(n int) func() int {
     return func() int {
         n++
+        fmt.Println(n, &n)
         return n
     }
 }
@@ -4180,6 +4209,34 @@ func main() {
 
 defer() 后面的函数如果带参数，会优先计算参数，并将结果存储在栈中，到真正执行 defer() 的时候取出。
 
+```go
+//帮助理解
+func F(n int) func() int {
+	return func() int {
+		n++
+		fmt.Println(n, &n)
+		return n
+	}
+}
+
+func main() {
+	f := F(5)
+	defer func() {
+		fmt.Println(f())
+	}()
+	defer fmt.Println(f())
+	i := f()
+	fmt.Println(i)
+}
+/*
+6 0xc000012028
+7 0xc000012028
+7
+6
+8 0xc000012028
+8
+*/
+```
 
 ## 151. 下面列举的是 recover() 的几种调用方式，哪些是正确的？
 
@@ -4231,7 +4288,7 @@ defer() 后面的函数如果带参数，会优先计算参数，并将结果存
 
 recover() 必须在 defer() 函数中直接调用才有效。上面其他几种情况调用都是无效的：直接调用 recover()、在 defer() 中直接调用 recover() 和 defer() 调用时多层嵌套。
 
-## 152. 下面代码输出什么，请说明？
+## 152. 下面代码输出什么，请说明？ -- TBD
 
 ```go
 func main() {
@@ -4253,6 +4310,20 @@ func main() {
 
 recover() 必须在 defer() 函数中调用才有效，所以第 9 行代码捕获是无效的。在调用 defer() 时，便会计算函数的参数并压入栈中，所以执行第 6 行代码时，此时便会捕获 panic(2)；此后的 panic(1)，会被上一层的 recover() 捕获。所以输出 21。
 
+```go
+func main() {
+	defer func() {
+		fmt.Print("1-", recover())
+	}()
+	defer func() {
+		defer fmt.Print("2-", recover())
+		panic(1)
+	}()
+	panic(2)
+}
+// 帮助理解 2-21-1
+```
+
 ## 153. flag 是 bool 型变量，下面 if 表达式符合编码规范的是？
 
 - A. if flag == 1
@@ -4262,7 +4333,7 @@ recover() 必须在 defer() 函数中调用才有效，所以第 9 行代码捕�
 
 **答：B C D**
 
-## 154. 下面的代码输出什么，请说明？
+## 154. 下面的代码输出什么，请说明？-- TBD
 
 ```go
 func main() {
@@ -4398,10 +4469,6 @@ func main() {
 ```
 
 **答：9 [{3} {9}]**
-
-**解析：**
-
-知识点：for-range 切片。参考前几道题的解析，这道题的答案应该很明显。
 
 ## 159. 下面代码有什么问题吗？
 

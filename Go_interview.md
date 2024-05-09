@@ -4474,7 +4474,6 @@ func main() {
 
 ```go
 func main()  {
-
     for i:=0;i<10 ;i++  {
     loop:
         println(i)
@@ -4507,13 +4506,13 @@ func main() {
 }
 ```
 
-**答：22222**
+**答：012210     22222**
 
 **解析：**
 
 知识点：defer()、for-range。
 
-for-range 虽然使用的是 :=，但是 v 不会重新声明，可以打印 v 的地址验证下。
+~~for-range 虽然使用的是 :=，但是 v 不会重新声明，可以打印 v 的地址验证下。~~
 
 ## 161. 关于 slice 或 map 操作，下面正确的是？
 
@@ -4593,7 +4592,6 @@ func main() {
 
 ```go
 func main() {
-
     println(DeferTest1(1))
     println(DeferTest2(1))
 }
@@ -4615,6 +4613,10 @@ func DeferTest2(i int) (r int) {
 ```
 
 **答：43**
+
+**解析：**
+
+都是具名返回值。
 
 ## 165. 判断题：对变量x的取反操作是 ~x？
 
@@ -4652,6 +4654,35 @@ func main() {
 
 1. Add() 方法的返回值依然是指针类型 *Slice，所以可以循环调用方法 Add()；
 2. defer 函数的参数（包括接收者）是在 defer 语句出现的位置做计算的，而不是在函数执行的时候计算的，所以 s.Add(1) 会先于 s.Add(3) 执行。
+
+```go
+// 相当于这个代码：
+func main() {
+	s := NewSlice()
+	defer func(s *Slice) *Slice {
+		return s.Add(2)
+	}(s.Add(1))
+	s.Add(3)
+}
+
+// 如果是：
+func main() {
+	s := NewSlice()
+	defer func(s *Slice) *Slice {
+		return s
+	}(s.Add(1).Add(2))
+	s.Add(3)
+} // 123.
+
+// 如果是：
+func main() {
+	s := NewSlice()
+	defer func() *Slice {
+		return s.Add(1).Add(2)
+	}()
+	s.Add(3)
+} // 312.
+```
 
 ## 167. 下面的代码输出什么，请说明。
 
@@ -4712,7 +4743,7 @@ func main() {
 
 **解析：**
 
-这道题容易忽视的点是，String() 是指针方法，而不是值方法，所以使用 Println() 输出时不会调用到 String() 方法。
+结合103题。这道题容易忽视的点是，String() 是指针方法，而不是值方法，所以使用 Println() 输出时不会调用到 String() 方法。
 
 可以这样修复：
 
@@ -4725,7 +4756,7 @@ func main() {
 }
 ```
 
-## 169. 下面代码输出什么？
+## 169. 下面代码输出什么？ --- TBD
 
 ```go
 func test() []func() {
@@ -4748,14 +4779,21 @@ func main() {
 
 **答：**
 
+
+
+
 ```shell
+0xc000012028 0
+0xc000012040 1
+
+
 10xc000018058 2
 20xc000018058 2
 ```
 
 **解析：**
 
-知识点：闭包延迟求值。for 循环局部变量 i，匿名函数每一次使用的都是同一个变量。（说明：i 的地址，输出可能与上面的不一样）。
+~~知识点：闭包延迟求值。for 循环局部变量 i，匿名函数每一次使用的都是同一个变量。（说明：i 的地址，输出可能与上面的不一样）。~~
 
 ## 170. 下面的代码能编译通过吗？可以的话输出什么，请说明？
 
@@ -4808,11 +4846,13 @@ func main() {
 }
 ```
 
-**答：** [讨论 #11](https://github.com/yqchilde/Golang-Interview/issues/11)
+**答：** 
 
 以上代码在go1.14版本之前(不含1.14版本): for {} 独占 CPU 资源导致其他 Goroutine 饿死，
 
-在go1.14版本之后(包含go1.14): 会打印0123456789, 并且主程会进入死循环
+在go1.14版本之后(包含go1.14): 会打印0123456789, 并且主程会进入死循环。
+
+这是因为1.14版本(含1.14版本)之后goroutine抢占式调度设计改为基于信号的抢占式调度，当调度器监控发现某个goroutine执行时间过长且有别的goroutine在等待时，会把执行时间过长的goroutine暂停，转而调度等待的goroutine. 所以for循环的goroutine得以执行.
 
 **解析：**
 
@@ -4905,6 +4945,8 @@ func main() {
 
 **答：recover:1**
 
+编译错误：`unreachable code`
+
 **解析：**
 
 知识点：`panic`、`recover()`。
@@ -4988,6 +5030,8 @@ func main() {
 
 **解析：**
 
+`panic: sync: WaitGroup is reused before previous Wait has returned`
+
 协程里面，使用 wg.Add(1) 但是没有 wg.Done()，导致 panic()。
 
 ## 177. 关于 cap 函数适用下面哪些类型？
@@ -5007,7 +5051,7 @@ func main() {
 * slice 返回slice的最大容量
 * channel 返回 channel的容量
 
-## 178. 下面代码输出什么？
+## 178. 下面代码输出什么？--- TBD
 
 ```go
 func hello(num ...int) {
@@ -5069,6 +5113,17 @@ func main() {
 
 Go 代码断行规则。
 
+```go
+// 上面代码相当于：如果去掉分号，则输出false
+func main() {
+	switch alwaysFalse(); {
+	case true:
+		println(true)
+	case false:
+		println(false)
+	}
+}
+```
 
 ## 181. interface{} 是可以指向任意对象的 Any 类型，是否正确？
 
@@ -5077,28 +5132,7 @@ Go 代码断行规则。
 
 **答：B**
 
-## 182. 下面的代码有什么问题？
-
-```go
-type ConfigOne struct {
-    Daemon string
-}
-
-func (c *ConfigOne) String() string {
-    return fmt.Sprintf("print: %v", c)
-}
-
-func main() {
-    c := &ConfigOne{}
-    c.String()
-}
-```
-
-**答：无限递归循环，栈溢出。**
-
-**解析：**
-
-知识点：类型的 String() 方法。如果类型定义了 String() 方法，使用 Printf()、Print() 、 Println() 、 Sprintf() 等格式化输出时会自动使用 String() 方法。
+## 182. duplicated
 
 ## 183. 定义一个包内全局字符串变量，下面语法正确的是？
 
@@ -5117,9 +5151,7 @@ func main() {
 
 ```go
 func main() {
-
     wg := sync.WaitGroup{}
-
     for i := 0; i < 5; i++ {
         go func(wg sync.WaitGroup, i int) {
             wg.Add(1)
@@ -5127,9 +5159,7 @@ func main() {
             wg.Done()
         }(wg, i)
     }
-
     wg.Wait()
-
     fmt.Println("exit")
 }
 ```
@@ -5145,9 +5175,7 @@ func main() {
 
 ```go
 func main() {
-
     wg := sync.WaitGroup{}
-
     for i := 0; i < 5; i++ {
         wg.Add(1)
         go func(i int) {
@@ -5155,9 +5183,7 @@ func main() {
             wg.Done()
         }(i)
     }
-
     wg.Wait()
-
     fmt.Println("exit")
 }
 ```
@@ -5250,9 +5276,33 @@ func main() {
 
 **解析：**
 
-[讨论 #8](https://github.com/yqchilde/Golang-Interview/issues/8)
-
 知识点：数值溢出。当 i 的值为 0、128 是会发生相等情况，注意 byte 是 uint8 的别名。
+
+byte = uint8. 所以取值范围为: [0, 255]. 所以-m为负数就溢出了byte的表示范围. 那么 对 0~255 取反什么时候相等呢? 0是相等的就不用说来. 为啥128与-128相等呢?
+
+我们知道负数是使用补位计数表示的. 所以-128,
+
+先对128取反(^1000 0000 = 0111 1111)
+然后进行加1操作, 即0111 1111 + 1 = 1000 0000
+所以-128是与正的128(1000 0000)一样.
+
+int8 表示范围是[-128, 127]. 所以当循环中i >= 128时, 超出了int8的表示范围, 就溢出了.
+
+那么当循环 i = 128时. 128 = 1000 0000. n = int8(128) 强制转换后时多少呢?
+
+我们知道补位计数法中, 正整数, 0, 最高为0, 而负数最高为1.
+所以1000 0000 一定是一个负数, 我们用补位计数法逆推. 就是上面步骤反向
+
+减1操作: 1000 0000 - 1 = 0111 1111
+取反操作: ^(0111 1111) = 1000 0000
+int8(128) = 1000 0000 对与int8表示 -128, 而-128 = 1000 0000 对于 int8就是-128.
+
+所以当i= 128时, n = int8(128) = -128, 而-n = 128, 128刚好溢出了int8的最大值. 对于int8 就是-128.
+
+注意:
+
+补位计数法中, 正整数与0, 符号位和值部是分开的. 对int8来说, 符号位(左侧最高位0)表示正数, 剩余7位用来表示正整数. 所以int8的最大值为 0111 1111 = 127.
+对于负数, 符号位与值部是在一起的. 左侧最高位1即是表示负数, 也是值的一部分. 如1000 0000 = -128
 
 ## 188. 下面代码输出什么？
 
@@ -5324,7 +5374,7 @@ data does not implement printer (print method has pointer receiver)
 
 **解析：**
 
-结构体类型 data 没有实现接口 printer。知识点：接口。
+结构体类型 data 没有实现接口 printer。而是*data实现了接口。
 
 ## 191. 函数执行时，如果由于 panic 导致了异常，则延迟函数不会执行。这一说法是否正确？
 
@@ -5373,8 +5423,6 @@ func main() {
 
 **解析：**
 
-[题解 #4](https://github.com/yqchilde/Golang-Interview/issues/4)
-
 strings.TrimRight的作用是把有包含第二个参数的组合项的对应字母都替换掉，比如"BA"的组合集合为{"BA", "AB", "A", "B"}；
 但是它有一个中止条件，如果从右到左有一个字母或字母组合不为"BA"的排列组合集合中的元素，便会停止cut，把当前已cut完的字符串返回
 
@@ -5392,8 +5440,6 @@ func main() {
 **答：输出结果为[]**
 
 **解析：**
-
-[题解 #5](https://github.com/yqchilde/Golang-Interview/issues/5)
 
 copy函数实际上会返回一个int值，这个int是一个size，计算逻辑为size = min(len(dst), len(src))，这个size的大小，
 决定了src要copy几个元素给dst，由于题目中，dst声明了，但是没有进行初始化，所以dst的len是0，因此实际没有从src上copy到任何元素给dst

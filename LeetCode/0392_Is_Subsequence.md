@@ -45,5 +45,14 @@ func isSubsequence(s string, t string) bool {
 	return false
 }
 
-// follow up 暂时没做
+// 第二次提交的代码
+func isSubsequence(s string, t string) bool {
+	indexS := 0
+	for j := 0; indexS < len(s) && j < len(t); j += 1 {
+		if s[indexS] == t[j] {
+			indexS += 1
+		}
+	}
+	return indexS == len(s)
+}
 ```

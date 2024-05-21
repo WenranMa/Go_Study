@@ -20,7 +20,7 @@ Explanation: Because the 4th row is incomplete, we return 3.
 
 Constraints:
 
-1 <= n <= 231 - 1
+1 <= n <= 2^31 - 1
 
 ```go
 // O(n) time.

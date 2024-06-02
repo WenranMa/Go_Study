@@ -44,6 +44,54 @@ func kSmallestPairs(nums1 []int, nums2 []int, k int) [][]int {
 }
 ```
 
+
+堆排序，但是超内存了。。
+```go
+func kSmallestPairs(nums1 []int, nums2 []int, k int) [][]int { 
+    h:= [][]int{}
+    for i:=0; i<len(nums1) && i<k; i++ {
+        for j:=0; j<len(nums2) && j<k; j++ {
+            h = append(h, []int{nums1[i], nums2[j]})
+        }
+    }
+    heapSize := len(h)
+    buildMaxHeap(h, heapSize)
+    for i := len(h) - 1; i >= 0; i-- {    
+        h[0], h[i] = h[i], h[0]
+        heapSize--
+        maxHeapify(h, 0, heapSize)
+    }
+    return h[0:k]
+}
+
+func buildMaxHeap(a [][]int, heapSize int) {
+    for i := heapSize/2; i >= 0; i-- {
+        maxHeapify(a, i, heapSize)
+    }
+}
+
+func maxHeapify(a [][]int, i, heapSize int) {
+    l, r, largest := i * 2 + 1, i * 2 + 2, i
+    if l < heapSize && a[l][0] + a[l][1] >  a[largest][0] + a[largest][1] {
+        largest = l
+    }
+    if r < heapSize && a[r][0] + a[r][1] > a[largest][0] + a[largest][1] {
+        largest = r
+    }
+    if largest != i {
+        a[i], a[largest] = a[largest], a[i]
+        maxHeapify(a, largest, heapSize)
+    }
+}
+```
+
+
+
+--------
+
+下面的不对
+
+
 或者用heap  或优先级队列。
 
 ```go

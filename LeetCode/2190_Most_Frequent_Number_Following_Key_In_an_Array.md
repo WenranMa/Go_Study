@@ -1,36 +1,36 @@
-# 2190. Most Frequent Number Following Key In an Array
+# 2190. 数组中紧跟 key 之后出现最频繁的数字
 
-### Easy
+### 简单
 
-You are given a 0-indexed integer array nums. You are also given an integer key, which is present in nums.
+给你一个下标从 0 开始的整数数组 nums ，同时给你一个整数 key ，它在 nums 出现过。
 
-For every unique integer target in nums, count the number of times target immediately follows an occurrence of key in nums. In other words, count the number of indices i such that:
+统计 在 nums 数组中紧跟着 key 后面出现的不同整数 target 的出现次数。换言之，target 的出现次数为满足以下条件的 i 的数目：
 
-0 <= i <= nums.length - 2,
-nums[i] == key and,
-nums[i + 1] == target.
-Return the target with the maximum count. The test cases will be generated such that the target with maximum count is unique.
+- 0 <= i <= n - 2
+- nums[i] == key 且
+- nums[i + 1] == target 。
 
-### Example 1:
+请你返回出现 最多 次数的 target 。测试数据保证出现次数最多的 target 是唯一的。
 
-Input: nums = [1,100,200,1,100], key = 1
-Output: 100
-Explanation: For target = 100, there are 2 occurrences at indices 1 and 4 which follow an occurrence of key.
-No other integers follow an occurrence of key, so we return 100.
+### 示例 1：
 
-### Example 2:
+	输入：nums = [1,100,200,1,100], key = 1
+	输出：100
+	解释：对于 target = 100 ，在下标 1 和 4 处出现过 2 次，且都紧跟着 key 。
+	没有其他整数在 key 后面紧跟着出现，所以我们返回 100 。
 
-Input: nums = [2,2,2,2,3], key = 2
-Output: 2
-Explanation: For target = 2, there are 3 occurrences at indices 1, 2, and 3 which follow an occurrence of key.
-For target = 3, there is only one occurrence at index 4 which follows an occurrence of key.
-target = 2 has the maximum number of occurrences following an occurrence of key, so we return 2.
+### 示例 2：
 
-Constraints:
+	输入：nums = [2,2,2,2,3], key = 2
+	输出：2
+	解释：对于 target = 2 ，在下标 1 ，2 和 3 处出现过 3 次，且都紧跟着 key 。
+	对于 target = 3 ，在下标 4 出出现过 1 次，且紧跟着 key 。
+	target = 2 是紧跟着 key 之后出现次数最多的数字，所以我们返回 2 。
 
-2 <= nums.length <= 1000
-1 <= nums[i] <= 1000
-The test cases will be generated such that the answer is unique.
+### 提示：
+- 2 <= nums.length <= 1000
+- 1 <= nums[i] <= 1000
+- 测试数据保证答案是唯一的。
 
 ```go
 // Map

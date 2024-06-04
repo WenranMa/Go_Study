@@ -1,43 +1,96 @@
 package main
 
 import (
-	"fmt"
+    "fmt"
+    "time"
+    "context"
+    "math"
+    "image/color"
 )
-func main() {
-	v:= []int{-5,-3,-5}
-	fmt.Println(maxSubArray(v))
+
+func main()  {
+    deferIt4()
+    /*
+    deferIt3()
+    f(3)
+
+    ctx,cancel := context.WithCancel(context.Background())
+    go Speak(ctx)
+    time.Sleep(10*time.Second)
+    cancel()
+    time.Sleep(1*time.Second)
+    */
+
+    p := Point{1, 2} 
+    q := Point{4, 6}
+    distanceFromP := p.Distance  //method value
+    fmt.Println("1",distanceFromP(q)) 
+    distance := Point.Distance  // method expression
+    fmt.Println("2",distance(p, q))
+
+
+    a := Person{"Robert", "Male", 33, "Beijing"}
+    a.Grow()
+    fmt.Printf("%v\n", a)   
 }
 
-func maxSubarraySumCircular(nums []int) int {
-    n := len(nums)
-    preMax, maxRes := nums[0], nums[0]
-    preMin, minRes := nums[0], nums[0]
-    sum := nums[0]
-    for i := 1; i < n; i++ {
-        preMax = max(preMax + nums[i], nums[i])
-        maxRes = max(maxRes, preMax)
-        preMin = min(preMin + nums[i], nums[i])
-        minRes = min(minRes, preMin)
-        sum += nums[i]
 
-		fmt.Println("preMax:",preMax,"maxRes:",maxRes,"preMin:",preMin,"minRes:",minRes,"sum:",sum)
+type Person struct {
+    Name    string
+    Gender  string
+    Age     uint8
+    Address string
+}
+
+func (person Person) Grow() {
+    person.Age++
+}
+
+
+type Point struct {
+    X, Y float64
+}
+
+type ColoredPoint struct {
+    Point
+    Color color.RGBA
+}
+
+func (p Point) Distance(q Point) float64 {
+    return math.Hypot(q.X-p.X, q.Y-p.Y)
+}
+
+
+func deferIt3() {
+    f := func(i int) int {
+        fmt.Printf("%d ",i)
+        return i * 10
     }
-    if maxRes < 0 {
-        return maxRes
-    } else {
-        return max(maxRes, sum - minRes)
+    for i := 1; i < 5; i++ {
+        defer fmt.Printf("%d ", f(i))
+    }
+}
+func deferIt4() {
+    for i := 1; i < 5; i++ {
+        defer func() {
+            fmt.Print(i)
+        }()
     }
 }
 
-func maxSubArray(nums []int) int {
-	mx := -10001
-	sum := 0
-	for _, n := range nums {
-		sum += n
-		mx = max(mx, sum)
-		if sum < 0 {
-			sum = 0
-		}
-	}
-	return mx
+func f(x int) {
+    fmt.Printf("f(%d)\n", x+0/x) // panics if x == 0
+    defer fmt.Printf("defer %d\n", x)
+    f(x - 1)
+}
+func Speak(ctx context.Context)  {
+    for range time.Tick(time.Second){
+        select {
+        case <- ctx.Done():
+            fmt.Println("我要闭嘴了")
+            return
+        default:
+            fmt.Println("balabalabalabala")
+        }
+    }
 }

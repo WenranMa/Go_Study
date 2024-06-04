@@ -392,7 +392,7 @@ A错在没有写类型，C错在字符串的空值是 `""` 而不是nil。
 5. 一个包被引用多次，如A import B，C import B，A import C，B被引用多次，但B包只会初始化一次；
 6. 引入包，不可出现死循环。即A import B，B import A，这种情况下编译失败；
 
-![init](file/img/init.png)
+![init](../file/img/init.png)
 
 
 ## 17. 下面这段代码输出什么以及原因？
@@ -1419,7 +1419,7 @@ golang 中切片底层的数据结构是数组。当使用 s1[1:] 获得切片 s
 
 这里注意，**如果分三次append 5,6,7, cap(s2)是8，但一次append(5,6,7), cap(s2)是6。??????????**
 
-![slice](file/img/slice.webp)
+![slice](../file/img/slice.webp)
 
 ## 56. 下面选项正确的是？ --- TBD
 
@@ -2041,7 +2041,7 @@ IN:  [1 2 3] &[1 2 3] 0xc00011a000
 */
 ```
 
-![slice](file/img/slice_01.webp)
+![slice](../file/img/slice_01.webp)
 
 ## 72. 下面这段代码输出什么？
 

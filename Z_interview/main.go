@@ -1,96 +1,84 @@
 package main
 
 import (
-    "fmt"
-    "time"
-    "context"
-    "math"
-    "image/color"
+	"fmt"
+	"time"
 )
 
-func main()  {
-    deferIt4()
-    /*
-    deferIt3()
-    f(3)
+func main() {
+	f := NewFizzFuzz(20)
+	go f.Fizz()
+	go f.Fuzz()
+	go f.FizzFuzz()
+	go f.Num()
 
-    ctx,cancel := context.WithCancel(context.Background())
-    go Speak(ctx)
-    time.Sleep(10*time.Second)
-    cancel()
-    time.Sleep(1*time.Second)
-    */
-
-    p := Point{1, 2} 
-    q := Point{4, 6}
-    distanceFromP := p.Distance  //method value
-    fmt.Println("1",distanceFromP(q)) 
-    distance := Point.Distance  // method expression
-    fmt.Println("2",distance(p, q))
-
-
-    a := Person{"Robert", "Male", 33, "Beijing"}
-    a.Grow()
-    fmt.Printf("%v\n", a)   
+	go func() {
+		for i := 1; i <= f.n; i++ {
+			<-f.start
+			if i%3 == 0 && i%5 == 0 {
+				f.fizzfuzz <- i
+			} else if i%3 == 0 {
+				f.fizz <- i
+			} else if i%5 == 0 {
+				f.fuzz <- i
+			} else {
+				f.num <- i
+			}
+		}
+	}()
+	f.start <- 1
+	time.Sleep(10 * time.Second)
 }
 
-
-type Person struct {
-    Name    string
-    Gender  string
-    Age     uint8
-    Address string
+type FizzFuzz struct {
+	n        int
+	fizz     chan int
+	fuzz     chan int
+	fizzfuzz chan int
+	num      chan int
+	start    chan int
 }
 
-func (person Person) Grow() {
-    person.Age++
+func NewFizzFuzz(n int) *FizzFuzz {
+	zeo := &FizzFuzz{
+		n:        n,
+		fizz:     make(chan int),
+		fuzz:     make(chan int),
+		fizzfuzz: make(chan int),
+		num:      make(chan int),
+		start:    make(chan int),
+	}
+	return zeo
 }
 
-
-type Point struct {
-    X, Y float64
+func (f *FizzFuzz) Fizz() {
+	for {
+		<-f.fizz
+		fmt.Println("fizz")
+		f.start <- 1
+	}
 }
 
-type ColoredPoint struct {
-    Point
-    Color color.RGBA
+func (f *FizzFuzz) Fuzz() {
+	for {
+		<-f.fuzz
+		fmt.Println("fuzz")
+		f.start <- 1
+	}
 }
 
-func (p Point) Distance(q Point) float64 {
-    return math.Hypot(q.X-p.X, q.Y-p.Y)
+func (f *FizzFuzz) FizzFuzz() {
+	for {
+		<-f.fizzfuzz
+		fmt.Println("fizzfuzz")
+		f.start <- 1
+	}
 }
 
-
-func deferIt3() {
-    f := func(i int) int {
-        fmt.Printf("%d ",i)
-        return i * 10
-    }
-    for i := 1; i < 5; i++ {
-        defer fmt.Printf("%d ", f(i))
-    }
-}
-func deferIt4() {
-    for i := 1; i < 5; i++ {
-        defer func() {
-            fmt.Print(i)
-        }()
-    }
-}
-
-func f(x int) {
-    fmt.Printf("f(%d)\n", x+0/x) // panics if x == 0
-    defer fmt.Printf("defer %d\n", x)
-    f(x - 1)
-}
-func Speak(ctx context.Context)  {
-    for range time.Tick(time.Second){
-        select {
-        case <- ctx.Done():
-            fmt.Println("我要闭嘴了")
-            return
-        default:
-            fmt.Println("balabalabalabala")
-        }
-    }
+func (f *FizzFuzz) Num() {
+	for {
+		i := <-f.num
+		fmt.Println(i)
+		f.start <- 1
+	}
 }

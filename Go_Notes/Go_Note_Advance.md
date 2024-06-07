@@ -299,3 +299,295 @@ type Context interface {
 context reference:
 https://segmentfault.com/a/1190000040917752
 
+
+
+## sync.Once
+
+Once 可以用来执行且仅仅执行一次动作，常常用于单例对象的初始化场景。Once 常常用来初始化单例资源，或者并发访问只需初始化一次的共享资源，或者在测试的时候初始化一次测试资源。
+
+sync.Once 只暴露了一个方法 Do，你可以多次调用 Do 方法，但是只有第一次调用 Do 方法时 f 参数才会执行，这里的 f 是一个无参数无返回值的函数。
+
+demo:
+```go
+import (
+	"fmt"
+	"sync"
+)
+func main() {
+	var o sync.Once
+	func1:= func() {	
+		fmt.Println("only once")	
+	}
+	done:= make(chan bool)
+	for i:= 0; i< 10; i++ {
+		go func() {
+			o.Do(func1)
+			done <- true
+		}()
+	}
+	for i:= 0; i< 10; i++ {
+		<- done
+	}
+}
+```
+
+只输出一次 “only once”.
+
+### 源码分析
+接下来分析 sync.Do 究竟是如何实现的，它存储在包sync下 once.go 文件中，源代码如下:
+
+```go
+// sync/once.go
+
+type Once struct {
+	done uint32 // 初始值为0表示还未执行过，1表示已经执行过
+	m    Mutex
+}
+
+func (o *Once) Do(f func()) {
+	// 判断done是否为0，若为0，表示未执行过，调用doSlow()方法初始化
+	if atomic.LoadUint32(&o.done) == 0 {
+		// Outlined slow-path to allow inlining of the fast-path.
+		o.doSlow(f)
+	}
+}
+
+// 加载资源
+func (o *Once) doSlow(f func()) {
+	o.m.Lock()
+	defer o.m.Unlock()
+	// 采用双重检测机制 加锁判断done是否为零
+	if o.done == 0 {
+		// 执行完f()函数后，将done值设置为1
+		defer atomic.StoreUint32(&o.done, 1)
+		// 执行传入的f()函数
+		f()
+	}
+}
+```
+
+为了防止多个goroutine调用 doSlow() 初始化资源时，造成资源多次初始化，因此采用 Mutex 锁机制来保证有且仅初始化一次
+Do
+
+调用 Do 函数时，首先判断done值是否为0，若为1，表示传入的匿名函数 f() 已执行过，无需再次执行；若为0，表示传入的匿名函数 f() 还未执行过，则调用 doSlow() 函数进行初始化。
+
+在 doSlow() 函数中，若并发的goroutine进入该函数中，为了保证仅有一个goroutine执行 f() 匿名函数。为此，需要加互斥锁保证只有一个goroutine进行初始化，同时采用了双检查的机制(double-checking)，再次判断 o.done 是否为 0，如果为 0，则是第一次执行，执行完毕后，就将 o.done 设置为 1，然后释放锁。
+
+即使此时有多个 goroutine 同时进入了 doSlow 方法，因为双检查的机制，后续的 goroutine 会看到 o.done 的值为 1，也不会再次执行 f。
+
+这样既保证了并发的 goroutine 会等待 f 完成，而且还不会多次执行 f。
+
+举例：
+```go
+func main() {
+	panicDo()
+	nestedDo2()
+}
+
+func panicDo() {
+	once := &sync.Once{}
+	defer func() {
+		if err := recover(); err != nil {
+			once.Do(func() {
+				fmt.Println("panic happened")
+			})
+		}
+	}()
+	once.Do(func() {
+		panic("panic")
+	})
+}
+
+func nestedDo() {
+	once := &sync.Once{}
+	once.Do(func(){
+		once.Do(func(){
+			fmt.Println("nested do")
+		})
+	})
+}
+
+func nestedDo2() {
+	once1 := &sync.Once{}
+	once2 := &sync.Once{}
+	once1.Do(func(){
+		once2.Do(func(){
+			fmt.Println("nested do")
+		})
+	})
+}
+```
+1. sync.Once()方法中传入的函数发生了panic，重复传入还会执行吗？
+
+执行panicDo方法,不会打印任何东西. sync.Once.Do 方法中传入的函数只会被执行一次,哪怕函数中发生了 panic；
+
+2. sync.Once()方法传入的函数中再次调用sync.Once()方法会有什么问题吗？
+
+会发生死锁! 执行nestedDo方法,会报 fatal error: all goroutines are asleep - deadlock! 根据源码实现,可知在第二个do方法会一直等doshow()中锁的释放导致发生了死锁;
+
+3. 执行nestedDo2,会输出什么?
+
+会打印出 ‘nested do’. once1，once2是两个对象,互不影响. 所以sync.Once是使方法只执行一次对象的实现。
+
+
+## interface
+
+interface 是 Go 里所提供的非常重要的特性。一个 interface 里可以定义一个或者多个函数，例如系统自带的io.ReadWriter的定义如下所示：
+```go
+type ReadWriter interface {
+    Read(b []byte) (n int, err error)
+    Write(b []byte) (n int, err error)
+}
+```
+任何类型只要它提供了 Read 和 Write 的实现，那么这个类型便实现了这个 interface（duck-type）。
+
+### 一个nil与interface{}比较的问题。
+
+首先看两个例子：
+```go
+func IsNil(i interface{}) {
+	if i == nil {
+		fmt.Println("i is nil")
+		return
+	}
+	fmt.Println("i isn't nil")
+}
+
+func main() {
+	var sl []string
+	if sl == nil {
+		fmt.Println("sl is nil")
+	}
+	IsNil(sl)
+}
+// 输出：
+// sl is nil
+// i isn't nil
+
+
+func main() {
+	var x interface{} = nil
+	var y *int = nil
+	interfaceIsNil(x)
+	interfaceIsNil(y)
+}
+
+func interfaceIsNil(x interface{}) {
+	if x == nil {
+		fmt.Println("empty interface")
+		return
+	}
+	fmt.Println("non-empty interface")
+}
+// 输出：
+// empty interface
+// non-empty interface
+```
+
+为啥一个nil切片，nil int指针，经过空接口interface{}一中转，就变成了非 nil。
+
+想要理解这个问题，首先需要理解 interface{} 变量的本质。
+
+Go 语言中有两种略微不同的接口，**一种是带有一组方法的接口，另一种是不带任何方法的空接口 interface{}。**
+
+Go 语言使用runtime.iface表示带方法的接口，使用runtime.eface表示不带任何方法的空接口interface{}。
+
+一个 interface{} 类型的变量包含了 2 个指针，一个指针指向值的类型，另外一个指针指向实际的值。在 Go 源码中 runtime 包下，我们可以找到runtime.eface的定义。
+```go
+type eface struct { // 16 字节
+	_type *_type
+	data  unsafe.Pointer
+}
+```
+从空接口的定义可以看到，当一个空接口变量为 nil 时，需要其两个指针均为 0 才行。
+
+回到最初的问题，我们打印下传入函数中的空接口变量值，来看看它两个指针值的情况。
+
+```go
+// InterfaceStruct 定义了一个 interface{} 的内部结构
+type InterfaceStruct struct {
+	pt uintptr // 到值类型的指针
+	pv uintptr // 到值内容的指针
+}
+
+// ToInterfaceStruct 将一个 interface{} 转换为 InterfaceStruct
+func ToInterfaceStruct(i interface{}) InterfaceStruct {
+	return *(*InterfaceStruct)(unsafe.Pointer(&i))
+}
+
+func IsNil(i interface{}) {
+	fmt.Printf("i value is %+v\n", ToInterfaceStruct(i))
+}
+
+func main() {
+	var sl []string
+	IsNil(sl)
+	IsNil(nil)
+}
+// 运行输出：
+// i value is {pt:6769760 pv:824635080536}
+// i value is {pt:0 pv:0}
+```
+可见，虽然 sl 是 nil 切片，但是其本上是一个类型为 []string，值为空结构体 slice 的一个变量，所以 sl 传给空接口时是一个非 nil 变量。
+
+再细究的话，你可能会问，既然 sl 是一个有类型有值的切片，为什么又是个 nil。
+
+针对具体类型的变量，判断是否是 nil 要根据其值是否为零值。因为 sl 一个切片类型，而切片类型的定义在源码包src/runtime/slice.go我们可以找到。
+
+```go
+type slice struct {
+	array unsafe.Pointer
+	len   int
+	cap   int
+}
+```
+我们继续看一下值为 nil 的切片对应的 slice 是否为零值。
+```go
+type slice struct {
+	array unsafe.Pointer
+	len   int
+	cap   int
+}
+
+func main() {
+	var sl []string
+	fmt.Printf("sl value is %+v\n", *(*slice)(unsafe.Pointer(&sl)))
+}
+// 运行输出：
+// sl value is {array:<nil> len:0 cap:0}
+```
+不出所料，果然是零值。
+
+至此解释了开篇出乎意料的比较结果背后的原因：空切片为 nil 因为其值为零值，类型为 []string 的空切片传给空接口后，因为空接口的值并不是零值，所以接口变量不是 nil。
+
+有两个办法：
+
+1. 既然值为 nil 的具型变量赋值给空接口会出现如此莫名其妙的情况，我们不要这么做，再赋值前先做判空处理，不为 nil 才赋给空接口；
+
+2. 使用reflect.ValueOf().IsNil()来判断。不推荐这种做法，因为当空接口对应的具型是值类型，会 panic。
+
+```go
+func IsNil(i interface{}) {
+	if i != nil {
+		if reflect.ValueOf(i).IsNil() {
+			fmt.Println("i is nil")
+			return
+		}
+		fmt.Println("i isn't nil")
+	}
+	fmt.Println("i is nil")
+}
+
+func main() {
+	var sl []string
+	IsNil(sl)	// i is nil
+	IsNil(nil)  // i is nil
+}
+```
+
+切记，Go 中变量是否为 nil 要看变量的值是否是零值。
+
+切记，不要将值为 nil 的变量赋给空接口。
+
+
+https://juejin.cn/post/7100078516334493733

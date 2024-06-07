@@ -5443,3 +5443,69 @@ func main() {
 
 copy函数实际上会返回一个int值，这个int是一个size，计算逻辑为size = min(len(dst), len(src))，这个size的大小，
 决定了src要copy几个元素给dst，由于题目中，dst声明了，但是没有进行初始化，所以dst的len是0，因此实际没有从src上copy到任何元素给dst
+
+
+
+### sync.Once如果中途panic，后续能否再执行一次？
+不会
+
+
+### map可以被多个goroutine操作吗？
+可以，线程不安全，怎么办，枷锁，其他办法，sync.Map 线程安全。
+
+### interface怎么判断nil
+
+### 两个goroutine 交替打印 1-20
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+)
+func main() {
+	ch0 := make(chan int)
+	ch1 := make(chan int)
+	go func() {
+		for i := 1; i <= 20; i += 2 {
+			<-ch0
+			fmt.Println(i)
+			ch1 <- 0
+		}
+	}()
+	go func() {
+		for i := 2; i <= 20; i += 2 {
+			<-ch1
+			fmt.Println(i)
+			ch0 <- 0
+		}
+	}()
+	ch0 <- 0	
+	time.Sleep(10*time.Second)
+}
+
+
+
+// 可以用一个管道
+func main() {
+	ch := make(chan int)
+	go func() {
+		for i := 1; i <= 20; i += 1 {
+			ch <- 0
+			if i%2 == 1 {
+				fmt.Println(i)
+			}
+		}
+	}()
+
+	go func() {
+		for i := 1; i <= 20; i += 1 {
+			<-ch
+			if i%2 == 0 {
+				fmt.Println(i)
+			}
+		}
+	}()
+	time.Sleep(10 * time.Second)
+}
+```

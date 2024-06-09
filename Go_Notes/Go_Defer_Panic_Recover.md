@@ -1,5 +1,184 @@
+# defer,panic,recover
+## defer
+当defer语句被执行时，跟在defer后面的函数会被延迟执行。直到包含该defer语句的函数执行完毕时，defer后的函数才会被执行，不论包含defer语句的函数是通过return正常结束，还是由于panic导致的异常结束。可以在一个函数中执行多条defer语句，它们的执行顺序与声明顺序相反。
 
-# Defer 相关 
+defer语句经常被用于处理成对的操作，如打开、关闭、连接、断开连接、加锁、释放锁。通过defer机制，不论函数逻辑多复杂，都能保证在任何执行路径下，资源被释放。释放资源的defer应该直接跟在请求资源的语句后。
+
+`defer语句中的函数会在return语句更新返回值变量后再执行，又因为在函数中定义的匿名函数可以访问该函数包括返回值变量在内的所有变量，所以，对匿名函数采用defer机制，可以使其观察函数的返回值。`
+```go
+func main() {
+    _ = double(4) // "double(4) = 9"
+}
+
+func double(x int) (result int) {
+    defer func() {
+        result += 1
+        fmt.Printf("double(%d) = %d\n", x, result) 
+    }()
+    return x + x
+}
+```
+
+Defer栈，defer的特点就是LIFO，即后进先出，所以如果在同一个函数下多个defer的话，会逆序执行。
+```go
+func main() {
+    f(3)
+}
+func f(x int) {
+    fmt.Printf("f(%d)\n", x+0/x) // panics if x == 0
+    defer fmt.Printf("defer %d\n", x)
+    f(x - 1)
+}
+/* output:
+f(3)
+f(2)
+f(1)
+defer 1
+defer 2
+defer 3
+panic: runtime error: integer divide by zero
+*/
+```
+
+defer携带的表达式语句代表的是对某个函数或方法的调用。这个调用可能会有参数传入，比如：fmt.Print(i + 1)。如果传入参数的是一个表达式，那么在defer语句被执行的时候该表达式就会被求值了。注意，这与被携带的表达式语句的执行时机是不同的。请揣测下面这段代码的执行：
+```go
+func deferIt3() {
+    f := func(i int) int {
+        fmt.Printf("%d ",i)
+        return i * 10
+    }
+    for i := 1; i < 5; i++ {
+        defer fmt.Printf("%d ", f(i))
+    }
+}
+// 它在被执行之后，标准输出上打印出1 2 3 4 40 30 20 10 。
+```
+   
+如果defer携带的表达式语句代表的是对匿名函数的调用，那么我们就一定要非常警惕。请看下面的示例：
+```go
+func deferIt4() {
+    for i := 1; i < 5; i++ {
+        defer func() {
+            fmt.Print(i)
+        }()
+    }
+}
+// 这里不对，实验也是4321？？？？？？
+``` 
+deferIt4函数在被执行之后标出输出上会出现5555，而不是4321。原因是defer语句携带的表达式语句中的那个匿名函数包含了对外部（确切地说，是该defer语句之外）的变量的使用。注意，等到这个匿名函数要被执行（且会被执行4次）的时候，包含该defer语句的那条for语句已经执行完毕了。此时的变量i的值已经变为了5。因此该匿名函数中的打印函数只会打印出5。正确的用法是：把要使用的外部变量作为参数传入到匿名函数中。修正后的deferIt4函数如下：
+```go
+func deferIt4() {
+    for i := 1; i < 5; i++ {
+        defer func(n int) {
+            fmt.Print(n)
+        }(i)
+    }
+}
+```
+
+### Panic
+有些错误只能在运行时检查，如数组访问越界、空指针引用等。这些运行时错误会引起painc异常。当panic异常发生时，程序会中断运行，并立即执行在该goroutine中被延迟的函数(defer机制)。
+
+__panic会停掉当前正在执行的程序（注意，不只是协程），但是与os.Exit(-1)这种直愣愣的退出不同，panic的撤退比较有秩序，他会先处理完当前goroutine已经defer挂上去的任务，执行完毕后再退出整个程序。panic仅保证当前goroutine下的defer都会被调到，但不保证其他协程的defer也会调到。__
+
+直接调用内置的`panic函数`也会引发panic异常，panic函数接受任何值作为参数。参数通常是将出错的信息以字符串的形式来表示。panic会打印这个字符串，以及触发panic的调用栈。当某些不应该发生的场景发生时，我们就应该调用panic。
+
+```go
+package main
+
+import (
+    "fmt"
+    "os"
+    "time"
+)
+
+func main() {
+    defer fmt.Println("defer main") // will this be printed when panic?
+    var user = os.Getenv("USER_")
+    go func() {
+        defer fmt.Println("defer caller")
+        func() {
+            defer func() {
+                fmt.Println("defer here")
+            }()
+
+            if user == "" {
+                panic("should set user env.")
+            }
+        }()
+    }()
+    time.Sleep(1 * time.Second)
+    panic("main") 
+}
+//defer here  
+//defer caller  
+//main中增加一个defer，但会睡1s，在这个过程中panic了，还没等到main睡醒，进程已经退出了，因此main的defer不会被调到；而跟panic同一个goroutine的”defer caller”还是会打印的，并且其打印在”defer here”之后。
+```
+
+### Recover
+有时可以从异常中恢复，至少可以在程序崩溃前，做一些操作。例如当web服务器遇到问题时，在崩溃前应该将所有的连接关闭，否则会使得客户端一直于等待状态。
+
+如果在deferred函数中调用了内置函数recover，并且定义该defer语句的函数发生了panic异常， recover会使程序从panic中恢复，并返回panic value。导致panic异常的函数不会继续运行，但能正常返回。注意 __recover只在defer的`函数`中有效，如果不是在refer上下文中调用，或在未发生panic时调用recover，recover会返回nil（选择性recover）__。
+```go
+package main
+
+import (
+    "os"
+    "fmt"
+    "time"
+)
+
+func main() {
+    defer fmt.Println("defer main") // will this be called when panic?
+    var user = os.Getenv("USER_")
+    go func() {
+        defer func() {
+            fmt.Println("defer caller")
+            if err := recover(); err != nil {
+                fmt.Println("recover success.")
+            }
+        }()
+        func() {
+            defer func() {
+                fmt.Println("defer here")
+            }()
+
+            if user == "" {
+                panic("should set user env.")
+            }
+            fmt.Println("after panic")
+        }()
+    }()
+
+    time.Sleep(1 * time.Second)
+}
+//defer here
+//defer caller
+//recover success.
+//defer main
+//recover力挽狂澜，避免了因为panic导致的节节败退，最终main拿到了结果，有秩序的退场了。注意，panic后面的”after panic”字符串并没有打印，这正是我们想要的。遇到解决不了的难题，只管甩panic就行，外面总有人能接的住。
+```
+
+panic可被意译为运行时恐慌。因为它只有在程序运行的时候才会被“抛出来”。并且，恐慌是会被扩散的。当有运行时恐慌发生时，它会被迅速地向调用栈的上层传递。如果我们不显式地处理它的话，程序的运行瞬间就会被终止 -- 程序崩溃。内建函数panic可以让我们人为地产生一个运行时恐慌。不过，这种致命错误是可以被恢复的。在Go语言中，内建函数recover就可以做到这一点。
+  
+实际上，内建函数panic和recover是天生的一对。前者用于产生运行时恐慌，而后者用于“恢复”它。不过要注意，recover函数必须要在defer语句中调用才有效。因为一旦有运行时恐慌发生，当前函数以及在调用栈上的所有代码都是失去对流程的控制权。只有defer语句携带的函数中的代码才可能在运行时恐慌迅速向调用栈上层蔓延时“拦截到”它。这里有一个可以起到此作用的defer语句的示例：
+
+```go
+defer func() {
+    if p := recover(); p != nil {
+        fmt.Printf("Fatal error: %s\n", p)
+    }
+}()
+```
+
+在这条defer语句中，我们调用了recover函数。该函数会返回一个interface{}类型的值。interface{}代表空接口。Go语言中的任何类型都是它的实现类型。我们把这个值赋给了变量p。如果p不为nil，那么就说明当前确有运行时恐慌发生。这时我们需根据情况做相应处理。注意，一旦defer语句中的recover函数调用被执行了，运行时恐慌就会被恢复，不论我们是否进行了后续处理。所以，我们一定不要只“拦截”不处理。
+  
+我们下面来反观panic函数。该函数可接受一个interface{}类型的值作为其参数。也就是说，我们可以在调用panic函数的时候可以传入任何类型的值。不过，我建议大家在这里只传入error类型的值。这样它表达的语义才是精确的。更重要的是，当我们调用recover函数来“恢复”由于调用panic函数而引发的运行时恐慌的时候，得到的值正是调用后者时传给它的那个参数。因此，有这样一个约定是很有必要的。
+  
+总之，运行时恐慌代表程序运行过程中的致命错误。我们只应该在必要的时候引发它。人为引发运行时恐慌的方式是调用panic函数。recover函数是我们常会用到的。因为在通常情况下，我们肯定不想因为运行时恐慌的意外发生而使程序崩溃。最后，在“恢复”运行时恐慌的时候，大家一定要注意处理措施的得当。
+
+---
+
 
 ## 下面这段代码输出的内容：
 

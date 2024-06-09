@@ -142,6 +142,145 @@ fmt.Println(c == Celsius(f))  // "true"!
 fmt.Println(c - f)  // compile error: type mismatch
 ```
 
+
+### 练习
+
+下面这段代码能否通过编译，如果可以，输出什么？
+```go
+var (
+    size := 1024
+    max_size = size * 2
+)
+
+func main() {
+    fmt.Println(size, max_size)
+}
+// syntax error: unexpected :=, expected =
+
+// 这道题的主要知识点是变量的简短模式，形如：x := 100 。但这种声明方式有限制：
+// 1. 必须使用显示初始化；
+// 2. 不能提供数据类型，编译器会自动推导；
+// 3. 只能在函数内部使用简短模式；
+```
+
+假设 x 已声明，y 未声明，下面 4 行代码哪些是正确的。错误的请说明原因？答：2、3正确
+```go
+x, _ := f()  // 1
+x, _ = f()  // 2
+x, y := f()  // 3
+x, y = f()  // 4
+// 知识点：简短变量声明。使用简短变量声明有几个需要注意的地方：
+// - 只能用于函数内部；
+// - 短变量声明语句中至少要声明一个新的变量；
+```
+
+定义一个包内全局字符串变量，下面语法正确的是？答：A D
+- A. var str string
+- B. str := ""
+- C. str = ""
+- D. var str = ""
+
+全局变量要定义在函数之外，而在函数之外定义的变量只能用 var 定义。短变量声明 := 只能用于函数之内。
+
+下面这段代码能否通过编译？不能的话，原因是什么？如果通过，输出什么？
+```go
+func main() {
+    sn1 := struct {
+        age  int
+        name string
+	}{age: 11, name: "qq"}
+	sn2 := struct {
+        age  int
+        name string
+	}{age: 11, name: "11"}
+
+    if sn1 == sn2 {
+        fmt.Println("sn1 == sn2")
+    }
+
+    sm1 := struct {
+        age int
+        m   map[string]string
+    }{age: 11, m: map[string]string{"a": "1"}}
+    sm2 := struct {
+        age int
+        m   map[string]string
+    }{age: 11, m: map[string]string{"a": "1"}}
+
+    if sm1 == sm2 {
+        fmt.Println("sm1 == sm2")
+    }
+}
+// 不能通过,invalid operation: sm1 == sm2**
+// `invalid operation: sm1 == sm2 (struct containing map[string]string cannot be compared)`
+
+// 考点是结构体的比较，有几个需要注意的地方：
+
+// 1. 结构体只能比较是否相等，但是不能比较大小；
+// 2. 想同类型的结构体才能进行比较，结构体是否相同不但与属性类型有关，还与属性顺序相关；
+// 3. 如果struct的所有成员都可以比较，则该struct就可以通过==或!=进行比较是否相同，比较时逐个项进行比较，如果每一项都相等，则两个结构体才相等，否则不相等；
+
+// 可以比较: 常见的有bool、数值型、字符、指针、数组等
+// 不能比较的有 slice、map、函数
+```
+
+
+通过指针变量p访问其成员变量name,有哪几种方式？答：A C
+
+- A. p.name
+- B. (&p).name
+- C. (*p).name
+- D. p->name
+
+`&` 取址运算符， `*` 指针解引用，golang在不解引用的情况下也可以访问成员变量。
+
+
+定义一个包内全局字符串变量，下面语法正确的是（）答：A、D
+
+- A. var str string
+- B. str := ""
+- C. str = ""
+- D. var str = ""
+
+B 只支持局部变量声明；C 是赋值，str 必须在这之前已经声明
+
+下面代码输出什么？
+```go
+func incr(p *int) int {
+    *p++
+    return *p
+}
+
+func main() {
+    p :=1
+    incr(&p)
+    fmt.Println(p)
+}
+// 2
+// incr() 函数里的 p 是 `*int` 类型的指针，指向的是 main() 函数的变量 p 的地址。`*p++`操作的意思是取出变量的值并执行加一操作，incr() 返回自增后的结果。
+```
+
+下面 A、B 两处应该填入什么代码，才能确保顺利打印出结果？
+```go
+type S struct {
+    m string
+}
+
+func f() *S {
+    return __  //A
+}
+
+func main() {
+    p := __    //B
+    fmt.Println(p.m) //print "foo"
+}
+// A. &S{"foo"} 
+// B. *f() 或者 f()
+// f() 函数返回参数是指针类型，所以可以用 & 取结构体的指针；B 处，如果填`*f()`，则 p 是 S 类型；如果填 `f()`，则 p 是 *S 类型，不过都可以使用 `p.m`取得结构体的成员。
+```
+
+
+
 ### 包和文件
 Go语言的代码通过包(package)组织。一个包由位于单个目录下的一个或多个.go源代码文件组成。每个源文件都以一条package声明语句开始（例如package main）表示该文件属于哪个包，紧跟着一系列导入(import)的包。import声明必须跟在文件的package声明之后。
 
@@ -162,6 +301,26 @@ func f() int {
 ```
 一个特殊的init初始化函数来简化初始化工作。每个文件都可以包含多个init初始化函数
 `func init() { /* ... */ }` 这样的init初始化函数除了不能被调用或引用外，其他行为和普通函数类似。
+
+
+同级文件的包名不允许有多个，是否正确？ 正确，一个文件夹下只能有一个包，可以多个.go文件，但这些文件必须属于同一个包。
+
+关于init函数，下面说法正确的是（）答：A、B
+
+- A. 一个包中，可以包含多个init函数；
+- B. 程序编译时，先执行依赖包的init函数，再执行main包内的init函数；
+- C. main包中，不能有init函数；
+- D. init函数可以被其他函数调用；
+
+1. init()函数是用于程序执行前做包的初始化的函数，比如初始化包里的变量等；
+2. 一个包可以出现多个init()函数，一个源文件也可以包含多个init()函数；
+3. 同一个包中多个init()函数的执行顺序没有明确的定义，但是不同包的init函数是根据包导入的依赖关系决定的；
+4. init函数在代码中不能被显示调用、不能被引用（赋值给函数变量），否则出现编译失败；
+5. 一个包被引用多次，如A import B，C import B，A import C，B被引用多次，但B包只会初始化一次；
+6. 引入包，不可出现死循环。即A import B，B import A，这种情况下编译失败；
+
+![init](../file/img/init.png)
+
 
 ### 作用域
 不要将作用域和生命周期混为一谈。声明语句的作用域对应的是一个源代码的文本区域;它是一个 编译时的属性。一个变量的生命周期是指程序运行时变量存在的有效时间段，是一个运行时的概念。
@@ -190,7 +349,20 @@ func init() {
     }
 }
 ```
----
+
+下面选项正确的是？ 
+```go
+func main() {
+    if a := 1; false {
+    } else if b := 2; false {
+    } else {
+        println(a, b)
+    }
+}
+// 1 2
+// 知识点：代码块和变量作用域。
+```
+
 
 ## 基础数据类型
 Go语言将数据类型分为四类:基础类型、复合类型、引用类型和接口类型。
@@ -254,6 +426,18 @@ fmt.Printf("%d %[1]x %#[1]x %#[1]X\n", x)
 一个rune类型的值即可表示一个Unicode字符。Unicode是一个可以表示世界范围内的绝大部分字符的编码规范。关于它的详细信息，大家可以参看其官网(http://unicode.org/)上的文档，或在Google上搜索。用于代表Unicode字符的编码值也被称为Unicode代码点。一个Unicode代码点通常由“U+”和一个以十六进制表示法表示的整数表示。例如，英文字母“A”的Unicode代码点为“U+0041”。
 
     rune类型的值需要由单引号“'”包裹。例如，'A'或'郝'。这种表示方法一目了然。不过，我们还可以用另外几种形式表示rune类型值。请看下表。  
+
+
+下面这段代码输出什么？
+```go
+func main() {  
+    i := 65
+    fmt.Println(string(i))
+}
+//  A
+// UTF-8 编码中，十进制数字 65 对应的符号是 A。但是在Goland中会有警告 `conversion from int to string yields a string of one rune, not a string of digits`，
+// 推荐使用 `var i byte = 65` 或 `var i uint8 = 65` 替代
+```
 
 
 ### 浮点型
@@ -372,6 +556,58 @@ func main() {
 // int32
 ```
 
+
+####  练习
+下面这段代码输出什么？请简要说明。
+```go
+func main() {
+    fmt.Println(strings.TrimRight("ABBA", "BA"))
+}
+// ""
+// strings.TrimRight的作用是把有包含第二个参数的组合项的对应字母都替换掉，比如"BA"的组合集合为{"BA", "AB", "A", "B"}；
+// 但是它有一个中止条件，如果从右到左有一个字母或字母组合不为"BA"的排列组合集合中的元素，便会停止cut，把当前已cut完的字符串返回
+```
+
+关于字符串连接，下面语法正确的是？答：B、D
+
+- A. str := 'abc' + '123'
+- B. str := "abc" + "123"
+- C. str := '123' + "abc"
+- D. fmt.Sprintf("abc%d", 123)
+
+在Golang中字符串用双引号，字符用单引号
+字符串连接除了以上两种连接方式，还有 `strings.Join()` 、 `buffer.WriteString()` 等。
+
+
+下面代码输出什么？
+```go
+func main() {
+    str := "hello"
+    str[0] = 'x'
+    fmt.Println(str)
+}
+// cannot assign to str[0] (neither addressable nor a map index expression)
+// 知识点：常量，Go 语言中的字符串是只读的。
+```
+
+下面的代码有几处语法问题，各是什么？
+```go
+package main
+import (
+    "fmt"
+)
+func main() {
+    var x string = nil
+    if x == nil {
+        x = "default"
+    }
+    fmt.Println(x)
+}
+// 两个地方有语法问题。golang 的字符串类型是不能赋值 nil 的，也不能跟 nil 比较。
+```
+
+
+
 ### 常量
 常量表达式的值在编译期计算，而不是在运行期。常量的值不可修改，这样可以防止在运行期被意外或恶意的修改。如：`const pi = 3.14159` 。可以批量声明多个常量：
 ```go
@@ -415,139 +651,6 @@ const (
 ## 复合数据类型
 数组和结构体是聚合类型;它们的值由许多元素或成员字段的值组成。数组元素都是完全相同的类型;结构体则是由异构的元素组成的。数组和结构体都是有固定内存大小的数据结构。slice和map则是动态的数据结构，它们将根据需要动态增长。
 
-### 数组
-一个数组可以由零个或多个元素组成。数组的长度是固定的。定义方式：
-```go
-var a [3]int
-var b [3]int = [3]int{1, 2, 3} 
-var c [3]int = [3]int{1, 2}
-d := [...]int{1, 2, 2, 4}
-```
-数组的长度是数组类型的一个组成部分，因此[3]int和[4]int是两种不同的数组类型。数组的长度必 须是常量表达式，因为数组的长度需要在编译阶段确定。
-
-如果一个数组的元素类型是可以相互比较的，那么数组类型也是可以相互比较的，可以直接通过`==`比较运算符来比较两个数组，只有当两个数组的所有元素都是相等的时候数组才是相等的。
-```go
-a := [2]int{1, 2}
-b := [...]int{1, 2}
-c := [2]int{1, 3}
-fmt.Println(a == b, a == c, b == c) // "true false false"
-d := [3]int{1, 2}
-fmt.Println(a == d) // compile error
-```
-
-### Slice
-Slice(切片)代表变长的序列，序列中每个元素都有相同的类型。slice的语法和数组很像，只是没有固定长度而已。而且slice的底层引用一个数组对象。一个slice由三个部分构成:指针、长度和容量。指针指向第一个slice元素对应的底层数组元素的地址，__要注意的是slice的第一个元素并不一定就是数组的第一个元素。长度对应slice中元素的数目;长度不能超过容量，容量一般是从slice的开始位置到底层数据的结尾位置。__内置的len和cap函数分别返回slice的长度和容量。
-![slice](../file/img/slice.png)
-
-slice值包含指向第一个slice元素的指针，因此向函数传递slice将允许在函数内部修改底层数组 的元素。换句话说，复制一个slice只是对底层的数组创建了一个新的slice别名。
-```go
-func reverse(s []int) {
-    for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
-        s[i], s[j] = s[j], s[i] 
-    }
-}
-
-a := [...]int{0, 1, 2, 3, 4, 5} 
-reverse(a[:])
-fmt.Println(a) // "[5 4 3 2 1 0]"
-
-//循环向左旋转n个元素:
-s := []int{0, 1, 2, 3, 4, 5}
-// Rotate s left by two positions. 
-reverse(s[:2])
-reverse(s[2:])
-reverse(s)
-fmt.Println(s) // "[2 3 4 5 0 1]"
-```
-slice之间不能比较，因此我们不能使用==操作符来判断两个slice是否含有全部相等元素。slice唯一合法的比较操作是和nil比较。
-```go
-var s []int // len(s) == 0, s == nil 
-s = nil // len(s) == 0, s == nil 
-s = []int(nil) // len(s) == 0, s == nil 
-s = []int{} // len(s) == 0, s != nil
-```
-内置的make函数创建一个指定元素类型、长度和容量的slice。容量部分可以省略，在这种情况下，容量将等于长度。
-```go
-make([]T, len)
-make([]T, len, cap) // same as make([]T, cap)[:len]
-```
-
-一个切片值的容量即为它的第一个元素值在其底层数组中的索引值与该数组长度的差值的绝对值。
-
-__append函数__
-
-通过appendInt函数模拟Go内置append函数。
-
-每次调用appendInt函数，必须先检测slice底层数组是否有足够的容量来保存新添加的元素。如果 有足够空间的话，直接扩展slice(依然在原有的底层数组之上)，将新添加的y元素复制到新扩展的空间，并返回slice。因此，输入的x和输出的z共享相同的底层数组。
-如果没有足够的增长空间的话，appendInt函数则会先分配一个足够大(2倍)的slice用于保存新的结果，先将输入的x复制到新的空间，然后添加y元素。结果z和输入的x引用的将是不同的底层数组。
-```go
-func appendInt(x []int, y int) []int {
-    var z []int
-    zlen := len(x) + 1
-    if zlen <= cap(x) {
-        // There is room to grow. Extend the slice.
-        z = x[:zlen]
-    } else {
-        // There is insufficient space. Allocate a new array.
-        // Grow by doubling, for amortized linear complexity.
-        zcap := zlen
-        if zcap < 2*len(x) {
-            zcap = 2 * len(x)
-        }
-        z = make([]int, zlen, zcap)
-        copy(z, x) // a built‐in function; see text
-    }
-    z[len(x)] = y
-    return z
-}
-```
-
-在进行“切片”操作的时候需要指定元素下界索引和元素上界索引，就像这样：
-
-numbers3[1:4]
-    在有些时候，我们还可以在方括号中放入第三个正整数，如下所示：
-
-numbers3[1:4:4] 
-    这第三个正整数被称为容量上界索引。它的意义在于可以把作为结果的切片值的容量设置得更小。换句话说，它可以限制我们通过这个切片值对其底层数组中的更多元素的访问。下面举个例子。让我们先来回顾下在上一节讲到的numbers3和slice1。针对它们的赋值语句是这样的：
-
-var numbers3 = [5]int{1, 2, 3, 4, 5}
-var slice1 = numbers3[1:4]  
-    这时，变量slice1的值是[]int{2, 3, 4}。但是我们可以通过如下操作将其长度延展得与其容量相同：
-
-slice1 = slice1[:cap(slice1)]   
-    通过此操作，变量slice1的值变为了[]int{2, 3, 4, 5}，且其长度和容量均为4。现在，numbers3的值中的索引值在[1,5)范围内的元素都被体现在了slice1的值中。这是以numbers3的值是slice1的值的底层数组为前提的。这意味着，我们可以轻而易举地通过切片值访问其底层数组中对应索引值更大的更多元素。如果我们编写的函数返回了这样一个切片值，那么得到它的程序很可能会通过这种技巧访问到本不应该暴露给它的元素。这是确确实实是一个安全隐患。
-  
-    如果我们在切片表达式中加入了第三个索引（即容量上界索引），如：
-
-var slice1 = numbers3[1:4:4]   
-    那么在这之后，无论我们怎样做都无法通过slice1访问到numbers3的值中的第五个元素。因为这超出了我们刚刚设定的slice1的容量。如果我们指定的元素上界索引或容量上界索引超出了被操作对象的容量，那么就会引发一个运行时恐慌（程序异常的一种），而不会有求值结果返回。因此，这是一个有力的访问控制手段。
-  
-    虽然切片值在上述方面受到了其容量的限制，但是我们却可以通过另外一种手段对其进行不受任何限制地扩展。这需要使用到内建函数append。append会对切片值进行扩展并返回一个新的切片值。使用方法如下：
-
-slice1 = append(slice1, 6, 7)
-    通过上述操作，slice1的值变为了[]int{2, 3, 4, 6, 7}。注意，一旦扩展操作超出了被操作的切片值的容量，那么该切片的底层数组就会被自动更换。这也使得通过设定容量上界索引来对其底层数组进行访问控制的方法更加严谨了。
-  
-    我们要介绍的最后一种操作切片值的方法是“复制”。该操作的实施方法是调用copy函数。该函数接受两个类型相同的切片值作为参数，并会把第二个参数值中的元素复制到第一个参数值中的相应位置（索引值相同）上。这里有两点需要注意：
-  
-  1. 这种复制遵循最小复制原则，即：被复制的元素的个数总是等于长度较短的那个参数值的长度。
-  2. 与append函数不同，copy函数会直接对其第一个参数值进行修改。
-  
-      举例如下：
-
-var slice4 = []int{0, 0, 0, 0, 0, 0, 0}
-copy(slice4, slice1)   
-    通过上述复制操作，slice4会变为[]int{2, 3, 4, 6, 7, 0, 0}。
-
-
-
-var numbers4 = [...]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
-    slice5 := numbers4[4:6:8]
-    length := 2
-    capacity := 4
-
-
-
-
 
 ### Map
 一个无序的key/value对的集合，其中所有的key都是不同的，然后通过给定的key可以在__常数时间复杂度__内检索、更新或删除对应的value。map类型可以写为map[K]V，其中K和V分别对应key和value。map中所有的key都有相同的类型，所有的value也有着相同的类型，但是key和value之间可以是不同的数据类型。其中K对应的key必须是支持`==`比较运算符的数据类型，所以map可以通过测试key是否相等来判断是否已经存在。
@@ -564,6 +667,124 @@ delete(m, "alice") //删除key value
 在。布尔变量一般命名为ok。
 
 和slice一样，map之间也不能进行相等比较;唯一的例外是和nil进行比较。
+
+
+下面这段代码输出什么？
+```go
+func main() {  
+    s := make(map[string]int)
+    delete(s, "h")
+    fmt.Println(s["h"])
+}
+//  0
+// 删除 map 不存在的键值对时，不会报错，相当于没有任何作用；获取不存在的减值对时，返回值类型对应的零值，所以返回 0。
+```
+
+下面这段代码输出什么？
+```go
+type person struct {
+    name string
+}
+
+func main() {
+    var m map[person]int
+    p := person{"make"}
+    fmt.Println(m[p])
+}
+// 0
+// 打印一个map中不存在的值时，返回元素类型的零值。这个例子中，m的类型是map[person]int，因为m中 不存在p，所以打印int类型的零值，即0。
+```
+
+下面代码中 A B 两处应该怎么修改才能顺利编译？
+```go
+func main() {
+    var m map[string]int        //A
+    m["a"] = 1
+    if v := m["b"]; v != nil {  //B
+        fmt.Println(v)
+    }
+}
+// 两个问题：在 A 处只声明了map m ,并没有分配内存空间，不能直接赋值，需要使用 make()，都提倡使用 make() 或者字面量的方式直接初始化 map。
+// B 处，`v,ok := m["b"]` 当 key 为 b 的元素不存在的时候，v 会返回值类型对应的零值，ok 返回 false。
+
+// 正确写法
+func main() {
+	var m = make(map[string]int) //A
+	m["a"] = 1
+	if v, ok := m["b"]; ok { //B
+		fmt.Println(v)
+	}
+}
+```
+
+下面这段代码输出什么？
+```go
+func main() {
+    m := map[int]string{0:"zero",1:"one"}
+    for k,v := range m {
+        fmt.Println(k,v)
+    }
+}
+// 0 zero
+// 1 one
+// 或者
+// 1 one
+// 0 zero
+// map 的输出是无序的。
+```
+
+
+下面代码输出什么？
+```go
+type Math struct {
+    x, y int
+}
+
+var m = map[string]Math{
+    "foo": Math{2, 3},
+}
+
+func main() {
+    m["foo"].x = 4
+    fmt.Println(m["foo"].x)
+}
+// compilation error
+// 编译报错 `cannot assign to struct field m["foo"].x in map`。错误原因：对于类似 `X = Y`的赋值操作，必须知道 `X` 的地址，才能够将 `Y` 的值赋给 `X`，但 go 中的 map 的 value 本身是不可寻址的。
+
+// 有两个解决办法：
+
+// 1. 使用临时变量
+type Math struct {
+    x, y int
+}
+
+var m = map[string]Math{
+    "foo": Math{2, 3},
+}
+
+func main() {
+    tmp := m["foo"]
+    tmp.x = 4
+    m["foo"] = tmp
+    fmt.Println(m["foo"].x)
+}
+
+// 2. 修改数据结构
+type Math struct {
+    x, y int
+}
+
+var m = map[string]*Math{
+    "foo": &Math{2, 3},
+}
+
+func main() {
+    m["foo"].x = 4
+    fmt.Println(m["foo"].x)
+    fmt.Printf("%#v", m["foo"])   // %#v 格式化输出详细信息，&main.Math{x:4, y:3}
+}
+```
+
 
 ### Struct
 结构体是一种聚合的数据类型，是由零个或多个任意类型的值聚合成的实体。如果结构体成员名字是以大写字母开头的，那么该成员就是导出的，一个结构体可能同时包含导出和未导出的成员。结构体类型的零值是每个成员都是零值。
@@ -629,7 +850,41 @@ default:
     最后，我们来说一下fallthrough。它既是一个关键字，又可以代表一条语句。fallthrough语句可被包含在表达式switch语句中的case语句中。它的作用是使控制权流转到下一个case。不过要注意，fallthrough语句仅能作为case语句中的最后一条语句出现。并且，包含它的case语句不能是其所属switch语句的最后一条case语句。
 
 
+关于 switch 语句，下面说法正确的是？答：A C
 
+- A. 单个 case 中，可以出现多个结果选项；
+- B. 需要使用 break 来明确退出一个 case;
+- C. 只有在 case 中明确添加 fallthrought 关键字，才会继续执行紧跟的下一个 case;
+- D. 条件表达式必须为常量或者整数；
+
+
+下面代码能编译通过吗？可以的话，输出什么？
+```go
+func alwaysFalse() bool {
+    return false
+}
+
+func main() {
+    switch alwaysFalse()
+    {
+    case true:
+        println(true)
+    case false:
+        println(false)
+    }
+}
+//可以编译通过，输出：true
+//Go 代码断行规则。
+// 上面代码相当于：如果去掉分号，则输出false
+func main() {
+	switch alwaysFalse(); {
+	case true:
+		println(true)
+	case false:
+		println(false)
+	}
+}
+```
 
 
 
@@ -660,6 +915,8 @@ for i, c:= range s {
     s[i] 是byte
     c 是 rune
 }
+
+
 
 
 
@@ -748,6 +1005,26 @@ func main() {
 }
 ```
 函数类型的零值是nil。调用值为nil的函数值会引起panic错误。但是函数值之间是不可比较的，也不能用函数值作为map的key。
+
+
+下面这段代码输出什么以及原因？
+```go
+func hello() []string {
+    return nil
+}
+
+func main() {
+    h := hello
+    if h == nil {
+        fmt.Println("nil")
+    } else {
+        fmt.Println("not nil")
+    }
+}
+// not nil
+// 这道题里面，是将 `hello()` 赋值给变量h，而不是函数的返回值，所以输出 `not nil` 
+```
+
 
 ### 匿名函数
 Named functions can be declared only at the package level, but we can use a function literal to denote a function value within any expression. A function literal is written like a function declaration, but without a name follow ing the `func` keyword. It is an expression, and its value is called an anonymous function.
@@ -845,184 +1122,39 @@ func sum(vals ...int) int {
 }
 ```
 
-### Defer
-当defer语句被执行时，跟在defer后面的函数会被延迟执行。直到包含该defer语句的函数执行完毕时，defer后的函数才会被执行，不论包含defer语句的函数是通过return正常结束，还是由于panic导致的异常结束。可以在一个函数中执行多条defer语句，它们的执行顺序与声明顺序相反。
 
-defer语句经常被用于处理成对的操作，如打开、关闭、连接、断开连接、加锁、释放锁。通过defer机制，不论函数逻辑多复杂，都能保证在任何执行路径下，资源被释放。释放资源的defer应该直接跟在请求资源的语句后。
-
-__defer语句中的函数会在return语句更新返回值变量后再执行，又因为在函数中定义的匿名函数可以访问该函数包括返回值变量在内的所有变量，所以，对匿名函数采用defer机制，可以使其观察函数的返回值。__
+对 add() 函数调用正确的是（）
 ```go
-func main() {
-    _ = double(4) // "double(4) = 9"
-}
+func add(args ...int) int {
 
-func double(x int) (result int) {
-    defer func() {
-        result += 1
-        fmt.Printf("double(%d) = %d\n", x, result) 
-    }()
-    return x + x
-}
-```
-Defer栈，defer的特点就是LIFO，即后进先出，所以如果在同一个函数下多个defer的话，会逆序执行。
-```go
-func main() {
-    f(3)
-}
-func f(x int) {
-    fmt.Printf("f(%d)\n", x+0/x) // panics if x == 0
-    defer fmt.Printf("defer %d\n", x)
-    f(x - 1)
-}
-/* output:
-f(3)
-f(2)
-f(1)
-defer 1
-defer 2
-defer 3
-panic: runtime error: integer divide by zero
-*/
-```
-
-defer携带的表达式语句代表的是对某个函数或方法的调用。这个调用可能会有参数传入，比如：fmt.Print(i + 1)。如果传入参数的是一个表达式，那么在defer语句被执行的时候该表达式就会被求值了。注意，这与被携带的表达式语句的执行时机是不同的。请揣测下面这段代码的执行：
-```go
-func deferIt3() {
-    f := func(i int) int {
-        fmt.Printf("%d ",i)
-        return i * 10
+    sum := 0
+    for _, arg := range args {
+        sum += arg
     }
-    for i := 1; i < 5; i++ {
-        defer fmt.Printf("%d ", f(i))
-    }
+    return sum
 }
-// 它在被执行之后，标准输出上打印出1 2 3 4 40 30 20 10 。
-```
-   
-如果defer携带的表达式语句代表的是对匿名函数的调用，那么我们就一定要非常警惕。请看下面的示例：
-```go
-func deferIt4() {
-    for i := 1; i < 5; i++ {
-        defer func() {
-            fmt.Print(i)
-        }()
-    }
-}
-// 这里不对，实验也是4321？？？？？？
-``` 
-deferIt4函数在被执行之后标出输出上会出现5555，而不是4321。原因是defer语句携带的表达式语句中的那个匿名函数包含了对外部（确切地说，是该defer语句之外）的变量的使用。注意，等到这个匿名函数要被执行（且会被执行4次）的时候，包含该defer语句的那条for语句已经执行完毕了。此时的变量i的值已经变为了5。因此该匿名函数中的打印函数只会打印出5。正确的用法是：把要使用的外部变量作为参数传入到匿名函数中。修正后的deferIt4函数如下：
-```go
-func deferIt4() {
-    for i := 1; i < 5; i++ {
-        defer func(n int) {
-            fmt.Print(n)
-        }(i)
-    }
-}
+// - A. add(1, 2)
+// - B. add(1, 3, 7)
+// - C. add([]int{1, 2})
+// - D. add([]int{1, 3, 7}…)
+
+// 答：ABD
 ```
 
-### Panic
-有些错误只能在运行时检查，如数组访问越界、空指针引用等。这些运行时错误会引起painc异常。当panic异常发生时，程序会中断运行，并立即执行在该goroutine中被延迟的函数(defer机制)。
 
-__panic会停掉当前正在执行的程序（注意，不只是协程），但是与os.Exit(-1)这种直愣愣的退出不同，panic的撤退比较有秩序，他会先处理完当前goroutine已经defer挂上去的任务，执行完毕后再退出整个程序。panic仅保证当前goroutine下的defer都会被调到，但不保证其他协程的defer也会调到。__
-
-直接调用内置的`panic函数`也会引发panic异常，panic函数接受任何值作为参数。参数通常是将出错的信息以字符串的形式来表示。panic会打印这个字符串，以及触发panic的调用栈。当某些不应该发生的场景发生时，我们就应该调用panic。
-
+下面这段代码有什么缺陷？
 ```go
-package main
-
-import (
-    "fmt"
-    "os"
-    "time"
-)
-
-func main() {
-    defer fmt.Println("defer main") // will this be printed when panic?
-    var user = os.Getenv("USER_")
-    go func() {
-        defer fmt.Println("defer caller")
-        func() {
-            defer func() {
-                fmt.Println("defer here")
-            }()
-
-            if user == "" {
-                panic("should set user env.")
-            }
-        }()
-    }()
-    time.Sleep(1 * time.Second)
-    panic("main") 
+func funcMui(x, y int) (sum int, error) {
+    return x + y, nil
 }
-//defer here  
-//defer caller  
-//main中增加一个defer，但会睡1s，在这个过程中panic了，还没等到main睡醒，进程已经退出了，因此main的defer不会被调到；而跟panic同一个goroutine的”defer caller”还是会打印的，并且其打印在”defer here”之后。
+// `syntax error: mixed named and unnamed parameters`
+
+// 在函数有多个返回值时，只要有一个返回值有命名，其他的也必须命名。如果有多个返回值必须加上括号();如果只有一个返回值且命名也需要加上括号()。这里的第一个返回值有命名sum，第二个没有命名，编译错误。
 ```
 
-### Recover
-有时可以从异常中恢复，至少可以在程序崩溃前，做一些操作。例如当web服务器遇到问题时，在崩溃前应该将所有的连接关闭，否则会使得客户端一直于等待状态。
 
-如果在deferred函数中调用了内置函数recover，并且定义该defer语句的函数发生了panic异常， recover会使程序从panic中恢复，并返回panic value。导致panic异常的函数不会继续运行，但能正常返回。注意 __recover只在defer的`函数`中有效，如果不是在refer上下文中调用，或在未发生panic时调用recover，recover会返回nil（选择性recover）__。
-```go
-package main
 
-import (
-    "os"
-    "fmt"
-    "time"
-)
 
-func main() {
-    defer fmt.Println("defer main") // will this be called when panic?
-    var user = os.Getenv("USER_")
-    go func() {
-        defer func() {
-            fmt.Println("defer caller")
-            if err := recover(); err != nil {
-                fmt.Println("recover success.")
-            }
-        }()
-        func() {
-            defer func() {
-                fmt.Println("defer here")
-            }()
-
-            if user == "" {
-                panic("should set user env.")
-            }
-            fmt.Println("after panic")
-        }()
-    }()
-
-    time.Sleep(1 * time.Second)
-}
-//defer here
-//defer caller
-//recover success.
-//defer main
-//recover力挽狂澜，避免了因为panic导致的节节败退，最终main拿到了结果，有秩序的退场了。注意，panic后面的”after panic”字符串并没有打印，这正是我们想要的。遇到解决不了的难题，只管甩panic就行，外面总有人能接的住。
-```
-
-panic可被意译为运行时恐慌。因为它只有在程序运行的时候才会被“抛出来”。并且，恐慌是会被扩散的。当有运行时恐慌发生时，它会被迅速地向调用栈的上层传递。如果我们不显式地处理它的话，程序的运行瞬间就会被终止 -- 程序崩溃。内建函数panic可以让我们人为地产生一个运行时恐慌。不过，这种致命错误是可以被恢复的。在Go语言中，内建函数recover就可以做到这一点。
-  
-实际上，内建函数panic和recover是天生的一对。前者用于产生运行时恐慌，而后者用于“恢复”它。不过要注意，recover函数必须要在defer语句中调用才有效。因为一旦有运行时恐慌发生，当前函数以及在调用栈上的所有代码都是失去对流程的控制权。只有defer语句携带的函数中的代码才可能在运行时恐慌迅速向调用栈上层蔓延时“拦截到”它。这里有一个可以起到此作用的defer语句的示例：
-
-```go
-defer func() {
-    if p := recover(); p != nil {
-        fmt.Printf("Fatal error: %s\n", p)
-    }
-}()
-```
-
-在这条defer语句中，我们调用了recover函数。该函数会返回一个interface{}类型的值。interface{}代表空接口。Go语言中的任何类型都是它的实现类型。我们把这个值赋给了变量p。如果p不为nil，那么就说明当前确有运行时恐慌发生。这时我们需根据情况做相应处理。注意，一旦defer语句中的recover函数调用被执行了，运行时恐慌就会被恢复，不论我们是否进行了后续处理。所以，我们一定不要只“拦截”不处理。
-  
-我们下面来反观panic函数。该函数可接受一个interface{}类型的值作为其参数。也就是说，我们可以在调用panic函数的时候可以传入任何类型的值。不过，我建议大家在这里只传入error类型的值。这样它表达的语义才是精确的。更重要的是，当我们调用recover函数来“恢复”由于调用panic函数而引发的运行时恐慌的时候，得到的值正是调用后者时传给它的那个参数。因此，有这样一个约定是很有必要的。
-  
-总之，运行时恐慌代表程序运行过程中的致命错误。我们只应该在必要的时候引发它。人为引发运行时恐慌的方式是调用panic函数。recover函数是我们常会用到的。因为在通常情况下，我们肯定不想因为运行时恐慌的意外发生而使程序崩溃。最后，在“恢复”运行时恐慌的时候，大家一定要注意处理措施的得当。
-
----
 
 ## 方法
 ### 方法声明
@@ -1198,676 +1330,64 @@ fmt.Printf("%v\n", p)
   
 只要我们把Grow变回指针方法就可以解决这个问题。原因是，这时的person代表的是p的值的指针的副本。指针的副本仍会指向p的值。另外，之所以选择表达式person.Age成立，是因为如果Go语言发现person是指针并且指向的那个值有Age字段，那么就会把该表达式视为(*person).Age。其实，这时的person.Age正是(*person).Age的速记法。
 
+
+### 练习
+下面这段代码输出什么？为什么？
+```go
+func (i int) PrintInt ()  {
+    fmt.Println(i)
+}
+
+func main() {
+    var i int = 1
+    i.PrintInt()
+}
+// `cannot define new methods on non-local type int`
+// 基于类型创建的方法必须定义在同一个包内，上面的代码基于 int 类型创建了 PrintInt() 方法，由于 int 类型和方法 PrintInt() 定义在不同的包内，所以编译出错。
+
+// 解决的办法可以定义一种新的类型：
+type Myint int
+
+func (i Myint) PrintInt ()  {
+    fmt.Println(i)
+}
+
+func main() {
+    var i Myint = 1
+    i.PrintInt()
+}
+```
+
+下面这段代码输出什么？为什么？
+```go
+type People interface {
+    Speak(string) string
+}
+
+type Student struct{}
+
+func (stu *Student) Speak(think string) (talk string) {
+    if think == "speak" {
+        talk = "speak"
+    } else {
+        talk = "hi"
+    }
+    return
+}
+
+func main() {
+    var peo People = Student{}
+    think := "speak"
+    fmt.Println(peo.Speak(think))
+}
+// compilation error
+// 编译错误 `Student does not implement People (Speak method has pointer receiver)`，值类型 `Student` 没有实现接口的 `Speak()` 方法，而是指针类型 `*Student` 实现该方法。要通过编译应该写成 ` var peo People = &Student{}`。
+```
+
+
 ### Bit数组
 
 ### 封装
-
----
-
-## 接口
-接口类型是一种抽象的类型。它不会暴露出它所代表的对象的内部值的结构和这个对象支持的基础操作的集合。它们只会展示出它们自己的方法。也就是说当你有看到一个接口类型的值时，不知道它是什么，但知道可以通过它的方法来做什么。
-
-`fmt.Printf`会把结果写到标准输出，`fmt.Sprintf`会把结果以字符串的形式返回。这两个函数都使用了另一个函数`fmt.Fprintf`。
-```go
-package fmt
-
-func Fprintf(w io.Writer, format string, args ...interface{}) (int, error) 
-
-func Printf(format string, args ...interface{}) (int, error) {
-    return Fprintf(os.Stdout, format, args...) 
-}
-
-func Sprintf(format string, args ...interface{}) string { 
-    var buf bytes.Buffer
-    Fprintf(&buf, format, args...)
-    return buf.String()
-}
-//最新的源码中，Sprintf实现已经不同了。
-```
-在Printf函数中的第一个参数os.Stdout是*os.File类型;在Sprintf函数中的第一个参数&buf是一个指向可以写入字节的内存缓冲区。
-
-Fprintf函数中的第一个参数也不是一个文件类型。它是io.Writer类型，这是一个接口类型
-```go
-package io
-type Writer interface {
-    Write(p []byte) (n int, err error)
-}
-```
-\*os.File和\*bytes.Buffer都实现了io.Writer接口。所以可以用作Fprintf输入。
-
-接口类型具体描述了一系列方法的集合，一个实现了这些方法的具体类型是这个接口类型的实例。
-
-### 实现接口的条件
-一个类型如果拥有一个接口需要的所有方法，那么这个类型就实现了这个接口。接口指定的规则非常简单:表达一个类型属于某个接口只要这个类型实现这个接口。
-
-例如，\*os.File类 型实现了io.Reader，Writer，Closer和ReadWriter接口。\*bytes.Buffer实现了Reader，Writer和ReadWriter这些接口，但是它没有实现Closer接口因为它不具有Close方法。
-```go
-    var w io.Writer
-    w = os.Stdout         //OK: *os.File has Write method
-    w = new(bytes.Buffer) // OK: *bytes.Buffer has Write method
-    w = time.Second       // compile error: time.Duration lacks Write method
-
-    var rwc io.ReadWriteCloser //
-    rwc = os.Stdout            // OK: *os.File has Read, Write, Close methods
-    rwc = new(bytes.Buffer)    //compile error: *bytes.Buffer lacks Close method
-
-    w = rwc // OK: io.ReadWriteCloser has Write method
-    rwc = w // compile error: io.Writer lacks Close method
-```
-
-对于每一个命名过的具体类型T;它一些方法的接收者是类型T本身而另一些则是一个T指针。
-T类型变量上调用*T的方法是合法的，必须是变量。编译器隐式的获取了它的地址。但这仅仅是一个语法糖:T类型的值不拥有所有*T指针的方法。
-```go
-type IntSet struct { /* ... */ }
-func (*IntSet) String() string
-var _ = IntSet{}.String() // compile error: String requires *IntSet receiver
-```
-但是我们可以在一个IntSet值上调用这个方法:
-```go
-var s IntSet
-var _ = s.String() // OK: s is a variable and &s has a String method
-```
-但由于只有*IntSet类型有String方法，也只有*IntSet类型实现了fmt.Stringer接口
-```go
-var _ fmt.Stringer = &s // OK
-var _ fmt.Stringer = s // compile error: IntSet lacks String method
-```
-
-interface{}被称为空接口类型，因为空接口类型对实现它的类型没有要求，所以我们可以将任意一个值赋给空接口类型。`var any interface{}`
-
-### flag.Value接口
-```go
-func main() {
-    var period = flag.Duration("period", 1*time.Second, "sleep period")
-    flag.Parse()
-    fmt.Printf("Sleeping for %v...", *period)
-    time.Sleep(*period)
-    fmt.Println("Done!")
-}
-```
-可以通过`-period`这个命令行标记来控制：`go run main.go -period 5s`。
-
-为自定义数据类型定义新的标记符号，需要定义一个实现`flag.Value`接口的类型。
-```go
-package flag
-// Value is the interface to the value stored in a flag.
-type Value interface {
-    String() string
-    Set(string) error
-}
-```
-String方法格式化标记的值用在命令行帮组消息中，每一个flag.Value也是一个fmt.Stringer。Set方法解析它的字符串参数并且更新标记变量的值。实际上，Set方法和String是两个相反的操作。
-
-### 接口值
-一个接口的值由两个部分组成，一个具体的类型和那个类型的值。它们被称为接口的动态类型和动态值。Go语言这种静态类型的语言，类型是编译期的概念；因此一个类型不是一个值。
-
-`var w io.Writer` 在Go语言中，变量总是被一个定义明确的值初始化，即使接口类型也不例外。对于一个接口的零 值就是它的类型和值的部分都是nil。
-
-`w = os.Stdout` 这个赋值过程调用了一个具体类型到接口类型的隐式转换，这和显式的使用io.Writer(os.Stdout)是等价的。这个接口值的动态类型被设为*os.File指针，它的动态值持有os.Stdout的拷贝。
-
-接口值可以使用==和!=来进行比较。两个接口值相等仅当它们都是nil值或者它们的动态类型相同并且动态值也根据这个动态类型的==操作相等。可以用在map的键或者作为switch语句的操作数。如果两个接口值的动态类型相同，但这个动态类型是不可比较(比如切片)，将它们进行比较就会失败并且panic:
-```go
-    var x interface{} = []int{1, 2, 3}
-    fmt.Printf("%T\n", x) // []int
-    fmt.Println(x == x) // panic: comparing uncomparable type []int
-```
-使用fmt包的`%T`动作可以获得接口值动态类型。
-
-一个不包含任何值的nil接口值和一个刚好包含nil指针的接口值是不同的。
-```go
-func main() {
-    var buf *bytes.Buffer
-    f(buf) // NOTE: subtly incorrect! //panic.
-}
-func f(out io.Writer) {
-    if out != nil {
-        out.Write([]byte("done!\n")) 
-    }
-}
-```
-当main函数调用函数f时，它给f函数的out参数赋了一个*bytes.Buffer的空指针，所以out的动态值是nil。然而，它的动态类型是*bytes.Buffer，意思就是out变量是一个包含空指针值的非空接口，所以防御性检查out!=nil的结果依然是true。解决方案就是将main函数中的变量buf的类型改为io.Writer。
-
-在Go语言中，一个接口类型总是代表着某一种类型（即所有实现它的类型）的行为。一个接口类型的声明通常会包含关键字type、类型名称、关键字interface以及由花括号包裹的若干方法声明。示例如下：
-```go
-type Animal interface {
-    Grow()
-    Move(string) string
-}
-```
-注意，接口类型中的方法声明是普通的方法声明的简化形式。它们只包括方法名称、参数声明列表和结果声明列表。其中的参数的名称和结果的名称都可以被省略。不过，出于文档化的目的，我还是建议大家在这里写上它们。因此，Move方法的声明至少应该是这样的：
-
-`Move(new string) (old string)`
-
-如果一个数据类型所拥有的方法集合中包含了某一个接口类型中的所有方法声明的实现，那么就可以说这个数据类型实现了那个接口类型。所谓实现一个接口中的方法是指，具有与该方法相同的声明并且添加了实现部分（由花括号包裹的若干条语句）。相同的方法声明意味着完全一致的名称、参数类型列表和结果类型列表。其中，参数类型列表即为参数声明列表中除去参数名称的部分。一致的参数类型列表意味着其长度以及顺序的完全相同。对于结果类型列表也是如此。
-  
-例如，如果你正确地完成了上一小节的练习的话，\*Person类型（注意，不是Person类型）就会拥有一个Move方法。该方法会是Animal接口的Move方法的一个实现。再加上我们在之前为它编写的那个Grow方法，\*Person类型就可以被看做是Animal接口的一个实现类型了。
-  
-你可能已经意识到，我们无需在一个数据类型中声明它实现了哪个接口。只要满足了“方法集合为其超集”的条件，就建立了“实现”关系。这是典型的无侵入式的接口实现方法。
-  
-好了，现在我们已经认为*Person类型实现了Animal接口。但是Go语言编译器是否也这样认为呢？这显然需要一种显式的判定方法。在Go语言中，这种判定可以用类型断言来实现。不过，在这里，__我们是不能在一个非接口类型的值上应用类型断言来判定它是否属于某一个接口类型的。我们必须先把前者转换成空接口类型的值。__ 这又涉及到了Go语言的类型转换。
-  
-Go语言的类型转换规则定义了是否能够以及怎样可以把一个类型的值转换另一个类型的值。另一方面，所谓空接口类型即是不包含任何方法声明的接口类型，用interface{}表示，常简称为空接口。正因为空接口的定义，Go语言中的包含预定义的任何数据类型都可以被看做是空接口的实现。我们可以直接使用类型转换表达式把一个*Person类型转换成空接口类型的值，就像这样：
-```go
-p := Person{"Robert", "Male", 33, "Beijing"}
-v := interface{}(&p)
-```
-请注意第二行。在类型字面量后跟由圆括号包裹的值（或能够代表它的变量、常量或表达式）就构成了一个类型转换表达式，意为将后者转换为前者类型的值。在这里，我们把表达式&p的求值结果转换成了一个空接口类型的值，并由变量v代表。注意，表达式&p（&是取址操作符）的求值结果是一个*Person类型的值，即p的指针。
-  
-在这之后，我们就可以在v上应用类型断言了，即：
-
-`h, ok := v.(Animal)`  
-
-类型断言表达式v.(Animal)的求值结果可以有两个。第一个结果是被转换后的那个目标类型（这里是Animal）的值，而第二个结果则是转换操作成功与否的标志。显然，ok代表了一个bool类型的值。它也是这里判定实现关系的重要依据。
-
-我们在讲接口的时候说过，如果一个数据类型所拥有的方法集合中包含了某一个接口类型中的所有方法声明的实现，那么就可以说这个数据类型实现了那个接口类型。要获知一个数据类型都包含哪些方法并不难。但是要注意指针方法与值方法的区别。
-  
-拥有指针方法Grow和Move的指针类型*Person是接口类型Animal的实现类型，但是它的基底类型Person却不是。这样的表象隐藏着另一条规则：一个指针类型拥有以它以及以它的基底类型为接收者类型的所有方法，而它的基底类型却只拥有以它本身为接收者类型的方法。
-  
-以上一小节练习题中的类型MyInt为例，如果Increase方法是它的指针方法且Decrease方法是它的值方法，那么*MyInt类型会拥有这两个方法，而MyInt类型仅拥有Decrease方法。再以Person类型为例。即使我们把Grow和Move都改为值方法，*Person类型也仍会是Animal接口的实现类型。另一方面，Grow和Move中只要有一个是指针方法，Person类型就不可能是Animal接口的实现类型。
-  
-另外，还有一点需要大家注意，我们在基底类型的值上仍然可以调用它的指针方法。例如，若我们有一个Person类型的变量bp，则调用表达式bp.Grow()是合法的。这是因为，如果Go语言发现我们调用的Grow方法是bp的指针方法，那么它会把该调用表达式视为(&bp).Grow()。实际上，这时的bp.Grow()是(&bp).Grow()的速记法。
-
-
-```go
-package main
-
-import "fmt"
-
-type Pet interface {
-    Name() string
-    Age() uint8
-}
-
-type Dog struct {
-    name string
-    age uint8
-}
-
-func (d Dog) Name() string {
-    return d.name
-}
-
-func (d Dog) Age() uint8 {
-    return d.age
-}
-
-func main() {
-    myDog := Dog{"Little D", 3}
-    _, ok1 := interface{}(&myDog).(Pet)
-    _, ok2 := interface{}(myDog).(Pet)
-    fmt.Printf("%v, %v\n", ok1, ok2)  //true
-    //如果其中一个方法 或 两个方法都是指针方法，则ok2 == false
-}
-```
-
-
-### sort.Interface接口
-Go语言的sort.Sort函数不会对具体的序列和它的元素做任何假设。它使用了一个接口类型sort.Interface来指定通用的排序算法。序列的表示经常是一个切片。
-
-一个内置的排序算法需要知道三个东西:序列的长度，表示两个元素比较的结果，一种交换两个元素的方式;这就是sort.Interface的三个方法:
-```go
-package sort
-type Interface interface { 
-    Len() int
-    Less(i, j int) bool // i, j are indices of sequence elements
-    Swap(i, j int) }
-```
-为了对序列进行排序，我们需要定义一个实现了这三个方法的类型，然后对这个类型的一个实例应用sort.Sort函数。
-
-例：B_07_Sort
-
-#### http.Handler接口
-```go
-package http
-type Handler interface {
-    ServeHTTP(w ResponseWriter, r *Request)
-}
-func ListenAndServe(address string, h Handler) error
-```
-ListenAndServe函数需要一个例如“localhost:8000”的服务器地址，和一个所有请求都可以分派的Handler接口实例。它会一直运行，直到这个服务因为一个错误而失败，返回值一定是一个非空的错误。
-
-例：B_08_Http_01
-
-可以在浏览器输入：`http://localhost:8000/price?item=socks` 。
-
-net/http包提供了一个请求多路器ServeMux来简化URL和handlers的联系。一个ServeMux将一批http.Handler聚集到一个单一的http.Handler中。
-
-例：B_09_Http_02
-
-### error接口
-整个errors包仅只有4行，error接口类型有一个返回错误信息的单一方法:
-```go
-package errors
-
-type error interface {
-    Error() string
-}
-
-func New(text string) error {
-    return &errorString{text}
-}
-
-type errorString struct{ 
-    text string 
-}
-
-func (e *errorString) Error() string {
-    return e.text
-}
-```
-创建一个error最简单的方法就是调用errors.New函数，它会根据传入的错误信息返回一个新的error。
-
-errorString是一个结构体而非一个字符串。并且因为是指针类型*errorString而不是errorString类型满足error接口，所以每个New函数的调用都分配了一个单独地址，即使错误信息相同，实例也不相等：`fmt.Println(errors.New("EOF") == errors.New("EOF")) // "false"`。
-
-有一个方便的封装函数fmt.Errorf，它还会处理字符串格式化：
-```go
-package fmt
-
-import "errors"
-
-func Errorf(format string, args ...interface{}) error {
-    return errors.New(Sprintf(format, args...))
-}
-```
-
-### 示例：表达式请求
-
-### 类型断言
-类型断言是一个使用在接口值上的操作。`x.(T)`，一个类型断言检查x对象的类型是否和断言的类型T匹配。
-
-如果T是一个具体类型，类型断言检查x的动态类型是否和T相同。如果这个检查成功，类型断言的结果是x的动态值。如果检查失败，接下来这个操作会抛出panic。T也可以是一个接口类型，类型断言检查x的动态类型是否满足T（实现了T的方法）。
-
-```go
-    var w io.Writer
-    w = os.Stdout
-    f := w.(*os.File) // success: f == os.Stdout
-    c := w.(*bytes.Buffer) //panic: interface holds *os.File, not *bytes.Buffer
-    d := w.(sort.Interface) //panic: interface conversion: *os.File is not sort.Interface: missing method Len
-```
-不是interface类型做类型断言都是回报non-interface的错误的，
-```go
-    s := "hello world"
-    if v, ok := s.(string); ok {
-        fmt.Println(v)
-    }
-    //invalid type assertion: s.(string) (non-interface type string on left)
-
-    //所以我们只能通过将s作为一个interface{}的方法来进行类型断言，如下代码所示：
-    x := "hello world"
-    if v, ok := interface{}(x).(string); ok { // interface{}(x):把 x 的类型转换成 interface{}
-        fmt.Println(v)
-    }
-```
-断言可以返回两个值，第二个结果常规地赋值给一个命名为ok的变量。如果这个操作失败了，那么ok就是false值，第一个结果等于被断言类型的零值。
-
-断言操作的对象是一个nil接口值，断言都会失败。
-
-### 基于类型断言区别错误类型
-
-### 通过类型断言询问行为
-
-### 类型开关
-
-### 示例：基于标记的XML解码
-
----
-
-## Goroutines和Channels
-
-### Goroutines
-每一个并发的执行单元叫作一个goroutine。当一个程序启动时，其主函数即在一个单独的goroutine中运行，我们叫它main goroutine。新的goroutine会用go语句来创建。主函数返回时，所有的goroutine都会被直接打断，程序退出。除了从主函数退出或者直接终止程序之外，没有其它的编程方法能够让一个goroutine来打断另一个的执行。
-
-示例：Spinner动画，B_08_Spinner
-
-示例：并发的Clock服务，参见B_09_Clock
-
-示例：并发的Echo服务，参见B_10_Echo
-
-### Channels
-goroutine是Go语言程序的并发体，channels则是它们之间的通信机制。一个channels是一个通信机制，它可以让一个goroutine通过它给另一个goroutine发送值信息。每个channel都有可发送数据的类型。创建一个channel: `ch := make(chan int) // ch has type 'chan int'`。
-和map类似，channel也一个对应make创建的底层数据结构的引用。当我们复制一个channel或用于函数参数传递时，我们只是拷贝了一个channel引用，因此调用者何被调用者将引用同一个channel对象。和其它的引用类型一样，channel的零值也是nil。
-
-两个相同类型的channel可以使用==运算符比较。如果两个channel引用的是相同的对象，那么比较 的结果为真。一个channel也可以和nil进行比较。
-
-一个channel有发送和接受两个主要操作，都是通信行为。一个发送语句将一个值从一个goroutine通过channel发送到另一个执行接收操作的goroutine。发送和接收两个操作都是用`<‐`运算符。一个不使用接收结果的接收操作也是合法的。
-```go
-ch <- x     // a send statement
-x = <-ch    // a receive expression in an assignment statement 
-<-ch        // a receive statement; result is discared
-```
-make可以指定第二个整形参数，对应channel的容量。如果channel的容量大于零，那么该channel就是带缓存的channel。
-```go
-ch = make(chan int)     // unbuffered channel
-ch = make(chan int, 0)  // unbuffered channel
-ch = make(chan int, 3)  // buffered channel with capacity 3
-```
-一个基于无缓存Channels的发送操作将导致发送者goroutine阻塞，直到另一个goroutine在相同的Channels上执行接收操作，当发送的值通过Channels成功传输之后，两个goroutine可以继续执行后面的语句。反之，如果接收操作先发生，那么接收者goroutine也将阻塞，直到有另一个goroutine在相同的Channels上执行发送操作。
-
-基于无缓存Channels的发送和接收操作将导致两个goroutine做一次同步操作。因为这个原因，无缓存Channels有时候也被称为`同步Channels`。
-
-Channels也可以用于将多个goroutine链接在一起，一个Channels的输出作为下一个Channels的输 入。这种串联的Channels就是所谓的管道(pipeline)。
-
-Channel还支持close操作，用于关闭channel，使用内置的close函数就可以关闭一个channel: `close(ch)`。close后发送操作都将导致panic异常。对一个已经被close过的channel执行接收操作依然可以接受到之前已经成功发送的数据；后续的接收操作将不再阻塞，它们会立即返回一个零值(一直可以读取零值)。
-
-没有办法直接测试一个channel是否被关闭，但是接收操作有一个变体形式:它多接收一个结果，多接收的第二个结果是一个布尔值ok，ture表示成功从channels接收到值，false表示channels已经被关闭并且里面没有值可接收。`x, ok := <‐naturals`
-
-Go语言的range循环可直接在channels上面迭代 (使用range循环是上面ok判断的简洁语法)。它依次从channel接收数据，当channel被关闭并且没有值可接收时跳出循环。
-
-例子：
-```go
-package main
-
-import (
-    "fmt"
-    "time"
-)
-
-func counter(out chan<- int) { //类型chan<‐ int表示一个只发送int的channel，只能发送不能接收。
-    for x := 0; x < 5; x++ {
-        out <- x
-        time.Sleep(1 * time.Second)
-    }
-    close(out)
-}
-func squarer(out chan<- int, in <-chan int) { //类型<‐chan int表示一个只接收int的channel，只能接收不能发送。
-    for v := range in {
-        out <- v * v
-    }
-    close(out)
-}
-func printer(in <-chan int) {
-    for v := range in {
-        fmt.Println(v)
-    }
-}
-func main() {
-    naturals := make(chan int)
-    squares := make(chan int)
-    go counter(naturals)
-    go squarer(squares, naturals)
-    printer(squares)
-}
-
-// 每隔一秒打印0，1，4，9，16
-```
-
-向缓存Channel的发送操作就是向内部缓存队列的尾部插入元素，接收操作则是从队列的头部删除元素。如果内部缓存队列是满的，那么发送操作将阻塞直到因另一个goroutine执行接收操作而释放了新的队列空间。相反，如果channel是空的，接收操作将阻塞直到有另一个goroutine执行发送操作而向队列插入元素。
-
-可以用内置的cap函数获取channel内部缓存的容量: `fmt.Println(cap(ch))`。
-内置的len函数返回channel内部缓存队列中有效元素的个数: `fmt.Println(len(ch))`。
-
-### 并发的循环
-多个goroutine同时工作是，为了知道最后一个goroutine什么时候结束(最后一个结束并不一定是最后一个开始)，我们需要一个递增的计数器，在每一个goroutine启动时加一，在goroutine退出时减一。这个计数器需要在多个goroutine操作时做到安全并且提供提供在其减为零之前一直等待的一种方法。这种计数类型被称为`sync.WaitGroup`，下面的代码就用到了这种方法：
-```go
-// makeThumbnails6 makes thumbnails for each file received from the channel.
-// It returns the number of bytes occupied by the files it creates.
-func makeThumbnails6(filenames <-chan string) int64 {
-	sizes := make(chan int64)
-	var wg sync.WaitGroup // number of working goroutines
-	for f := range filenames {
-		wg.Add(1)
-		// worker
-		go func(f string) {
-			defer wg.Done()
-			thumb, err := thumbnail.ImageFile(f)
-			if err != nil {
-				log.Println(err)
-				return
-			}
-			info, _ := os.Stat(thumb) // OK to ignore error
-			sizes <- info.Size()
-		}(f)
-	}
-	// closer
-	go func() {
-		wg.Wait()
-		close(sizes)
-	}()
-	var total int64
-	for size := range sizes {
-		total += size
-	}
-	return total
-}
-```
-注意`Add`和`Done`方法的不对称。Add是为计数器加一，必须在worker goroutine开始之前调用，而不是在goroutine中；否则的话我们没办法确定Add是在"closer" goroutine调用Wait之前被调用。并且Add还有一个参数，但Done却没有任何参数；其实它和Add(-1)是等价的。我们使用defer来确保计数器即使是在出错的情况下依然能够正确地被减掉。上面的程序代码结构是当我们使用并发循环，但又不知道迭代次数时很通常而且很地道的写法。
-
-### 示例：并发Web爬虫
-
-### Select
-
-火箭发射的例子，两个channel，一个负责计时，一个负责终止。现在每一次计数循环的迭代都需要等待两个channel中的其中一个返回事件了：ticker channel正常计数，或者异常时返回的abort事件。我们无法做到从每一个channel中接收信息，如果我们这么做的话，如果第一个channel中没有事件发过来那么程序就会立刻被阻塞，这样我们就无法收到第二个channel中发过来的事件。这时候我们需要多路复用(multiplex)这些操作了，为了能够多路复用，我们使用了select语句。
-
-```go
-select { 
-    case <-ch1:
-    // ...
-    case x := <-ch2: 
-    // ...use x...
-    case ch3 <- y: 
-    // ...
-    default: // ...
-}
-```
-select语句的一般形式：会有几个case和最后的default。每一个case代表一个通信操作(在某个channel上进行发送或者接收)并且会包含一些语句组成的一个语句块。
-
-select会等待case中有能够执行的case时去执行。当条件满足时，select才会去通信并执行case之后的语句；这时候其它通信是不会执行的。一个没有任何case的select语句写作select{}，会永远地等待下去。如果多个case同时就绪时，select会随机地选择一个执行，这样来保证每一个channel都有平等的被select的机会。
-
-如果 select 控制结构中包含 default 语句，那么这个 select 语句在执行时会遇到以下两种情况：
-- 当存在可以收发的 Channel 时，直接处理该 Channel 对应的 case；
-- 当不存在可以收发的 Channel 时，执行 default 中的语句；
-
-例1：
-```go
-package main
-
-import (
-    "fmt"
-    "os"
-    "time"
-)
-
-func main() {
-    fmt.Println("Commencing countdown. Press return to abort.")
-    //tick := time.Tick(1 * time.Second)
-    ticker := time.NewTicker(1 * time.Second)
-
-    abort := make(chan struct{})
-    go func() {
-        os.Stdin.Read(make([]byte, 1)) // read a single byte
-        abort <- struct{}{}
-    }()
-
-    for s := 10; s >= 0; s-- {
-        select {
-        //case <-tick:
-        case <-ticker.C:
-            fmt.Println("T minis: ", s)
-        case <-abort:
-            fmt.Println("Launch aborted!")
-            return
-        }
-    }
-    ticker.Stop()
-    launch()
-}
-
-func launch() {
-    fmt.Println("Rocket launched!")
-}
-```
-
-例2：ch这个channel的buffer大小是1，所以会交替的为空或为满，所以只有一个case可以进行下去，无论i是奇数或者偶数，它都会打印0 2 4 6 8。
-```go
-ch := make(chan int, 1)
-for i := 0; i < 10; i++ {
-    select {
-    case x := <-ch:
-        fmt.Println(x) // "0" "2" "4" "6" "8"
-    case ch <- i:
-    }
-}
-```
-channel的零值是nil。对一个nil的channel发送和接收操作会永远阻塞，在select语句中操作nil的channel永远都不会被select到。
-
-### 示例：并发的字典遍历
-
-### 并发的退出
-为了能够达到退出多个goroutine的目的，我们需要靠谱的策略，来通过一个channel把消息广播出去，这样goroutine们能够看到这条事件消息，并且在事件完成之后，可以知道这件事已经发生过了。
-
-### 示例：聊天服务
-
----
-
-## 基于共享变量的并发
-
-### 竞争条件
-在一个线性(只有一个goroutine的)的程序中，程序的执行顺序只由程序的逻辑来决定。在有两个或更多goroutine的程序中，每一个goroutine内的语句也是按照既定的顺序去执行的，但是一般情况下没法知道分别位于两个goroutine的事件x和y的执行顺序，x是在y之前还是之后还是同时发生是没法判断的。这也说明x和y这两个事件是并发的。
-
-一个函数在线性、在并发的情况下，这个函数可以正确地工作，那么这个函数是并发安全的，并发安全的函数不需要额外的同步工作。可以把这个概念概括为一个特定类型的一些方法和操作函数，如果这个类型是并发安全的话，那么所有它的访问方法和操作就都是并发安全的。
-
-在一个程序中有非并发安全的类型的情况下，我们依然可以使这个程序并发安全。并发安全的类型是例外，而不是规则，所以只有当文档中明确地说明了其是并发安全的情况下，你才可以并发地去访问它。
-
-数据竞争：只要有两个goroutine并发访问同一变量，且至少其中的一个是写操作的时候就会发生数据竞争。有三种方式可以避免数据竞争：第一种方法是不要去写变量。第二种避免多个goroutine访问变量。第三种避免数据竞争的方法是允许很多goroutine去访问变量，但是在同一个时刻最多只有一个goroutine在访问，这种方式被称为“互斥”。
-
-### sync.Mutex互斥锁
-可以用一个容量只有1的channel来保证最多只有一个goroutine在同一时刻访问一个共享变量。
-```go
-var (
-    sema    = make(chan struct{}, 1) // a binary semaphore guarding balance
-    balance int
-)
-func Deposit(amount int) {
-    sema <- struct{}{} // acquire token
-    balance = balance + amount
-    <-sema // release token
-}
-func Balance() int {
-    sema <- struct{}{} // acquire token
-    b := balance
-    <-sema // release token
-    return b
-}
-```
-sync包里的Mutex类型，它的Lock方法能够获取到token(这里叫锁)，并且Unlock方法会释放这个token。下面的写法与上面的功能一样：
-```go
-import "sync"
-var (
-    mu      sync.Mutex // guards balance
-    balance int
-)
-func Deposit(amount int) {
-    mu.Lock()
-    balance = balance + amount
-    mu.Unlock()
-}
-func Balance() int {
-    mu.Lock()
-    b := balance
-    mu.Unlock()
-    return b
-}
-```
-每次一个goroutine访问bank变量时(这里只有balance余额变量)，它都会调用mutex的Lock方法来获取一个互斥锁。如果其它的goroutine已经获得了这个锁的话，这个操作会被阻塞直到其它goroutine调用了Unlock使该锁变回可用状态。mutex会保护共享变量。
-
-更好的方法是用defer来调用Unlock。无法对一个已经锁上的mutex来再次上锁­­这会导致程序死锁，没法继续执行下去。
-
-### sync.RWMutex读写锁
-允许多个只读操作并行执行，但写操作会完全互斥。这种锁叫作“多读单写”锁(multiple readers, single writer lock)，Go语言提供的这样的锁是sync.RWMutex。
-```go
-var mu sync.RWMutex
-var balance int
-func Balance() int {
-    mu.RLock() // readers lock defer 
-    mu.RUnlock()
-    return balance
-}
-```
-
-### 内存同步
-因为赋值和打印指向不同的变量，编译器可能会断定两条语句的顺序不会影响执行结果，并且会交换两个语句的执行顺序。可能的话，将变量限定在goroutine内部;如果是多个goroutine都需要访问的变量，使用互斥条件来访问。
-
-### sync.Once初始化
-sync包提供了一个专门的方案来解决一次性初始化的问题:sync.Once。一次性的初始化需要一个互斥量mutex和一个boolean变量来记录初始化是不是已经完成了;互斥量用来保护boolean变量和客户端数据结构。
-```go
-var loadIconsOnce sync.Once
-var icons map[string]image.Image
-// Concurrency‐safe.
-func Icon(name string) image.Image {
-    loadIconsOnce.Do(loadIcons)
-    return icons[name]
-}
-```
-每一次对Do(loadIcons)的调用都会锁定mutex，并会检查boolean变量。在第一次调用时，变量的值是false，Do会调用loadIcons并会将boolean设置为true。
-
-### 示例：并发的非阻塞缓存
-
-### Goroutines和线程
-每一个OS线程都有一个固定大小的内存块(一般会是2MB)来做栈，这个栈会用来存储当前正在被调用或挂起(指在调用其它函数时)的函数的内部变量。2MB的栈对于一个小小的goroutine来说是很大的内存浪费。修改固定的大小可以提升空间的利用率允许创建更多的线程，并且可以允许更深的递归调用，不过这两者是没法同时兼备的。
-
-相反，一个goroutine会以一个很小的栈开始其生命周期，一般只需要2KB。一个goroutine的栈，和操作系统线程一样，会保存其活跃或挂起的函数调用的本地变量，但是和OS线程不太一样的是一个goroutine的栈大小并不是固定的;栈的大小会根据需要动态地伸缩。而goroutine的栈的最大值有1GB，比传统的固定大小的线程栈要大得多。
-
-OS线程会被操作系统内核调度。每几毫秒，一个硬件计时器会中断处理器，这会调用一个叫作scheduler的内核函数。这个函数会挂起当前执行的线程并保存内存中它的寄存器内容，检查线程列表并决定下一次哪个线程可以被运行，并从内存中恢复该线程的寄存器信息，然后恢复执行该线程的现场并开始执行线程。因为操作系统线程是被内核所调度，所以从一个线程向另一个“移动”需要完整的上下文切换，也就是说，保存一个用户线程的状态到内存，恢复另一个线程的到寄存器，然后更新调度器的数据结构。这几步操作很慢，因为其局部性很差需要几次内存访问，并且会增加运行的cpu周期。
-
-Go的运行时包含自己的调度器，这个调度器使用了一些技术手段，比如m:n调度，因为其会在n个操作系统线程上多工(调度)m个goroutine。Go调度器的工作和内核的调度是相似的，但是这个调度器只关注单独的Go程序中的goroutine(按程序独立)。
-和操作系统的线程调度不同的是，Go调度器并不是用一个硬件定时器而是被Go语言"建筑"本身进行调度的。这种调度方式不需要进入内核的上下文，所以重新调度一个goroutine比调度一个线程代价要低得多。
-
-Go的调度器使用了一个叫做 __GOMAXPROCS__ 的变量来决定会有多少个操作系统的线程同时执行Go的代码。其默认的值是运行机器上的CPU的核心数，所以在一个有8个核心的机器上时，调度器一次会在8个OS线程上去调度GO代码。(GOMAXPROCS是m:n调度中的n)。在休眠中的或者在通信中被阻塞的goroutine是不需要一个对应的线程来做调度的。
-可以用GOMAXPROCS的环境变量来显式地控制这个参数，或者也可以在运行时用runtime.GOMAXPROCS函数来修改它。
-`GOMAXPROCS=1 go run main.go`
-
-在大多数支持多线程的操作系统和程序语言中，当前的线程都有一个独特的身份(id)，并且这个身份信息可以以一个普通值的形式被被很容易地获取到。
-goroutine没有可以被程序员获取到的身份(id)的概念。
-
---- 
-
-## 反射
-
-### 为什么反射
-有时候我们需要编写一个函数能够处理一类并不满足普通公共接口的类型的值。一个大家熟悉的例子是fmt.Fprintf函数提供的字符串格式化处理逻辑，它可以用来对任意类型的值格式化并打印，甚至支持用户自定义的类型。
-
-反射可以检查未知类型的表示方式。
-
-### refect.Type和reflect.Value
-反射是由reflect包提供的。它定义了两个重要的类型，Type和Value。Type是接口，表示一个Go类型。函数`reflect.TypeOf`接受任意的interface{}类型，并以reflect.Type形式返回其动态类型。
-```go
-    t := reflect.TypeOf(3)  // a reflect.Type //一个隐式的接口转换操作
-    fmt.Println(t.String()) // "int"
-    fmt.Println(t)          // "int"
-```
-
-reflect.TypeOf总是返回具体的类型。
-```go
-var w io.Writer = os.Stdout
-fmt.Println(reflect.TypeOf(w)) // 打印 "*os.File" 而不是 "io.Writer"。
-```
-reflect.Type接口是满足fmt.Stringer接口的，fmt.Printf提供了一个缩写`%T`参数, 内部使用 reflect.TypeOf来输出:`fmt.Printf("%T\n", 3) // "int"`。
-
-reflect包中另一个类型是Value，可以装载任意类型的值。函数reflect.ValueOf接受任意的interface{}类型，并返回一个装载着其动态值的reflect.Value。和reflect.TypeOf类似，reflect.ValueOf返回的结果也是具体的类型，但是reflect.Value也可以持有一个接口值。
-reflect.Value也满足fmt.Stringer接口, fmt包的`%v`标志参数会对reflect.Values特殊处理。对 Value 调用 Type 方法将返回具体类型所对应的 reflect.Type。
-```go
-    v := reflect.ValueOf(3) // a reflect.Value
-    fmt.Println(v)          // "3"
-    fmt.Printf("%v\n", v)   // "3"
-    fmt.Println(v.String()) // NOTE: "<int Value>"
-    t := v.Type()           // a reflect.Type
-    fmt.Println(t.String()) // "int"
-```
- reflect.Value的Kind方法可以用来枚举类型，kinds类型是有限的: Bool, String和所有数字类型的基础类型; Array和Struct对应的聚合类型; Chan, Func, Ptr, Slice和Map对应的引用类型; interface类型; 还有表示空值的Invalid类型(空的reflect.Value的kind即为Invalid)。
-
-例：B_24_Format
-
-### Display,递归打印器
-
-### 示例：编码为S表达式
-
-### 通过reflect.Value修改值
-
-### 示例：解码S表达式
-
-### 获取结构体字段标识
-
-### 显示一个类型的方法集
 
 ---
 

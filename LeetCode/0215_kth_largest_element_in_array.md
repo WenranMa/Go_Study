@@ -124,7 +124,7 @@ func partition(arr []int, low, high int) int {
 }
 ```
 
-3. 最小堆手搓
+3. 最大堆手搓
 ```go
 func findKthLargest(nums []int, k int) int {
     heapSize := len(nums)

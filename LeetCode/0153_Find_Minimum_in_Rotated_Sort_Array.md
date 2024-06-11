@@ -45,4 +45,4 @@ func findMin(nums []int) int {
 }
 ```
 
-并且只要当前的区间长度不为 111，pivot\it pivotpivot 就不会与 high\it highhigh 重合；而如果当前的区间长度为 111，这说明我们已经可以结束二分查找了
+并且只要当前的区间长度不为 1，pivot 就不会与 high 重合；而如果当前的区间长度为 1，这说明我们已经可以结束二分查找了

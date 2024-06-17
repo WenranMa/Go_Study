@@ -658,3 +658,419 @@ LeetCode 056, 057
 
 ## Randomset O(1)
 LeetCode 0380
+
+
+## Intensity Segment
+```go
+package main
+
+import (
+	"fmt"
+	"strings"
+)
+
+// Segment represents a start with an intensity value.
+type Segment struct {
+	Start     int
+	Intensity int
+}
+
+// toString formats one segment like [1,2].
+func (s *Segment) toString() string {
+	return fmt.Sprintf("[%d,%d]", s.Start, s.Intensity)
+}
+
+// IntensitySegments manages a collection of segments
+type IntensitySegments struct {
+	m        map[int]int // A map to quickly locate the index of a segment by its start position. key is segment's Start, value is index in Segments
+	Segments []*Segment  // [[start, intensity]...] and sorted by start
+}
+
+// constructor
+func NewIntensitySegments() *IntensitySegments {
+	return &IntensitySegments{
+		m:        make(map[int]int, 0),
+		Segments: make([]*Segment, 0),
+	}
+}
+
+func (is *IntensitySegments) Add(start, end, intensity int) {
+	// Check for invalid arguments.
+	if start >= end {
+		panic("wrong arugments.")
+	}
+	// Handle the case where the collection is empty.
+	if len(is.Segments) == 0 {
+		is.Segments = append(is.Segments, &Segment{start, intensity}, &Segment{end, 0})
+		is.checkAndTrim()
+		return
+	}
+
+	// Handle the case where the new segment is entirely before the first existing segment.
+	if end < is.Segments[0].Start {
+		is.Segments = append([]*Segment{{start, intensity}, {end, 0}}, is.Segments...)
+		is.checkAndTrim()
+		// Handle the case where the new segment is entirely after the last existing segment.
+	} else if start > is.Segments[len(is.Segments)-1].Start {
+		is.Segments = append(is.Segments, &Segment{start, intensity}, &Segment{end, 0})
+		is.checkAndTrim()
+	} else {
+		// insert new start
+		if index, ok := is.m[start]; !ok {
+			l := is.findLeft(start)
+			if l == 0 {
+				is.Segments = append([]*Segment{{start, intensity}}, is.Segments...)
+			} else {
+				seg := &Segment{start, intensity + is.Segments[l-1].Intensity}
+				is.insert(l, seg)
+			}
+		} else {
+			is.Segments[index].Intensity += intensity
+		}
+		is.updateIndex()
+		// insert new end
+		if _, ok := is.m[end]; !ok {
+			r := is.findRight(end)
+			if r == len(is.Segments)-1 {
+				is.Segments = append(is.Segments, &Segment{end, 0})
+			} else if r < len(is.Segments)-1 {
+				var seg *Segment
+				if r > 0 && is.Segments[r].Start == start {
+					seg = &Segment{end, is.Segments[r-1].Intensity}
+				} else {
+					seg = &Segment{end, is.Segments[r].Intensity}
+				}
+				is.insert(r+1, seg)
+			}
+		}
+		is.updateIndex()
+		// update intensity between start and end
+		l, r := is.m[start], is.m[end]
+		for i := l + 1; i < r && i < len(is.Segments); i++ {
+			is.Segments[i].Intensity += intensity
+		}
+		is.checkAndTrim()
+	}
+}
+
+// Set is an alias for Add.
+func (is *IntensitySegments) Set(start, end, intensity int) {
+	is.Add(start, end, intensity)
+}
+
+// ToString formats and prints the current segments like [[1,2],[3,0]]....
+func (is *IntensitySegments) ToString() string {
+	var segemntStrs []string
+	for _, s := range is.Segments {
+		segemntStrs = append(segemntStrs, s.toString())
+	}
+	segStr := strings.Join(segemntStrs, ",")
+	fmt.Printf("[%s]\n", segStr)
+	return segStr
+}
+
+//  findLeft searches and returns the index of the first segment start position that is greater than the given start position.
+
+func (is *IntensitySegments) findLeft(start int) int {
+	for i, s := range is.Segments {
+		if s.Start > start {
+			return i
+		}
+	}
+	return 0
+}
+
+// findRight searches and returns the index of the last segment start position that is less than the given end position.
+
+func (is *IntensitySegments) findRight(end int) int {
+	for i := len(is.Segments) - 1; i >= 0; i-- {
+		if is.Segments[i].Start < end {
+			return i
+		}
+	}
+	return len(is.Segments) - 1
+}
+
+// insert inserts a new segment at the specified index.
+func (is *IntensitySegments) insert(index int, seg *Segment) {
+	is.Segments = append(is.Segments, &Segment{0, 0})
+	copy(is.Segments[index+1:], is.Segments[index:])
+	is.Segments[index] = seg
+}
+
+// updateIndex updates the index mapping for all segments after potential changes.
+func (is *IntensitySegments) updateIndex() {
+	for i, n := range is.Segments {
+		is.m[n.Start] = i
+	}
+}
+
+// checkAndTrim removes any leading or trailing segments with zero intensity.
+
+func (is *IntensitySegments) checkAndTrim() {
+	if is.Segments[0].Intensity == 0 {
+		delete(is.m, is.Segments[0].Start)
+		is.Segments = is.Segments[1:]
+	}
+	l := len(is.Segments)
+	if l >= 2 && is.Segments[l-1].Intensity == 0 && is.Segments[l-2].Intensity == 0 {
+		delete(is.m, is.Segments[l-1].Start)
+		is.Segments = is.Segments[:len(is.Segments)-1]
+	}
+	is.updateIndex()
+}
+
+func main() {
+	s1 := NewIntensitySegments()
+	s1.ToString() // Should be "[]"
+
+	s1.Add(10, 30, 1)
+	s1.ToString() // Should be: "[[10,1],[30,0]]"
+	s1.Add(20, 40, 1)
+	s1.ToString() // Should be: "[[10,1],[20,2],[30,1],[40,0]]"
+	s1.Add(10, 40, -2)
+	s1.ToString() // Should be: "[[10,-1],[20,0],[30,-1],[40,0]]"
+
+	// Another example sequence:
+	s2 := NewIntensitySegments()
+	s2.ToString() // Should be "[]"
+	s2.Add(10, 30, 1)
+	s2.ToString() // Should be "[[10,1],[30,0]]"
+	s2.Add(20, 40, 1)
+	s2.ToString() // Should be "[[10,1],[20,2],[30,1],[40,0]]"
+	s2.Add(10, 40, -1)
+	s2.ToString() // Should be "[[20,1],[30,0]]"
+	s2.Add(10, 40, -1)
+	s2.ToString() // Should be "[[10,-1],[20,0],[30,-1],[40,0]]"
+
+	s := NewIntensitySegments()
+	s.ToString() // []
+	s.Add(1, 2, 3)
+	s.ToString() // [[1,3],[2,0]]
+	s.Add(2, 3, 1)
+	s.ToString() //[[1,3],[2,1],[3,0]]
+	s.Add(10, 40, 5)
+	s.ToString() // [[1,3],[2,1],[3,0],[10,5],[40,0]]
+	s.Add(13, 18, 4)
+	s.ToString() // [[1,3],[2,1],[3,0],[10,5],[13,9],[18,5],[40,0]]
+	s.Add(3, 30, 1)
+	s.ToString() // [[1,3],[2,1],[3,1],[10,6],[13,10],[18,6],[30,5],[40,0]]
+	s.Add(-9, 2, 10)
+	s.ToString() // [[-9,10],[1,13],[2,1],[3,1],[10,6],[13,10],[18,6],[30,5],[40,0]]
+
+}
+
+/*
+package main
+
+import (
+	"fmt"
+	"sort"
+)
+
+type intSlice []int
+
+func (sl intSlice) Len() int {
+	return len(sl)
+}
+func (sl intSlice) Less(i, j int) bool {
+	return sl[i] < sl[j]
+}
+func (sl intSlice) Swap(i, j int) {
+	sl[i], sl[j] = sl[j], sl[i]
+}
+
+// IntensitySegments
+//
+//	Using a map (because of it dscreteness) to store: [segemnt] -> intensity
+type IntensitySegments struct {
+	it map[int]int
+}
+
+// NewIntensitySegments new a IntensitySegments Object
+// return a pointer to the new object
+func NewIntensitySegments() *IntensitySegments {
+	return &IntensitySegments{
+		it: map[int]int{},
+	}
+}
+
+// set set a new range(from <-> to, to not included) of intensity based on existing one.
+func (is *IntensitySegments) set(from, to int, amount int) {
+	keys := is.orderedKeys()
+	if len(keys) == 0 { // if no segments, in the intial case
+		is.it[to] = 0
+		is.it[from] = amount
+		return
+	}
+
+	if to < keys[0] || to > keys[len(keys)-1] { // the end of set segment is outside of the existing one
+		is.it[to] = 0
+	} else if _, f := is.it[to]; !f { // 'to' is not found in existing segment numbers
+		l := is.leftKey(to)
+		is.it[to] = is.it[l]
+	}
+
+	is.it[from] = amount // directly set the segment beginning
+
+	for _, k := range is.orderedKeys() { // all keys between from and to is invalid, delete them
+		if k > from && k < to {
+			delete(is.it, k)
+		}
+	}
+
+	is.merge()
+}
+
+// Add Add a new range(from <-> to, to not included) of intensity to existing one.
+func (is *IntensitySegments) Add(from, to int, amount int) {
+	keys := is.orderedKeys()
+	if len(keys) == 0 { // if no segments, in the intial case
+		is.set(from, to, amount)
+		return
+	}
+
+	if to < keys[0] || from > keys[len(keys)-1] { // no overlap case
+		is.set(from, to, amount)
+		return
+	}
+
+	// handle the 'to'
+	if _, f := is.it[to]; !f { // if not found to, Add it
+		l := is.leftKey(to)
+		is.it[to] = is.it[l]
+	}
+
+	// handle the 'from'
+	if from < keys[0] {
+		is.it[from] = amount
+	} else if from == keys[0] {
+		is.it[from] += amount
+	} else {
+		if _, f := is.it[from]; !f {
+			is.it[from] = amount
+			if l := is.leftKey(from); l != -1 {
+				is.it[from] += is.it[l]
+			}
+		} else {
+			is.it[from] += amount
+		}
+	}
+
+	// handle the keys between from and 'to'
+	for _, k := range keys {
+		if k > from && k < to {
+			is.it[k] += amount
+		}
+	}
+
+	// merge segments
+	is.merge()
+}
+
+// merge merge continous segments to together if they have same intensity
+func (is *IntensitySegments) merge() {
+	keys := is.orderedKeys()
+	if len(keys) == 0 {
+		return
+	}
+
+	// clear prefix 0
+	i := 0
+	for ; i < len(keys) && is.it[keys[i]] == 0; i++ {
+		delete(is.it, keys[i])
+	}
+	keys = keys[i:]
+
+	for i = len(keys) - 1; i >= 0; i-- {
+		if is.it[keys[i]] == 0 {
+			if i-1 >= 0 && is.it[keys[i-1]] == 0 {
+				delete(is.it, keys[i])
+				keys = append(keys[0:i], keys[i+1:]...)
+			}
+		}
+
+	}
+
+	// clear the surffix segment with same intensity <> 0
+	lastIntensity := is.it[keys[0]]
+	for i := 1; i < len(keys); i++ {
+		if is.it[keys[i]] == lastIntensity && lastIntensity != 0 {
+			delete(is.it, keys[i])
+		} else {
+			lastIntensity = is.it[keys[i]]
+		}
+	}
+
+	// clear the surffix segment with intensity == 0
+	lastIntensity = 0
+	for i := len(keys) - 2; i >= 0; i-- {
+		if is.it[keys[i]] == 0 && lastIntensity == 0 {
+			delete(is.it, keys[i])
+		} else {
+			lastIntensity = is.it[keys[i]]
+		}
+	}
+}
+
+// orderedKeys orderedKeys return a sorted keys of is.it
+func (is *IntensitySegments) orderedKeys() []int {
+	keys := intSlice{}
+	for k := range is.it {
+		keys = append(keys, k)
+	}
+	sort.Sort(keys)
+	return keys
+}
+
+// dumps dumps return a string of simple format, i.e. [[20 1] [30 2] [40 0]]
+func (is *IntensitySegments) dumps() string {
+	keys := is.orderedKeys()
+	rlt := [][2]int{}
+	for _, k := range keys {
+		rlt = append(rlt, [2]int{k, is.it[k]})
+	}
+	return fmt.Sprintf("%v", rlt)
+}
+
+// leftKey return the left segment number of the given.
+func (is *IntensitySegments) leftKey(x int) int {
+	l := -1
+	for _, k := range is.orderedKeys() {
+		if k < x {
+			l = k
+		}
+	}
+	return l
+}
+
+// ToString print the dumped string simply
+func (is *IntensitySegments) ToString() {
+	fmt.Printf("%v\n", is.dumps())
+}
+
+func main() {
+	segments1 := NewIntensitySegments()
+	segments1.ToString() // Should be "[]"
+
+	segments1.Add(10, 30, 1)
+	segments1.ToString() // Should be: "[[10,1],[30,0]]"
+	segments1.Add(1, 5, 1)
+	segments1.ToString() // Should be: "[[10,1],[20,2],[30,1],[40,0]]"
+	segments1.Add(10, 40, -2)
+	segments1.ToString() // Should be: "[[10,-1],[20,0],[30,-1],[40,0]]"
+
+	// Another example sequence:
+	segments2 := NewIntensitySegments()
+	segments2.ToString() // Should be "[]"
+	segments2.Add(10, 30, 1)
+	segments2.ToString() // Should be "[[10,1],[30,0]]"
+	segments2.Add(20, 40, 1)
+	segments2.ToString() // Should be "[[10,1],[20,2],[30,1],[40,0]]"
+	segments2.Add(10, 40, -1)
+	segments2.ToString() // Should be "[[20,1],[30,0]]"
+	segments2.Add(10, 40, -1)
+	segments2.ToString() // Should be "[[10,-1],[20,0],[30,-1],[40,0]]"
+}
+*/
+```

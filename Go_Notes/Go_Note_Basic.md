@@ -105,6 +105,56 @@ fmt.Println(*p) // "0"
 ```
 new只是一个预定义的函数，它并不是一个关键字，因此我们可以将new名字重新定义为别的类型。例如下面的例子: `var new int = 1` 由于new被定义为int类型的变量名，因此在函数内部是无法使用内置的new函数的。
 
+
+### 练习：
+下面代码能编译通过吗？
+
+```go
+type info struct {
+    result int
+}
+
+func work() (int,error) {
+    return 13,nil
+}
+
+func main() {
+    var data info
+
+    data.result, err := work() 
+    fmt.Printf("info: %+v\n",data)
+}
+// non-name data.result on left side of :=
+// 不能使用短变量声明设置结构体字段值，修复代码：
+func main() {
+    var data info
+
+    var err error
+    data.result, err = work() //ok
+    if err != nil {
+        fmt.Println(err)
+        return
+    }
+
+    fmt.Println(data)   
+}
+```
+
+下面代码有什么错误？
+```go
+func main() {
+    one := 0
+    one := 1 
+}
+// 不能在单独的声明中重复声明一个变量，但在多变量声明的时候是可以的，但必须保证至少有一个变量是新声明的。
+// 修复代码：
+func main() {  
+    one := 0
+    one, two := 1,2
+    one,two = two,one
+}
+```
+
 ### 赋值
 自增语句`i++`给i加1;这和`i += 1`是等价的。这是语句，而不像C系的其它语言那样是表达式。所以`j = i++`非法，而且++和­­都只能放在变量名后面，因此`--i`也非法。
 
@@ -120,6 +170,65 @@ v, ok = x.(T)  // type assertion
 v, ok = <-ch   // channel receive
 ```
 Go语言不允许使用无用的局部变量(local variables)，这会导致编译错误。解决方法是用空标识符(blank identifier)，即_(也就是下划线)。
+
+下面代码输出正确的是？
+```go
+func main() {
+    i := 1
+    s := []string{"A", "B", "C"}
+    i, s[i-1] = 2, "Z"
+    fmt.Printf("s: %v \n", s)
+}
+// s: [Z,B,C]
+// 多重赋值分为两个步骤，有先后顺序：
+// - 计算等号左边的索引表达式和取址表达式，接着计算等号右边的表达式；
+// - 赋值；
+// 所以本例，会先计算 s[i-1]，等号右边是两个表达式是常量，所以赋值运算等同于 `i, s[0] = 2, "Z"`。
+```
+
+下面的代码输出什么？
+```go
+func main() {
+    var a []int = nil
+    a, a[0] = []int{1, 2}, 9
+    fmt.Println(a)
+}
+// panic
+```
+
+关于变量的自增和自减操作，下面语句正确的是？
+```go
+// A.
+i := 1
+i++
+
+// B.
+i := 1
+j = i++
+
+// C.
+i := 1
+++i
+
+// D.
+i := 1
+i--
+
+// A D
+// i++ 和 i-- 在 Go 语言中是语句，不是表达式，因此不能赋值给另外的变量。此外没有 ++i 和 --i。
+```
+
+下面这段代码输出什么？
+```go
+func main() {
+    var k = 1
+    var s = []int{1, 2}
+    k, s[k] = 0, 3
+    fmt.Println(s[0] + s[1])
+}
+// 4
+// 多重赋值，会先计算 s[k]，等号右边是两个表达式是常量，所以赋值运算等同于 `k, s[1] = 0, 3`。
+```
 
 ### 类型
 一个类型声明语句创建了一个新的类型名称。新命名的类型用来分隔不同概念的类型，这样即使它们底层类型相同也是不兼容的。
@@ -279,6 +388,28 @@ func main() {
 // f() 函数返回参数是指针类型，所以可以用 & 取结构体的指针；B 处，如果填`*f()`，则 p 是 S 类型；如果填 `f()`，则 p 是 *S 类型，不过都可以使用 `p.m`取得结构体的成员。
 ```
 
+下面这段代码能否编译通过？如果通过，输出什么？
+```go
+type User struct{}
+type User1 User
+type User2 = User
+
+func (i User) m1() {
+    fmt.Println("m1")
+}
+func (i User) m2() {
+    fmt.Println("m2")
+}
+
+func main() {
+    var i1 User1
+    var i2 User2
+    i1.m1()
+    i2.m2()
+}
+// 不能，报错`i1.m1 undefined (type User1 has no field or method m1)`**
+// 第 2 行代码基于类型 User 创建了新类型 User1，第 3 行代码是创建了 User 的类型别名 User2，注意使用 = 定义类型别名。因为 User2 是别名，完全等价于 User，所以 User2 具有 User 所有的方法。但是 i1.m1() 是不能执行的，因为 User1 没有定义该方法。
+```
 
 
 ### 包和文件
@@ -322,6 +453,34 @@ func f() int {
 ![init](../file/img/init.png)
 
 
+### 练习：
+
+下面的代码有什么问题？
+```go
+import (  
+    "fmt"
+    "log"
+    "time"
+)
+func main() {  
+}
+// 导入的包没有被使用
+// 如果引入一个包，但是未使用其中如何函数、接口、结构体或变量的话，代码将编译失败。
+// 如果你真的需要引入包，可以使用下划线操作符，`_`，来作为这个包的名字，从而避免失败。下划线操作符用于引入，但不使用。
+// 我们还可以注释或者移除未使用的包。
+// 修复代码：
+import (  
+    _ "fmt"
+    "log"
+    "time"
+)
+var _ = log.Println
+func main() {  
+    _ = time.Now
+}
+```
+
+
 ### 作用域
 不要将作用域和生命周期混为一谈。声明语句的作用域对应的是一个源代码的文本区域;它是一个 编译时的属性。一个变量的生命周期是指程序运行时变量存在的有效时间段，是一个运行时的概念。
 
@@ -350,6 +509,8 @@ func init() {
 }
 ```
 
+### 练习：
+
 下面选项正确的是？ 
 ```go
 func main() {
@@ -361,6 +522,82 @@ func main() {
 }
 // 1 2
 // 知识点：代码块和变量作用域。
+```
+
+下面这段代码输出什么？如果编译错误的话，为什么？
+```go
+var p *int
+
+func foo() (*int, error) {
+    var i int = 5
+    return &i, nil
+}
+
+func bar() {
+    //use p
+    fmt.Println(*p)
+}
+
+func main() {
+    p, err := foo()
+    if err != nil {
+        fmt.Println(err)
+        return
+    }
+    bar()
+    fmt.Println(*p)
+}
+// runtime error
+// 问题出在操作符`:=`，对于使用`:=`定义的变量，如果新变量与同名已定义的变量不在同一个作用域中，那么 Go 会新定义这个变量。对于本例来说，main() 函数里的 p 是新定义的变量，会遮住全局变量 p，导致执行到`bar()`时程序，全局变量 p 依然还是 nil，程序随即 Crash。
+// 正确的做法是将 main() 函数修改为：
+func main() {
+    var err error
+    p, err = foo()
+    if err != nil {
+        fmt.Println(err)
+        return
+    }
+    bar()
+    fmt.Println(*p)
+}
+```
+
+下面哪一行代码会 panic，请说明。
+```go
+func main() {
+    nil := 123
+    fmt.Println(nil)
+    var _ map[string]int = nil
+}
+// 第 4 行
+// 当前作用域中，预定义的 nil 被覆盖，此时 nil 是 int 类型值，不能赋值给 map 类型。
+```
+
+下面的代码能编译通过吗？可以的话输出什么，请说明？
+```go
+var f = func(i int) {
+    print("x")
+}
+
+func main() {
+    f := func(i int) {
+        print(i)
+        if i > 0 {
+            f(i - 1)
+        }
+    }
+    f(10)
+}
+// 10x
+// 这道题一眼看上去会输出 109876543210，其实这是错误的答案，这里不是递归。假设 main() 函数里为 f2()，外面的为 f1()，当声明 f2() 时，调用的是已经完成声明的 f1()。
+
+// 看下面这段代码你应该会更容易理解一点：
+var x = 23
+
+func main() {
+    x := 2*x - 4
+    println(x)    // 输出:42
+}
 ```
 
 
@@ -437,6 +674,25 @@ func main() {
 //  A
 // UTF-8 编码中，十进制数字 65 对应的符号是 A。但是在Goland中会有警告 `conversion from int to string yields a string of one rune, not a string of digits`，
 // 推荐使用 `var i byte = 65` 或 `var i uint8 = 65` 替代
+```
+
+关于 bool 变量 b 的赋值，下面错误的用法是？
+```go
+// A. b = true
+// B. b = 1
+// C. b = bool(1)
+// D. b = (1 == 2)
+
+// B: `cannot use 1 (untyped int constant) as bool value in assignment`
+// C: `cannot convert 1 (untyped int constant) to type bool`
+```
+
+flag 是 bool 型变量，下面 if 表达式符合编码规范的是？ 答：B C D
+```go
+// A. if flag == 1
+// B. if flag
+// C. if flag == false
+// D. if !flag
 ```
 
 
@@ -606,7 +862,27 @@ func main() {
 // 两个地方有语法问题。golang 的字符串类型是不能赋值 nil 的，也不能跟 nil 比较。
 ```
 
+下面代码能否编译通过？如果通过，输出什么？
+```go
+func GetValue(m map[int]string, id int) (string, bool) {
 
+    if _, exist := m[id]; exist {
+        return "exist", true
+    }
+    return nil, false
+}
+func main() {
+    intmap := map[int]string{
+        1: "a",
+        2: "b",
+        3: "c",
+    }
+
+    v, err := GetValue(intmap, 3)
+    fmt.Println(v, err)
+}
+//函数返回值类型。nil 可以用作 interface、function、pointer、map、slice 和 channel 的“空值”。但是如果不特别指定的话，Go 语言不能识别类型，所以会报错:`cannot use nil as type string in return argument`
+```
 
 ### 常量
 常量表达式的值在编译期计算，而不是在运行期。常量的值不可修改，这样可以防止在运行期被意外或恶意的修改。如：`const pi = 3.14159` 。可以批量声明多个常量：
@@ -645,6 +921,22 @@ const (
 有六种未明确类型的常量类型，分别是无类型的布尔型、无类型的整数、无类型的字符、无类型的浮点数、无类型的复数、无类型的字符串。通过延迟明确常量的具体类型，无类型的常量不仅可以提供更高的运算精度，而且可以直接用于更多的表达式而不需要显式的类型转换。
 
 例如:math.Pi无类型的浮点数常量: `var x float32 = math.Pi` `var y float64 = math.Pi` `var z complex128 = math.Pi`。
+
+
+### 练习：
+
+下面代码有什么问题？
+```go
+const i = 100
+var j = 123
+
+func main() {
+    fmt.Println(&j, j)
+    fmt.Println(&i, i)
+}
+// 编译报错`cannot take the address of i`。知识点：常量。常量不同于变量的在运行期分配内存，常量通常会被编译器在预处理阶段直接展开，作为指令数据使用，所以常量无法寻址。
+```
+
 
 ---
 
@@ -785,6 +1077,134 @@ func main() {
 }
 ```
 
+下面代码里的 counter 的输出值？
+```go
+func main() {
+    var m = map[string]int{
+        "A": 21,
+        "B": 22,
+        "C": 23,
+    }
+    counter := 0
+    for k, v := range m {
+        if counter == 0 {
+            delete(m, "A")
+        }
+        counter++
+        //fmt.Println(k, v)
+    }
+    fmt.Println("counter is ", counter)
+}
+// 2 或 3
+// for range map 是无序的，如果第一次循环到 A，则输出 3；否则输出 2。
+```
+
+下面这段代码存在什么问题？
+```go
+type Param map[string]interface{}
+ 
+type Show struct {
+    *Param
+}
+
+func main() {
+    s := new(Show)
+    s.Param["day"] = 2
+}
+
+// 存在两个问题
+// 1. map 需要初始化才能使用；
+// 2. 指针不支持索引。修复代码如下：
+
+func main() {
+    s := new(Show)
+    // 修复代码
+    p := make(Param)
+    p["day"] = 2
+    s.Param = &p
+    tmp := *s.Param //指针不能索引
+    fmt.Println(tmp["day"])
+}
+```
+
+下面代码有几处错误的地方？请说明原因。
+```go
+func main() {
+    var s []int
+    s = append(s,1)
+
+    var m map[string]int
+    m["one"] = 1 
+}
+// 有 1 处错误，不能对 nil 的 map 直接赋值，需要使用 make() 初始化。但可以使用 append() 函数对为 nil 的 slice 增加元素。
+// 修复代码：
+func main() {
+    var m map[string]int
+    m = make(map[string]int)
+    m["one"] = 1
+}
+```
+
+下面代码有什么问题？
+```go
+func main() {
+    m := make(map[string]int,2)
+    cap(m) 
+}
+// 1. 使用 make 创建 map 变量时可以指定第二个参数，不过会被忽略。
+// 2. cap() 函数适用于数组、数组指针、slice 和 channel，不适用于 map，可以使用 len() 返回 map 的元素个数。
+```
+
+下面代码输出什么？
+```go
+type T struct {
+    n int
+}
+
+func main() {
+    m := make(map[int]T)
+    m[0].n = 1
+    fmt.Println(m[0].n)
+}
+// compilation error
+// cannot assign to struct field m[0].n in map
+// map[key]struct 中 struct 是不可寻址的，所以无法直接赋值。
+
+// 修复代码：
+type T struct {
+    n int
+}
+
+func main() {
+    m := make(map[int]T)
+
+    t := T{1}
+    m[0] = t
+    fmt.Println(m[0].n)
+}
+```
+
+下面代码有什么不规范的地方吗？
+```go
+func main() {
+    x := map[string]string{"one":"a","two":"","three":"c"}
+
+    if v := x["two"]; v == "" { 
+        fmt.Println("no entry")
+    }
+}
+// 检查 map 是否含有某一元素，直接判断元素的值并不是一种合适的方式。最可靠的操作是使用访问 map 时返回的第二个值。
+// 修复代码如下：
+func main() {  
+    x := map[string]string{"one":"a","two":"","three":"c"}
+
+    if _,ok := x["two"]; !ok {
+        fmt.Println("no entry")
+    }
+}
+```
+
+
 
 ### Struct
 结构体是一种聚合的数据类型，是由零个或多个任意类型的值聚合成的实体。如果结构体成员名字是以大写字母开头的，那么该成员就是导出的，一个结构体可能同时包含导出和未导出的成员。结构体类型的零值是每个成员都是零值。
@@ -822,6 +1242,35 @@ type Movie struct {
 Color成员的Tag还带了一个额外的omitempty选项，表示当Go语言结构体成员为空或零值时不生成JSON对象(这里false为零值)。
 
 编码的逆操作是解码，对应将JSON数据解码为Go语言的数据结构，Go语言中一般叫unmarshaling，通过`json.Unmarshal`函数完成。
+
+
+下面这段代码输出什么？
+```go
+type People struct {
+    name string `json:"name"`
+}
+
+func main() {
+    js := `{
+        "name":"seekload"
+    }`
+    var p People
+    err := json.Unmarshal([]byte(js), &p)
+    if err != nil {
+        fmt.Println("err: ", err)
+        return
+    }
+    fmt.Println(p)
+}
+// 输出 {}
+// 结构体访问控制，因为 name 首字母是小写，导致其他包不能访问，所以输出为空结构体。
+// 修复代码：
+type People struct {
+    Name string `json:"name"`
+}
+```
+
+
 
 ### 模板Template
 一个模板是一个字符串或一个文件，里面包含了一个或多个由双花括号包含的`{{action}}`对象。actions部分将触发其它的行为。模板语言包含通过选择结构体的成员、调用函数或方法、表达式控制流if ­else语句和range循环语句，还有其它实例化模板等诸多特性。对于每一个action，都有一个当前值的概念，对应点`.`操作符。 `{{range .Items}} {{end}}` 对应一个循环action。 `|`操作符表示将前一个表达式的结果作为后一个函数的输入，类似于UNIX中管道。
@@ -886,6 +1335,48 @@ func main() {
 }
 ```
 
+下面代码输出什么？
+```go
+func main() {
+    isMatch := func(i int) bool {
+        switch(i) {
+        case 1:
+        case 2:
+            return true
+        }
+        return false
+    }
+
+    fmt.Println(isMatch(1))
+    fmt.Println(isMatch(2))
+}
+// false true
+// Go 语言的 switch 语句虽然没有"break"，但如果 case 完成程序会默认 break，可以在 case 语句后面加上关键字 fallthrough，这样就会接着走下一个 case 语句（不用匹配后续条件表达式）。或者，利用 case 可以匹配多个值的特性。
+
+//修复代码：
+func main() {
+    isMatch := func(i int) bool {
+        switch(i) {
+        case 1:
+            fallthrough
+        case 2:
+            return true
+        }
+        return false
+    }
+    fmt.Println(isMatch(1))     // true
+    fmt.Println(isMatch(2))     // true
+    match := func(i int) bool {
+        switch(i) {
+        case 1,2:
+            return true
+        }
+        return false
+    }
+    fmt.Println(match(1))       // true
+    fmt.Println(match(2))       // true
+}
+```
 
 
 for i, v := range "Go语言" {
@@ -918,471 +1409,23 @@ for i, c:= range s {
 
 
 
+下面代码有什么问题吗？
+```go
+func main()  {
+    for i:=0;i<10 ;i++  {
+    loop:
+        println(i)
+    }
+    goto loop
+}
+// goto 不能跳转到其他函数或者内层代码。编译报错：
+// goto loop jumps into block starting at
+```
+
 
 
 ---
 
-## 函数
-### 函数声明(Declaration)
-- parameter: 函数参数，局部变量，named result也是局部变量。
-- argument: parameter values, supplied by the caller.
-- 相同类型的参数可以只写一次类型。`func add(i, j int) int`.
-
-Arguments are passed by value, so the function receives a copy of each argument; modifications to the copy do not affect the caller. However, if the argument contains some kind of reference, like a __pointer, slice, map, function, or channel__, then the caller may be affected.
-
-### 递归(Recursion)
-固定大小函数栈：Fixed-size function call stack; sizes from 64KB to 2MB are typical. Fixed-size stacks impose a limit on the depth of recursion.
-
-Go implementations use __variable-size stacks__ that start small and grow as needed up to a limit on the order of a gigabyte. This lets us use recursion safely and without worrying about overflow.
-
-### 多值返回
-一个函数可以返回多个值。例如一个是期望得到的返回值，另一个是函数出错时的错误信息。一个函数内部可以将另一个有多返回值的函数作为返回值。
-
-如果一个函数将所有的返回值都显示的变量名，那么该函数的return语句可以省略操作数。这称之 为bare return。
-```go
-func CountWordsAndImages(url string) (words, images int, err error) {
-    resp, err := http.Get(url)
-    if err != nil {
-        return
-    }
-    doc, err := html.Parse(resp.Body)
-    resp.Body.Close()
-    if err != nil {
-        err = fmt.Errorf("parsing HTML: %s", err)
-        return
-    }
-    words, images = countWordsAndImages(doc)
-    return
-}
-```
-前两处return等价于 `return 0,0,err` (Go会将返回值words和images在函数体的开始处，根据它们的类型，将其初始化为0)，最后一处return等价于 `return words, image, nil`。
-
-### Error
-对于将运行失败看作是预期结果的函数，会返回一个额外的返回值，来传递错误信息。如果导致失败的原因只有一个，额外的返回值可以是一个布尔值，通常被命名为ok：
-`value, ok := cache.Lookup(key)` 。
-
-导致失败的原因不止一种，尤其是对I/O操作，用户需要了解更多的错误信息。所以额外的返回值不再是简单的布尔类型，而是error类型。内置的error是接口类型，可能是nil或者non-nil，nil意味着函数运行成功，non-nil表示失败。
-
-`fmt.Errorf`函数使用fmt.Sprintf格式化错误信息并返回。
-```go
-func Errorf(format string, a ...interface{}) error {
-    return errors.New(Sprintf(format, a...))
-}
-```
-
-处理错误的策略：1.传播错误。2.重试并限制重试的时间间隔或重试的次数。3.输出错误信息并结束程序`os.Exit(1)`或者`log.Fatalf`，这种策略只应在main中执行。4.只输出错误，不中断程序。
-
-io包保证任何由文件结束引起的读取失败都返回同一个错误 `io.EOF`: `var EOF = errors.New("EOF")`。
-
-调用者只需通过简单的比较，就可以检测出这个错误。下面的例子展示了如何从标准输入中读取字符，以及判断文件结束。
-```go
-in := bufio.NewReader(os.Stdin)
-for {
-    r, _, err := in.ReadRune()
-    if err == io.EOF {
-        break // finished reading
-    }
-    if err != nil {
-        return fmt.Errorf("read failed:%v", err)
-    }
-}
-```
-
-### 函数值
-函数被看作第一类值(first­ class values):函数像其他值一样，拥有类型，可以被赋值给其他变量，传递给函数，从函数返回。对函数值(function value)的调用类似函数调用。
-```go
-func square(n int) int {
-    return n * n
-}
-func main() {
-    f := square
-    fmt.Println(f(3)) // "9"
-
-    var v func(int) int //函数类型
-    if v != nil {
-        v(3)
-    }
-}
-```
-函数类型的零值是nil。调用值为nil的函数值会引起panic错误。但是函数值之间是不可比较的，也不能用函数值作为map的key。
-
-
-下面这段代码输出什么以及原因？
-```go
-func hello() []string {
-    return nil
-}
-
-func main() {
-    h := hello
-    if h == nil {
-        fmt.Println("nil")
-    } else {
-        fmt.Println("not nil")
-    }
-}
-// not nil
-// 这道题里面，是将 `hello()` 赋值给变量h，而不是函数的返回值，所以输出 `not nil` 
-```
-
-
-### 匿名函数
-Named functions can be declared only at the package level, but we can use a function literal to denote a function value within any expression. A function literal is written like a function declaration, but without a name follow ing the `func` keyword. It is an expression, and its value is called an anonymous function.
-```go
-func squares() func() int {
-    var x int
-    return func() int {
-        x++
-        return x * x
-    }
-}
-func main() {
-    f := squares()
-    fmt.Println(f()) // "1"
-    fmt.Println(f()) // "4"
-    fmt.Println(f()) // "9"
-    fmt.Println(f()) // "16"
-
-    v := squares()
-    fmt.Println(v()) // 1
-    fmt.Println(v()) // 4
-    fmt.Println(v()) // 9
-    fmt.Println(v()) // 16
-}
-```
-在squares中定义的匿名内部函数可以访问和更新squares中的局部变量，这意味着匿名函数和squares中，存在变量引用。
-
-__The squares example demonstrates that function values are not just code but can have state. 不只是代码，还有状态__ The anonymous inner function can access and update the local variables of the enclosing function squares. These hidden variable references are why we classify functions as __reference types__ and why function values are not comparable. Function values like these are implemented using a technique called closures(__闭包__), and Go programmers often use this term for function values.
-
-Here we see an example where the lifetime of a variable is not determined by its scope: the variable x exists after squares has returned within main, even though x is hidden inside f.
-
-在Go语言中，函数是一等（first-class）类型。这意味着，我们可以把函数作为值来传递和使用。函数代表着这样一个过程：它接受若干输入（参数），并经过一些步骤（语句）的执行之后再返回输出（结果）。特别的是，Go语言中的函数可以返回多个结果。
-
-__函数类型__ 的字面量由关键字func、由圆括号包裹参数声明列表、空格以及可以由圆括号包裹的结果声明列表组成。其中，参数声明列表中的单个参数声明之间是由英文逗号分隔的。每个参数声明由参数名称、空格和参数类型组成。参数声明列表中的参数名称是可以被统一省略的。结果声明列表的编写方式与此相同。结果声明列表中的结果名称也是可以被统一省略的。并且，在只有一个无名称的结果声明时还可以省略括号。示例如下：
-
-`func(input1 string ,input2 string) string`
-
-这一类型字面量表示了一个接受两个字符串类型的参数且会返回一个字符串类型的结果的函数。如果我们在它的左边加入type关键字和一个标识符作为名称的话，那就变成了一个函数类型声明，就像这样：
-
-`type MyFunc func(input1 string ,input2 string) string`
-
-__函数值（或简称函数）__ 的写法与此不完全相同。编写函数的时候需要先写关键字func和函数名称，后跟参数声明列表和结果声明列表，最后是由花括号包裹的语句列表。例如：
-```go
-func myFunc(part1 string, part2 string) (result string) {
-    result = part1 + part2
-    return
-}
-```
-我们在这里用到了一个小技巧：如果结果声明是带名称的，那么它就相当于一个已被声明但未被显式赋值的变量。我们可以为它赋值且在return语句中省略掉需要返回的结果值。至于什么是return语句，我就不用多说了吧。显然，该函数还有一种更常规的写法：
-```go
-func myFunc(part1 string, part2 string) string {
-    return part1 + part2
-}
-```
-注意，函数myFunc是函数类型MyFunc的一个实现。实际上，只要一个函数的参数声明列表和结果声明列表中的数据类型的顺序和名称与某一个函数类型完全一致，前者就是后者的一个实现。请大家回顾上面的示例并深刻理解这句话。
-  
-我们可以声明一个函数类型的变量，如：
-
-`var splice func(string, string) string`
-等价于 `var splice MyFunc` 然后把函数myFunc赋给它：
-
-`splice = myFunc` 如此一来，我们就可以在这个变量之上实施调用动作了：`splice("1", "2")`
-
-实际上，这是一个调用表达式。它由代表函数的标识符（这里是splice）以及代表调用动作的、由圆括号包裹的参数值列表组成。
-  
-如果你觉得上面对splice变量声明和赋值有些啰嗦，那么可以这样来简化它：
-```go
-var splice = func(part1 string, part2 string) string {
-    return part1 + part2
-}
-```  
-    
-在这个示例中，我们直接使用了一个匿名函数来初始化splice变量。顾名思义，匿名函数就是不带名称的函数值。匿名函数直接由函数类型字面量和由花括号包裹的语句列表组成。注意，这里的函数类型字面量中的参数名称是不能被忽略的。
-  
-其实，我们还可以进一步简化——索性省去splice变量。既然我们可以在代表函数的变量上实施调用表达式，那么在匿名函数上肯定也是可行的。因为它们的本质是相同的。后者的示例如下：
-```go
-var result = func(part1 string, part2 string) string {
-    return part1 + part2
-}("1", "2")
-```
-可以看到，在这个匿名函数之后的即是代表调用动作的参数值列表。注意，这里的result变量的类型不是函数类型，而与后面的匿名函数的结果类型是相同的。
-  
-最后，函数类型的零值是nil。这意味着，一个未被显式赋值的、函数类型的变量的值必为nil。
-
-
-### 可变参数
-variadic function: that can be calle d with varying numbers of arguments. 典型的例子就是fmt.Printf和其变体。Printf首先接收一个的必备参数，之后接收任意个数的后续参数。在声明可变参数函数时，需要在参数列表的最后一个参数类型之前加上省略符号`...`，这表示该函数会接收任意数量的该类型参数。
-```go
-func sum(vals ...int) int {
-    total := 0
-    for _, val := range vals {
-        total += val
-    }
-    return total
-}
-```
-
-
-对 add() 函数调用正确的是（）
-```go
-func add(args ...int) int {
-
-    sum := 0
-    for _, arg := range args {
-        sum += arg
-    }
-    return sum
-}
-// - A. add(1, 2)
-// - B. add(1, 3, 7)
-// - C. add([]int{1, 2})
-// - D. add([]int{1, 3, 7}…)
-
-// 答：ABD
-```
-
-
-下面这段代码有什么缺陷？
-```go
-func funcMui(x, y int) (sum int, error) {
-    return x + y, nil
-}
-// `syntax error: mixed named and unnamed parameters`
-
-// 在函数有多个返回值时，只要有一个返回值有命名，其他的也必须命名。如果有多个返回值必须加上括号();如果只有一个返回值且命名也需要加上括号()。这里的第一个返回值有命名sum，第二个没有命名，编译错误。
-```
-
-
-
-
-
-## 方法
-### 方法声明
-在函数声明时，在其名字之前放上一个变量，即是一个方法。这个附加的参数会将该函数附加到这种类型上，相当于为这种类型定义了一个独占的方法。这个变量叫做方法的接收器(receiver)。
-
-对于一个给定的类型，其内部的方法都必须有唯一的方法名，但是不同的类型却可以有同样的方法名。
-```go
-package main
-
-import (
-    "fmt"
-    "math"
-)
-
-type Point struct {
-    X, Y float64
-}
-//a method of the Point type, p is receiver.
-func (p Point) Distance(q Point) float64 {
-    return math.Hypot(q.X-p.X, q.Y-p.Y)
-}
-
-type Path []Point
-// Distance returns the distance traveled along the path.
-func (path Path) Distance() float64 {
-    sum := 0.0
-    for i := range path {
-        if i > 0 {
-            sum += path[i-1].Distance(path[i])
-        }
-    }
-    return sum
-}
-
-func main() {
-    perim := Path{
-        {1, 1},
-        {5, 1},
-        {5, 4},
-        {1, 1},
-    }
-    fmt.Println(perim.Distance()) //12
-}
-```
-`p.Distance` is called a selector, because it __selects__ the appropriate Distance method for the receiver p of type Point. Selectors are also used to select fields of struct types, as in p.X.
-
-### 指针对象方法
-当调用一个函数时，会对其每一个参数值进行拷贝：
-```go
-type Point struct {
-    X, Y int
-}
-func (p Point) set(x int) Point {
-    p.X = x
-    return p
-}
-func main() {
-    p := Point{3, 3}
-    fmt.Println(p)         // {3, 3}
-    fmt.Println(p.set(12)) // {12, 3}
-    fmt.Println(p)         // {3, 3}
-}
-```
-如果一个函数需要更新一个变量，或参数太大，需要用到指针：
-```go
-type Point struct {
-    X, Y int
-}
-func (p *Point) set(x int) *Point {
-    p.X = x  // 编译器在这里也会给我们隐式地插入*，与(*p).X = x 等价，这种简写只适用于变量。
-    return p
-}
-func main() {
-    p := &Point{3, 3}
-    fmt.Println(*p)           // {3, 3}
-    fmt.Println(*(p.set(12))) // {12, 3}
-    fmt.Println(*p)           // {12, 3}
-}
-```
-就像一些函数允许nil指针作为参数一样，方法理论上也可以用nil指针作为其接收器，尤其当nil对于对象来说是合法的零值时，比如map或者slice。
-
-### 嵌入结构体扩展类型
-```go
-package main
-
-import (
-    "fmt"
-    "image/color"
-    "math"
-)
-
-type Point struct {
-    X, Y float64
-}
-
-type ColoredPoint struct {
-    Point
-    Color color.RGBA
-}
-
-func (p Point) Distance(q Point) float64 {
-    return math.Hypot(q.X-p.X, q.Y-p.Y)
-}
-
-func main() {
-    var cp ColoredPoint
-    cp.X = 1
-    fmt.Println(cp.Point.X) // "1"
-    cp.Point.Y = 2
-    fmt.Println(cp.Y) // "2"  内嵌可以使我们在定义ColoredPoint时得到一种句法上的简写形式，并使其包含Point类型所具有的一切字段。
-
-    red := color.RGBA{255, 0, 0, 255}
-    blue := color.RGBA{0, 0, 255, 255}
-    var p = ColoredPoint{Point{1, 1}, red}
-    var q = ColoredPoint{Point{5, 4}, blue}
-    fmt.Println(p.Distance(q.Point))  //方法也类似，可以省略p.Point.Distance()..
-}
-```
-
-### 方法值 方法表达式
-```go
-p := Point{1, 2} 
-q := Point{4, 6}
-distanceFromP := p.Distance  //method value
-fmt.Println(distanceFromP(q)) 
-distance := Point.Distance  // method expression
-fmt.Println(distance(p, q))
-```
-
-我们在前面多次提到过指针及指针类型。例如，*Person是Person的指针类型。又例如，表达式&p的求值结果是p的指针。方法的接收者类型的不同会给方法的功能带来什么影响？该方法所属的类型又会因此发生哪些潜移默化的改变？现在，我们就来解答第一个问题。
-
-指针操作涉及到两个操作符——&和*。这两个操作符均有多个用途。但是当它们作为地址操作符出现时，前者的作用是取址，而后者的作用是取值。更通俗地讲，当地址操作符&被应用到一个值上时会取出指向该值的指针值，而当地址操作符*被应用到一个指针值上时会取出该指针指向的那个值。它们可以被视为相反的操作。
-  
-除此之外，当*出现在一个类型之前（如*Person和*[3]string）时就不能被看做是操作符了，而应该被视为一个符号。如此组合而成的标识符所表达的含义是作为第二部分的那个类型的指针类型。我们也可以把其中的第二部分所代表的类型称为基底类型。例如，*[3]string是数组类型[3]string的指针类型，而[3]string是*[3]string的基底类型。
-  
-好了，我们现在回过头去再看结构体类型Person。它及其两个方法的完整声明如下：
-```go
-type Person struct {
-    Name    string
-    Gender  string
-    Age     uint8
-    Address string
-}
-
-func (person *Person) Grow() {
-    person.Age++
-}
-
-func (person *Person) Move(newAddress string) string {
-    old := person.Address
-    person.Address = newAddress
-    return old
-}
-```
-注意，Person的两个方法Grow和Move的接收者类型都是*Person，而不是Person。只要一个方法的接收者类型是其所属类型的指针类型而不是该类型本身，那么我就可以称该方法为一个指针方法。上面的Grow方法和Move方法都是Person类型的指针方法。
-  
-相对的，如果一个方法的接收者类型就是其所属的类型本身，那么我们就可以把它叫做值方法。我们只要微调一下Grow方法的接收者类型就可以把它从指针方法变为值方法：
-```go
-func (person Person) Grow() {
-    person.Age++
-}
-```
-那指针方法和值方法到底有什么区别呢？我们在保留上述修改的前提下编写如下代码：
-```go
-p := Person{"Robert", "Male", 33, "Beijing"}
-p.Grow()
-fmt.Printf("%v\n", p)  
-// 33 
-```
-这段代码被执行后，标准输出会打印出什么内容呢？直觉上，34会被打印出来，但是被打印出来的却是33。
-  
-解答这个问题需要引出一条定论：__方法的接收者标识符所代表的是该方法当前所属的那个值的一个副本，而不是该值本身。__ 例如，在上述代码中，Person类型的Grow方法的接收者标识符person代表的是p的值的一个拷贝，而不是p的值。我们在调用Grow方法的时候，Go语言会将p的值复制一份并将其作为此次调用的当前值。正因为如此，Grow方法中的person.Age++语句的执行会使这个副本的Age字段的值变为34，而p的Age字段的值却依然是33。这就是问题所在。
-  
-只要我们把Grow变回指针方法就可以解决这个问题。原因是，这时的person代表的是p的值的指针的副本。指针的副本仍会指向p的值。另外，之所以选择表达式person.Age成立，是因为如果Go语言发现person是指针并且指向的那个值有Age字段，那么就会把该表达式视为(*person).Age。其实，这时的person.Age正是(*person).Age的速记法。
-
-
-### 练习
-下面这段代码输出什么？为什么？
-```go
-func (i int) PrintInt ()  {
-    fmt.Println(i)
-}
-
-func main() {
-    var i int = 1
-    i.PrintInt()
-}
-// `cannot define new methods on non-local type int`
-// 基于类型创建的方法必须定义在同一个包内，上面的代码基于 int 类型创建了 PrintInt() 方法，由于 int 类型和方法 PrintInt() 定义在不同的包内，所以编译出错。
-
-// 解决的办法可以定义一种新的类型：
-type Myint int
-
-func (i Myint) PrintInt ()  {
-    fmt.Println(i)
-}
-
-func main() {
-    var i Myint = 1
-    i.PrintInt()
-}
-```
-
-下面这段代码输出什么？为什么？
-```go
-type People interface {
-    Speak(string) string
-}
-
-type Student struct{}
-
-func (stu *Student) Speak(think string) (talk string) {
-    if think == "speak" {
-        talk = "speak"
-    } else {
-        talk = "hi"
-    }
-    return
-}
-
-func main() {
-    var peo People = Student{}
-    think := "speak"
-    fmt.Println(peo.Speak(think))
-}
-// compilation error
-// 编译错误 `Student does not implement People (Speak method has pointer receiver)`，值类型 `Student` 没有实现接口的 `Speak()` 方法，而是指针类型 `*Student` 实现该方法。要通过编译应该写成 ` var peo People = &Student{}`。
-```
 
 
 ### Bit数组

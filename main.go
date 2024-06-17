@@ -1,35 +1,51 @@
 package main
 
-import (
-	"fmt"
-)
-
-type ListNode struct {
-	Val  int
-	Next *ListNode
+var f = func(i int) {
+	print("x")
 }
-
-// 164, 200 再看
 
 func main() {
-	nums := []int{1, 2, 4, 3, 5, 7, 6, 8, 4}
-	fmt.Println(findDuplicate(nums)) // 输出应为 9，即 10-1 的差值
+	f := func(i int) {
+		print(i)
+		if i > 0 {
+			f(i - 1)
+		}
+	}
+	f(10)
 }
 
-func findDuplicate(nums []int) int {
-	slow := nums[0]
-	fast := nums[nums[0]]
-	for fast != slow {
-		slow = nums[slow]
-		fast = nums[nums[fast]]
+// func main() {
+// 	m1 := make(map[int]int, 0)
+// 	m1[1] = 2
 
-		fmt.Println(slow, fast)
-	}
-	fast = 0
-	for fast != slow {
-		slow = nums[slow]
-		fast = nums[fast]
-		fmt.Println("xx", slow, fast)
-	}
-	return slow
-}
+// 	i := 100
+// 	for k, v := range m1 {
+// 		m1[i] = i
+// 		i += 1
+// 		fmt.Println(k, v)
+// 	}
+
+// 	s := []int{1, 2, 3}
+// 	ms := make(map[int]*int, 0)
+// 	for i, n := range s {
+// 		ms[i] = &n
+// 	}
+// 	for k, v := range ms {
+// 		fmt.Println(k, *v)
+// 	}
+
+// 	var m = map[string]int{
+// 		"A": 21,
+// 		"B": 22,
+// 		"C": 23,
+// 	}
+// 	counter := 0
+// 	for k, v := range m {
+// 		if counter == 0 {
+// 			delete(m, "A")
+// 		}
+// 		counter++
+// 		fmt.Println(k, v)
+// 	}
+// 	fmt.Println("counter is ", counter)
+// }

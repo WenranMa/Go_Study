@@ -873,6 +873,31 @@ func main() {
 // 第10行代码的赋值可以使用强制类型转换 `var i1 MyInt1 = MyInt1(i)` 
 ```
 
+关于类型转化，下面选项正确的是？-- TBD
+```go
+//A.
+type MyInt int
+var i int = 1
+var j MyInt = i
+
+//B.
+type MyInt int
+var i int = 1
+var j MyInt = (MyInt)i
+
+//C.
+type MyInt int
+var i int = 1
+var j MyInt = MyInt(i)
+
+//D.
+type MyInt int
+var i int = 1
+var j MyInt = i.(MyInt)
+
+//**答：C**
+```
+
 下面赋值正确的是（）答：B、D
 
 - A. var x = nil

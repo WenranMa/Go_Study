@@ -181,6 +181,22 @@ slice5 := numbers4[4:6:8]
 - 数组适用于固定长度的数据集合，如存储一组固定大小的元素。
 - 切片适用于动态长度的数据集合，如存储可变数量的元素，并且经常需要进行动态调整。
 
+## Map
+一个无序的key/value对的集合，其中所有的key都是不同的，然后通过给定的key可以在__常数时间复杂度__内检索、更新或删除对应的value。map类型可以写为map[K]V，其中K和V分别对应key和value。map中所有的key都有相同的类型，所有的value也有着相同的类型，但是key和value之间可以是不同的数据类型。其中K对应的key必须是支持`==`比较运算符的数据类型，所以map可以通过测试key是否相等来判断是否已经存在。
+```go
+m := make(map[string]int) //创建map
+n := map[string]int{} //创建map
+m["alice"] = 32  //添加key value
+delete(m, "alice") //删除key value
+```
+删除操作是安全的，即使元素不在map中，如果一个查找失败将返回value类型对应的零值。map中的元素并不是一个变量，不能对map的元素进行取址操作: `_ = &ages["bob"] // compile error` 。禁止对map元素取址的原因是map可能随着元素数量的增长而重新分配更大的内存空间，从而可能
+导致之前的地址无效。 在向map存数据前必须先创建map。
+
+`if age, ok := ages["bob"]; !ok { /* ... */ }`，map的下标语法可以产生两个值;第二个是一个布尔值，用于报告元素是否真的存
+在。布尔变量一般命名为ok。
+
+和slice一样，map之间也不能进行相等比较;唯一的例外是和nil进行比较。
+
 ## 练习
 
 下面这段代码输出什么？说明原因。
@@ -912,6 +928,291 @@ func main() {
 	y := []int{3, 4,} // 一行 no error
 	_ = y
 }
+```
+
+下面这段代码输出什么？
+```GO
+type T struct {
+    ls []int
+}
+
+func foo(t T) {
+    t.ls[0] = 100
+}
+
+func main() {
+    var t = T{
+        ls: []int{1, 2, 3},
+    }
+
+    foo(t)
+    fmt.Println(t.ls[0])
+}
+// 100
+// 调用 foo() 函数时虽然是传值，但 foo() 函数中，字段 ls 依旧可以看成是指向底层数组的指针。
+```
+
+下面这段代码输出什么？
+```go
+func main() {  
+    s := make(map[string]int)
+    delete(s, "h")
+    fmt.Println(s["h"])
+}
+//  0
+// 删除 map 不存在的键值对时，不会报错，相当于没有任何作用；获取不存在的减值对时，返回值类型对应的零值，所以返回 0。
+```
+
+下面这段代码输出什么？
+```go
+type person struct {
+    name string
+}
+
+func main() {
+    var m map[person]int
+    p := person{"make"}
+    fmt.Println(m[p])
+}
+// 0
+// 打印一个map中不存在的值时，返回元素类型的零值。这个例子中，m的类型是map[person]int，因为m中 不存在p，所以打印int类型的零值，即0。
+```
+
+下面代码中 A B 两处应该怎么修改才能顺利编译？
+```go
+func main() {
+    var m map[string]int        //A
+    m["a"] = 1
+    if v := m["b"]; v != nil {  //B
+        fmt.Println(v)
+    }
+}
+// 两个问题：在 A 处只声明了map m ,并没有分配内存空间，不能直接赋值，需要使用 make()，都提倡使用 make() 或者字面量的方式直接初始化 map。
+// B 处，`v,ok := m["b"]` 当 key 为 b 的元素不存在的时候，v 会返回值类型对应的零值，ok 返回 false。
+
+// 正确写法
+func main() {
+	var m = make(map[string]int) //A
+	m["a"] = 1
+	if v, ok := m["b"]; ok { //B
+		fmt.Println(v)
+	}
+}
+```
+
+下面这段代码输出什么？
+```go
+func main() {
+    m := map[int]string{0:"zero",1:"one"}
+    for k,v := range m {
+        fmt.Println(k,v)
+    }
+}
+// 0 zero
+// 1 one
+// 或者
+// 1 one
+// 0 zero
+// map 的输出是无序的。
+```
+
+下面代码输出什么？
+```go
+type Math struct {
+    x, y int
+}
+
+var m = map[string]Math{
+    "foo": Math{2, 3},
+}
+
+func main() {
+    m["foo"].x = 4
+    fmt.Println(m["foo"].x)
+}
+// compilation error
+// 编译报错 `cannot assign to struct field m["foo"].x in map`。错误原因：对于类似 `X = Y`的赋值操作，必须知道 `X` 的地址，才能够将 `Y` 的值赋给 `X`，但 go 中的 map 的 value 本身是不可寻址的。
+
+// 有两个解决办法：
+
+// 1. 使用临时变量
+type Math struct {
+    x, y int
+}
+
+var m = map[string]Math{
+    "foo": Math{2, 3},
+}
+
+func main() {
+    tmp := m["foo"]
+    tmp.x = 4
+    m["foo"] = tmp
+    fmt.Println(m["foo"].x)
+}
+
+// 2. 修改数据结构
+type Math struct {
+    x, y int
+}
+
+var m = map[string]*Math{
+    "foo": &Math{2, 3},
+}
+
+func main() {
+    m["foo"].x = 4
+    fmt.Println(m["foo"].x)
+    fmt.Printf("%#v", m["foo"])   // %#v 格式化输出详细信息，&main.Math{x:4, y:3}
+}
+```
+
+下面代码里的 counter 的输出值？
+```go
+func main() {
+    var m = map[string]int{
+        "A": 21,
+        "B": 22,
+        "C": 23,
+    }
+    counter := 0
+    for k, v := range m {
+        if counter == 0 {
+            delete(m, "A")
+        }
+        counter++
+        //fmt.Println(k, v)
+    }
+    fmt.Println("counter is ", counter)
+}
+// 2 或 3
+// for range map 是无序的，如果第一次循环到 A，则输出 3；否则输出 2。
+```
+
+下面这段代码存在什么问题？
+```go
+type Param map[string]interface{}
+ 
+type Show struct {
+    *Param
+}
+
+func main() {
+    s := new(Show)
+    s.Param["day"] = 2
+}
+
+// 存在两个问题
+// 1. map 需要初始化才能使用；
+// 2. 指针不支持索引。修复代码如下：
+
+func main() {
+    s := new(Show)
+    // 修复代码
+    p := make(Param)
+    p["day"] = 2
+    s.Param = &p
+    tmp := *s.Param //指针不能索引
+    fmt.Println(tmp["day"])
+}
+```
+
+下面代码有几处错误的地方？请说明原因。
+```go
+func main() {
+    var s []int
+    s = append(s,1)
+
+    var m map[string]int
+    m["one"] = 1 
+}
+// 有 1 处错误，不能对 nil 的 map 直接赋值，需要使用 make() 初始化。但可以使用 append() 函数对为 nil 的 slice 增加元素。
+// 修复代码：
+func main() {
+    var m map[string]int
+    m = make(map[string]int)
+    m["one"] = 1
+}
+```
+
+下面代码有什么问题？
+```go
+func main() {
+    m := make(map[string]int,2)
+    cap(m) 
+}
+// 1. 使用 make 创建 map 变量时可以指定第二个参数，不过会被忽略。
+// 2. cap() 函数适用于数组、数组指针、slice 和 channel，不适用于 map，可以使用 len() 返回 map 的元素个数。
+```
+
+下面代码输出什么？
+```go
+type T struct {
+    n int
+}
+
+func main() {
+    m := make(map[int]T)
+    m[0].n = 1
+    fmt.Println(m[0].n)
+}
+// compilation error
+// cannot assign to struct field m[0].n in map
+// map[key]struct 中 struct 是不可寻址的，所以无法直接赋值。
+
+// 修复代码：
+type T struct {
+    n int
+}
+
+func main() {
+    m := make(map[int]T)
+
+    t := T{1}
+    m[0] = t
+    fmt.Println(m[0].n)
+}
+```
+
+下面代码有什么不规范的地方吗？
+```go
+func main() {
+    x := map[string]string{"one":"a","two":"","three":"c"}
+
+    if v := x["two"]; v == "" { 
+        fmt.Println("no entry")
+    }
+}
+// 检查 map 是否含有某一元素，直接判断元素的值并不是一种合适的方式。最可靠的操作是使用访问 map 时返回的第二个值。
+// 修复代码如下：
+func main() {  
+    x := map[string]string{"one":"a","two":"","three":"c"}
+
+    if _,ok := x["two"]; !ok {
+        fmt.Println("no entry")
+    }
+}
+```
+
+关于 slice 或 map 操作，下面正确的是？ A,C,D
+```go
+//A
+var s []int
+s = append(s,1)
+
+// B
+var m map[string]int
+m["one"] = 1 
+
+// C
+var s []int
+s = make([]int, 0)
+s = append(s,1)
+
+//D
+var m map[string]int
+m = make(map[string]int)
+m["one"] = 1 
 ```
 
 

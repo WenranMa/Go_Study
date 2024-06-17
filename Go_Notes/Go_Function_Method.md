@@ -1,5 +1,5 @@
-
-## 函数
+# Function, Method
+## 函数F
 ### 函数声明(Declaration)
 - parameter: 函数参数，局部变量，named result也是局部变量。
 - argument: parameter values, supplied by the caller.
@@ -430,7 +430,7 @@ fmt.Printf("%v\n", p)
 只要我们把Grow变回指针方法就可以解决这个问题。原因是，这时的person代表的是p的值的指针的副本。指针的副本仍会指向p的值。另外，之所以选择表达式person.Age成立，是因为如果Go语言发现person是指针并且指向的那个值有Age字段，那么就会把该表达式视为(*person).Age。其实，这时的person.Age正是(*person).Age的速记法。
 
 
-### 练习
+## 练习
 下面这段代码输出什么？为什么？
 ```go
 func (i int) PrintInt ()  {
@@ -760,5 +760,61 @@ func main() {
 func main() {
     s := S{}
     fmt.Printf("%#v",s)   // 输出：main.S{T:(*main.T)(nil)}
+}
+```
+
+
+下面代码输出什么？
+```go
+func test(x int) (func(), func()) {
+    return func() {
+        println(x)
+        x += 10
+    }, func() {
+        println(x)
+    }
+}
+
+func main() {
+    a, b := test(100)
+    a()
+    b()
+}
+// 100 110
+// 闭包引用相同变量。
+```
+
+已知 Add() 函数的调用代码，则Add函数定义正确的是()  A,C
+```go
+func main() {
+    var a Integer = 1
+    var b Integer = 2
+    var i interface{} = &a
+    sum := i.(*Integer).Add(b)
+    fmt.Println(sum)
+}
+
+// A
+type Integer int
+func (a Integer) Add(b Integer) Integer {
+        return a + b
+}
+
+// B
+type Integer int
+func (a Integer) Add(b *Integer) Integer {
+        return a + *b
+}
+
+// C
+type Integer int
+func (a *Integer) Add(b Integer) Integer {
+        return *a + b
+}
+
+// D
+type Integer int
+func (a *Integer) Add(b *Integer) Integer {
+        return *a + *b
 }
 ```

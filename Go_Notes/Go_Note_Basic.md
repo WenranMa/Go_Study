@@ -1,4 +1,4 @@
-# Go 笔记
+# Go Basic
 
 ## 介绍
 
@@ -155,6 +155,60 @@ func main() {
 }
 ```
 
+请指出下面代码的错误？
+```go
+package main
+
+var gvar int 
+
+func main() {  
+    var one int   
+    two := 2      
+    var three int 
+    three = 3
+
+    func(unused string) {
+        fmt.Println("Unused arg. No compile error")
+    }("what?")
+}
+// 变量 one、two 和 three 声明未使用
+// 如果有未使用的变量代码将编译失败。但也有例外，函数中声明的变量必须要使用，但可以有未使用的全局变量。函数的参数未使用也是可以的。
+// 如果你给未使用的变量分配了一个新值，代码也还是会编译失败。你需要在某个地方使用这个变量，才能让编译器编译。
+
+// 修复代码：
+func main() {
+    var one int
+    _ = one
+
+    two := 2
+    fmt.Println(two)
+
+    var three int
+    three = 3
+    one = three
+
+    var four int
+    four = four
+}
+// 另一个选择是注释掉或者移除未使用的变量 。
+```
+
+下面代码有什么问题？
+```go
+type foo struct {
+    bar int
+}
+
+func main() {
+    var f foo
+    f.bar, tmp := 1, 2
+}
+// 编译错误
+// non-name f.bar on left side of :=
+// `:=` 操作符不能用于结构体字段赋值。
+```
+
+
 ### 赋值
 自增语句`i++`给i加1;这和`i += 1`是等价的。这是语句，而不像C系的其它语言那样是表达式。所以`j = i++`非法，而且++和­­都只能放在变量名后面，因此`--i`也非法。
 
@@ -228,6 +282,60 @@ func main() {
 }
 // 4
 // 多重赋值，会先计算 s[k]，等号右边是两个表达式是常量，所以赋值运算等同于 `k, s[1] = 0, 3`。
+```
+
+下面选项正确的是？ A,D
+```go
+//A. 类型可以声明的函数体内；
+//B. Go 语言支持 ++i 或者 --i 操作；
+//C. nil 是关键字；
+//D. 匿名函数可以直接赋值给一个变量或者直接执行；
+```
+
+下面的代码有什么问题？
+```go
+func main() {
+    data := []int{1,2,3}
+    i := 0
+    ++i
+    fmt.Println(data[i++])
+}
+// - 自增、自减不在是运算符，只能作为独立语句，而不是表达式；
+// - 不像其他语言，Go 语言中不支持 ++i 和 --i 操作；
+// 表达式通常是求值代码，可作为右值或参数使用。而语句表示完成一个任务，比如 if、for 语句等。表达式可作为语句使用，但语句不能当做表达式。
+
+// 修复代码：
+func main() {  
+    data := []int{1,2,3}
+    i := 0
+    i++
+    fmt.Println(data[i])
+}
+```
+
+下面的代码输出什么？
+```go
+type T struct {
+    x int
+    y *int
+}
+
+func main() {
+
+    i := 20
+    t := T{10,&i}
+
+    p := &t.x
+
+    *p++
+    *p--
+
+    t.y = p
+
+    fmt.Println(*t.y)
+}
+// 10
+// 递增运算符 ++ 和递减运算符 -- 的优先级低于解引用运算符 * 和取址运算符 &，解引用运算符和取址运算符的优先级低于选择器 . 中的属性选择操作符。
 ```
 
 ### 类型
@@ -333,7 +441,6 @@ func main() {
 // 不能比较的有 slice、map、函数
 ```
 
-
 通过指针变量p访问其成员变量name,有哪几种方式？答：A C
 
 - A. p.name
@@ -410,6 +517,19 @@ func main() {
 // 不能，报错`i1.m1 undefined (type User1 has no field or method m1)`**
 // 第 2 行代码基于类型 User 创建了新类型 User1，第 3 行代码是创建了 User 的类型别名 User2，注意使用 = 定义类型别名。因为 User2 是别名，完全等价于 User，所以 User2 具有 User 所有的方法。但是 i1.m1() 是不能执行的，因为 User1 没有定义该方法。
 ```
+
+下面这段代码输出什么？
+```go
+func main() {  
+    a := 5
+    b := 8.1
+    fmt.Println(a + b)
+}
+// compilation error  
+// `invalid operation: a + b (mismatched types int and float64)`
+// `a` 的类型是`int` ，`b` 的类型是`float` ，两个不同类型的数值不能相加，编译报错。
+```
+
 
 
 ### 包和文件
@@ -600,6 +720,37 @@ func main() {
 }
 ```
 
+下面代码最后一行输出什么？请说明原因。
+```go
+func main() {
+    x := 1
+    fmt.Println(x)
+    {
+        fmt.Println(x)
+        i,x := 2,2
+        fmt.Println(i,x)
+    }
+    fmt.Println(x)  // print ?
+}
+// 输出`1`
+// 知识点：变量隐藏。
+// 使用变量简短声明符号 := 时，如果符号左边有多个变量，只需要保证至少有一个变量是新声明的，并对已定义的变量尽进行赋值操作。但如果出现作用域之后，就会导致变量隐藏的问题，就像这个例子一样。
+```
+
+下面代码编译能通过吗？
+```go
+func main()  
+{ 
+    fmt.Println("hello world")
+}
+// syntax error: unexpected semicolon or newline before {
+// Go 语言中，大括号不能放在单独的一行。
+// 正确的代码:
+func main() {
+    fmt.Println("works")
+}
+```
+
 
 ## 基础数据类型
 Go语言将数据类型分为四类:基础类型、复合类型、引用类型和接口类型。
@@ -694,6 +845,200 @@ flag 是 bool 型变量，下面 if 表达式符合编码规范的是？ 答：B
 // C. if flag == false
 // D. if !flag
 ```
+
+
+
+下面这段代码输出什么？
+
+```go
+func main() {  
+    i := -5
+    j := +5
+    fmt.Printf("%+d %+d", i, j)
+}
+```
+
+- A. -5 +5
+- B. +5 +5
+- C. 0  0
+
+**答：A**
+
+**解析：**
+
+`%d`表示输出十进制数字，`+`表示输出数值的符号。这里不表示取反。
+
+
+
+下面代码输出什么？
+
+```go
+func test(x byte)  {
+    fmt.Println(x)
+}
+
+func main() {
+    var a byte = 0x11 
+    var b uint8 = a
+    var c uint8 = a + b
+    test(c)
+}
+```
+
+**答：34**
+
+**解析：**
+
+0x11是16进制，相当于10进制17。
+
+与 rune 是 int32 的别名一样，byte 是 uint8 的别名，别名类型无序转换，可直接转换。
+
+
+
+
+
+下面的代码输出什么？ --- TBD
+
+```go
+func main() {  
+    fmt.Println(~2) 
+}
+```
+
+**答：编译错误**
+
+```shell
+cannot use ~ outside of interface or type constraint (use ^ for bitwise complement)
+```
+
+**解析：**
+位取反运算符，Go 里面采用的是` ^` 。按位取反之后返回一个每个 bit 位都取反的数，对于有符号的整数来说，是按照补码进行取反操作的（快速计算方法：对数 a 取反，结果为 -(a+1) ），对于无符号整数来说就是按位取反。例如：
+
+```go
+func main() {
+    var a int8 = 3
+    var b uint8 = 3
+    var c int8 = -3
+
+    fmt.Printf("^%b=%b %d\n", a, ^a, ^a) // ^11=-100 -4
+    fmt.Printf("^%b=%b %d\n", b, ^b, ^b) // ^11=11111100 252
+    fmt.Printf("^%b=%b %d\n", c, ^c, ^c) // ^-11=10 2
+}
+```
+
+另外需要注意的是，如果作为二元运算符，^ 表示按位异或，即：对应位相同为 0，相异为 1。例如：
+
+```go
+func main() {
+    var a int8 = 3
+    var c int8 = 5
+
+    fmt.Printf("a: %08b\n",a)
+    fmt.Printf("c: %08b\n",c)
+    fmt.Printf("a^c: %08b\n",a ^ c)
+}
+```
+
+给大家重点介绍下这个操作符 &^，按位置零，例如：z = x &^ y，表示如果 y 中的 bit 位为 1，则 z 对应 bit 位为 0，否则 z 对应 bit 位等于 x 中相应的 bit 位的值。
+
+不知道大家发现没有，我们还可以这样理解或操作符 | ，表达式 z = x | y，如果 y 中的 bit 位为 1，则 z 对应 bit 位为 1，否则 z 对应 bit 位等于 x 中相应的 bit 位的值，与 &^ 完全相反。
+
+```go
+var x uint8 = 214
+var y uint8 = 92
+fmt.Printf("x: %08b\n",x)     
+fmt.Printf("y: %08b\n",y)       
+fmt.Printf("x | y: %08b\n",x | y)     
+fmt.Printf("x &^ y: %08b\n",x &^ y)
+```
+
+输出：
+
+```shell
+x: 11010110
+y: 01011100
+x | y: 11011110
+x &^ y: 10000010
+```
+
+
+下面代码输出什么？
+
+```go
+func main() {
+    var x int8 = -128
+    var y = x/-1
+    fmt.Println(y)
+}
+```
+
+**答：-128**
+
+**解析：**
+
+溢出
+
+
+
+判断题：对变量x的取反操作是 ~x？
+
+**答：错**
+
+**解析：**
+
+Go 语言的取反操作是 `^`，它返回一个每个 bit 位都取反的数。作用类似在 C、C#、Java 语言中中符号 ~，对于有符号的整数来说，是按照补码进行取反操作的（快速计算方法：对数 a 取反，结果为 -(a+1) ），对于无符号整数来说就是按位取反。
+
+
+下面这段代码输出什么？
+
+```go
+func main() {
+    count := 0
+    for i := range [256]struct{}{} {
+        m, n := byte(i), int8(i)
+        if n == -n {
+            count++
+        }
+        if m == -m {
+            count++
+        }
+    }
+    fmt.Println(count)
+}
+```
+
+**解析：**
+
+知识点：数值溢出。当 i 的值为 0、128 是会发生相等情况，注意 byte 是 uint8 的别名。
+
+byte = uint8. 所以取值范围为: [0, 255]. 所以-m为负数就溢出了byte的表示范围. 那么 对 0~255 取反什么时候相等呢? 0是相等的就不用说来. 为啥128与-128相等呢?
+
+我们知道负数是使用补位计数表示的. 所以-128,
+
+先对128取反(^1000 0000 = 0111 1111)
+然后进行加1操作, 即0111 1111 + 1 = 1000 0000
+所以-128是与正的128(1000 0000)一样.
+
+int8 表示范围是[-128, 127]. 所以当循环中i >= 128时, 超出了int8的表示范围, 就溢出了.
+
+那么当循环 i = 128时. 128 = 1000 0000. n = int8(128) 强制转换后时多少呢?
+
+我们知道补位计数法中, 正整数, 0, 最高为0, 而负数最高为1.
+所以1000 0000 一定是一个负数, 我们用补位计数法逆推. 就是上面步骤反向
+
+减1操作: 1000 0000 - 1 = 0111 1111
+取反操作: ^(0111 1111) = 1000 0000
+int8(128) = 1000 0000 对与int8表示 -128, 而-128 = 1000 0000 对于 int8就是-128.
+
+所以当i= 128时, n = int8(128) = -128, 而-n = 128, 128刚好溢出了int8的最大值. 对于int8 就是-128.
+
+注意:
+
+补位计数法中, 正整数与0, 符号位和值部是分开的. 对int8来说, 符号位(左侧最高位0)表示正数, 剩余7位用来表示正整数. 所以int8的最大值为 0111 1111 = 127.
+对于负数, 符号位与值部是在一起的. 左侧最高位1即是表示负数, 也是值的一部分. 如1000 0000 = -128
+
+
+
 
 
 ### 浮点型
@@ -884,6 +1229,37 @@ func main() {
 //函数返回值类型。nil 可以用作 interface、function、pointer、map、slice 和 channel 的“空值”。但是如果不特别指定的话，Go 语言不能识别类型，所以会报错:`cannot use nil as type string in return argument`
 ```
 
+关于字符串连接，下面语法正确的是？B,D
+```go
+//A. str := 'abc' + '123'
+//B. str := "abc" + "123"
+//C. str ：= '123' + "abc"
+//D. fmt.Sprintf("abc%d", 123)
+
+// 在 Go 语言中，双引号用来表示字符串 string，其实质是一个 byte 类型的数组，单引号表示 rune 类型。
+```
+
+下面代码有什么问题？
+```go
+func main() {  
+    var x string = nil 
+
+    if x == nil { 
+        x = "default"
+    }
+}
+// 不能将 nil 分配给 string 类型的变量
+// 正确：
+func main() {  
+    var x string //defaults to "" (zero value)
+    if x == "" {
+        x = "default"
+    }
+}
+```
+
+
+
 ### 常量
 常量表达式的值在编译期计算，而不是在运行期。常量的值不可修改，这样可以防止在运行期被意外或恶意的修改。如：`const pi = 3.14159` 。可以批量声明多个常量：
 ```go
@@ -937,272 +1313,103 @@ func main() {
 // 编译报错`cannot take the address of i`。知识点：常量。常量不同于变量的在运行期分配内存，常量通常会被编译器在预处理阶段直接展开，作为指令数据使用，所以常量无法寻址。
 ```
 
+下面这段代码能否编译通过？如果可以，输出什么？
+```go
+const (
+    x = iota
+    _
+    y
+    z = "zz"
+    k
+    p = iota
+)
+
+func main() {
+    fmt.Println(x, y, z, k, p)
+}
+// 输出：`0 2 zz zz 5`** 
+// iota初始值为0，所以x为0，_表示不赋值，但是iota是从上往下加1的，所以y是2，z是“zz”,k和上面一个同值也是“zz”,p是iota,从上0开始数他是5。
+```
+
+下面这段代码输出什么？
+```go
+const (
+    a = iota
+    b = iota
+)
+const (
+    name = "name"
+    c    = iota
+    d    = iota
+)
+func main() {
+    fmt.Println(a)
+    fmt.Println(b)
+    fmt.Println(c)
+    fmt.Println(d)
+}
+// 0 1 1 2
+// iota 是 golang 语言的常量计数器，只能在常量的表达式中使用。
+// iota 在 const 关键字出现时将被重置为0，const中每新增一行常量声明将使 iota 计数一次。
+```
+
+下面这段代码输出什么？
+```go
+type Direction int
+
+const (
+    North Direction = iota
+    East
+    South
+    West
+)
+
+func (d Direction) String() string {
+    return [...]string{"North", "East", "South", "West"}[d]
+}
+
+func main() {
+    fmt.Println(South)
+}
+// South
+// 分别对应0，1，2，3。如果类型实现 String() 方法，当格式化输出时会自动使用 String() 方法。
+```
+
+下面的代码有什么问题？
+```go
+func main() {
+    const x = 123
+    const y = 1.23
+    fmt.Println(x)
+}
+// 编译可以通过
+// 常量是一个简单值的标识符，在程序运行时，不会被修改的量。不像变量，常量未使用是能编译通过的。
+```
+
+下面代码输出什么？
+```go
+const (
+    x uint16 = 120
+    y
+    s = "abc"
+    z
+)
+
+func main() {
+    fmt.Printf("%T %v\n", y, y)
+    fmt.Printf("%T %v\n", z, z)
+}
+// uint16 120
+// string abc
+// 常量组中如不指定类型和初始化值，则与上一行非空常量右值相同
+```
+
+
 
 ---
 
 ## 复合数据类型
 数组和结构体是聚合类型;它们的值由许多元素或成员字段的值组成。数组元素都是完全相同的类型;结构体则是由异构的元素组成的。数组和结构体都是有固定内存大小的数据结构。slice和map则是动态的数据结构，它们将根据需要动态增长。
-
-
-### Map
-一个无序的key/value对的集合，其中所有的key都是不同的，然后通过给定的key可以在__常数时间复杂度__内检索、更新或删除对应的value。map类型可以写为map[K]V，其中K和V分别对应key和value。map中所有的key都有相同的类型，所有的value也有着相同的类型，但是key和value之间可以是不同的数据类型。其中K对应的key必须是支持`==`比较运算符的数据类型，所以map可以通过测试key是否相等来判断是否已经存在。
-```go
-m := make(map[string]int) //创建map
-n := map[string]int{} //创建map
-m["alice"] = 32  //添加key value
-delete(m, "alice") //删除key value
-```
-删除操作是安全的，即使元素不在map中，如果一个查找失败将返回value类型对应的零值。map中的元素并不是一个变量，不能对map的元素进行取址操作: `_ = &ages["bob"] // compile error` 。禁止对map元素取址的原因是map可能随着元素数量的增长而重新分配更大的内存空间，从而可能
-导致之前的地址无效。 在向map存数据前必须先创建map。
-
-`if age, ok := ages["bob"]; !ok { /* ... */ }`，map的下标语法可以产生两个值;第二个是一个布尔值，用于报告元素是否真的存
-在。布尔变量一般命名为ok。
-
-和slice一样，map之间也不能进行相等比较;唯一的例外是和nil进行比较。
-
-
-下面这段代码输出什么？
-```go
-func main() {  
-    s := make(map[string]int)
-    delete(s, "h")
-    fmt.Println(s["h"])
-}
-//  0
-// 删除 map 不存在的键值对时，不会报错，相当于没有任何作用；获取不存在的减值对时，返回值类型对应的零值，所以返回 0。
-```
-
-下面这段代码输出什么？
-```go
-type person struct {
-    name string
-}
-
-func main() {
-    var m map[person]int
-    p := person{"make"}
-    fmt.Println(m[p])
-}
-// 0
-// 打印一个map中不存在的值时，返回元素类型的零值。这个例子中，m的类型是map[person]int，因为m中 不存在p，所以打印int类型的零值，即0。
-```
-
-下面代码中 A B 两处应该怎么修改才能顺利编译？
-```go
-func main() {
-    var m map[string]int        //A
-    m["a"] = 1
-    if v := m["b"]; v != nil {  //B
-        fmt.Println(v)
-    }
-}
-// 两个问题：在 A 处只声明了map m ,并没有分配内存空间，不能直接赋值，需要使用 make()，都提倡使用 make() 或者字面量的方式直接初始化 map。
-// B 处，`v,ok := m["b"]` 当 key 为 b 的元素不存在的时候，v 会返回值类型对应的零值，ok 返回 false。
-
-// 正确写法
-func main() {
-	var m = make(map[string]int) //A
-	m["a"] = 1
-	if v, ok := m["b"]; ok { //B
-		fmt.Println(v)
-	}
-}
-```
-
-下面这段代码输出什么？
-```go
-func main() {
-    m := map[int]string{0:"zero",1:"one"}
-    for k,v := range m {
-        fmt.Println(k,v)
-    }
-}
-// 0 zero
-// 1 one
-// 或者
-// 1 one
-// 0 zero
-// map 的输出是无序的。
-```
-
-
-下面代码输出什么？
-```go
-type Math struct {
-    x, y int
-}
-
-var m = map[string]Math{
-    "foo": Math{2, 3},
-}
-
-func main() {
-    m["foo"].x = 4
-    fmt.Println(m["foo"].x)
-}
-// compilation error
-// 编译报错 `cannot assign to struct field m["foo"].x in map`。错误原因：对于类似 `X = Y`的赋值操作，必须知道 `X` 的地址，才能够将 `Y` 的值赋给 `X`，但 go 中的 map 的 value 本身是不可寻址的。
-
-// 有两个解决办法：
-
-// 1. 使用临时变量
-type Math struct {
-    x, y int
-}
-
-var m = map[string]Math{
-    "foo": Math{2, 3},
-}
-
-func main() {
-    tmp := m["foo"]
-    tmp.x = 4
-    m["foo"] = tmp
-    fmt.Println(m["foo"].x)
-}
-
-// 2. 修改数据结构
-type Math struct {
-    x, y int
-}
-
-var m = map[string]*Math{
-    "foo": &Math{2, 3},
-}
-
-func main() {
-    m["foo"].x = 4
-    fmt.Println(m["foo"].x)
-    fmt.Printf("%#v", m["foo"])   // %#v 格式化输出详细信息，&main.Math{x:4, y:3}
-}
-```
-
-下面代码里的 counter 的输出值？
-```go
-func main() {
-    var m = map[string]int{
-        "A": 21,
-        "B": 22,
-        "C": 23,
-    }
-    counter := 0
-    for k, v := range m {
-        if counter == 0 {
-            delete(m, "A")
-        }
-        counter++
-        //fmt.Println(k, v)
-    }
-    fmt.Println("counter is ", counter)
-}
-// 2 或 3
-// for range map 是无序的，如果第一次循环到 A，则输出 3；否则输出 2。
-```
-
-下面这段代码存在什么问题？
-```go
-type Param map[string]interface{}
- 
-type Show struct {
-    *Param
-}
-
-func main() {
-    s := new(Show)
-    s.Param["day"] = 2
-}
-
-// 存在两个问题
-// 1. map 需要初始化才能使用；
-// 2. 指针不支持索引。修复代码如下：
-
-func main() {
-    s := new(Show)
-    // 修复代码
-    p := make(Param)
-    p["day"] = 2
-    s.Param = &p
-    tmp := *s.Param //指针不能索引
-    fmt.Println(tmp["day"])
-}
-```
-
-下面代码有几处错误的地方？请说明原因。
-```go
-func main() {
-    var s []int
-    s = append(s,1)
-
-    var m map[string]int
-    m["one"] = 1 
-}
-// 有 1 处错误，不能对 nil 的 map 直接赋值，需要使用 make() 初始化。但可以使用 append() 函数对为 nil 的 slice 增加元素。
-// 修复代码：
-func main() {
-    var m map[string]int
-    m = make(map[string]int)
-    m["one"] = 1
-}
-```
-
-下面代码有什么问题？
-```go
-func main() {
-    m := make(map[string]int,2)
-    cap(m) 
-}
-// 1. 使用 make 创建 map 变量时可以指定第二个参数，不过会被忽略。
-// 2. cap() 函数适用于数组、数组指针、slice 和 channel，不适用于 map，可以使用 len() 返回 map 的元素个数。
-```
-
-下面代码输出什么？
-```go
-type T struct {
-    n int
-}
-
-func main() {
-    m := make(map[int]T)
-    m[0].n = 1
-    fmt.Println(m[0].n)
-}
-// compilation error
-// cannot assign to struct field m[0].n in map
-// map[key]struct 中 struct 是不可寻址的，所以无法直接赋值。
-
-// 修复代码：
-type T struct {
-    n int
-}
-
-func main() {
-    m := make(map[int]T)
-
-    t := T{1}
-    m[0] = t
-    fmt.Println(m[0].n)
-}
-```
-
-下面代码有什么不规范的地方吗？
-```go
-func main() {
-    x := map[string]string{"one":"a","two":"","three":"c"}
-
-    if v := x["two"]; v == "" { 
-        fmt.Println("no entry")
-    }
-}
-// 检查 map 是否含有某一元素，直接判断元素的值并不是一种合适的方式。最可靠的操作是使用访问 map 时返回的第二个值。
-// 修复代码如下：
-func main() {  
-    x := map[string]string{"one":"a","two":"","three":"c"}
-
-    if _,ok := x["two"]; !ok {
-        fmt.Println("no entry")
-    }
-}
-```
 
 
 
@@ -1378,6 +1585,22 @@ func main() {
 }
 ```
 
+关于循环语句，下面说法正确的有（） -- C, D
+```go
+// A. 循环语句既支持 for 关键字，也支持 while 和 do-while；
+// B. 关键字 for 的基本使用方法与 C/C++ 中没有任何差异；
+// C. for 循环支持 continue 和 break 来控制循环，但是它提供了一个更高级的 break，可以选择中断哪一个循环；
+// D. for 循环不支持以逗号为间隔的多个赋值语句，必须使用平行赋值的方式来初始化多个变量；
+```
+
+关于switch语句，下面说法正确的有?  B, D
+```go
+// A. 条件表达式必须为常量或者整数；
+// B. 单个case中，可以出现多个结果选项；
+// C. 需要用break来明确退出一个case；
+// D. 只有在case中明确添加fallthrough关键字，才会继续执行紧跟的下一个case；
+```
+
 
 for i, v := range "Go语言" {
     fmt.Printf("%d: %c\n", i, v)
@@ -1406,8 +1629,6 @@ for i, c:= range s {
     s[i] 是byte
     c 是 rune
 }
-
-
 
 下面代码有什么问题吗？
 ```go

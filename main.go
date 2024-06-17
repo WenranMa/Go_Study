@@ -1,17 +1,20 @@
 package main
 
-var f = func(i int) {
-	print("x")
-}
+import "fmt"
 
 func main() {
-	f := func(i int) {
-		print(i)
-		if i > 0 {
-			f(i - 1)
-		}
-	}
-	f(10)
+	a := 1
+	b := 2
+	defer calc("1", a, calc("10", a, b))
+	a = 0
+	defer calc("2", a, calc("20", a, b))
+	b = 1
+}
+
+func calc(index string, a, b int) int {
+	ret := a + b
+	fmt.Println(index, a, b, ret)
+	return ret
 }
 
 // func main() {

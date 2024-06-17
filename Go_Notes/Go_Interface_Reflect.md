@@ -908,6 +908,26 @@ var j MyInt = i.(MyInt)
 A错在没有写类型，C错在字符串的空值是 `""` 而不是nil。
 知识点：nil只能赋值给指针、chan、func、interface、map、或slice、类型的变量。
 
+关于GetPodAction定义，下面赋值正确的是。 答：A C D
+```go
+type Fragment interface {
+    Exec(transInfo *TransInfo) error
+}
+type GetPodAction struct {
+}
+func (g GetPodAction) Exec(transInfo *TransInfo) error {
+    ...
+    return nil
+}
+// A. var fragment Fragment = new(GetPodAction)
+// B. var fragment Fragment = GetPodAction
+// C. var fragment Fragment = &GetPodAction{}
+// D. var fragment Fragment = GetPodAction{}
+```
+
+
+
+
 ## 一个nil与interface{}比较的问题。
 Go 语言中有两种略微不同的接口，`一种是带有一组方法的接口，另一种是不带任何方法的空接口 interface{}。` Go 语言使用runtime.iface表示带方法的接口，使用runtime.eface表示不带任何方法的空接口interface{}。
 

@@ -695,67 +695,76 @@ func NewIntensitySegments() *IntensitySegments {
 }
 
 func (is *IntensitySegments) Add(start, end, intensity int) {
-	// Check for invalid arguments.
-	if start >= end {
-		panic("wrong arugments.")
-	}
-	// Handle the case where the collection is empty.
-	if len(is.Segments) == 0 {
-		is.Segments = append(is.Segments, &Segment{start, intensity}, &Segment{end, 0})
-		is.checkAndTrim()
+	if is.addNewSeg(start, end, intensity) {
 		return
 	}
-
-	// Handle the case where the new segment is entirely before the first existing segment.
-	if end < is.Segments[0].Start {
-		is.Segments = append([]*Segment{{start, intensity}, {end, 0}}, is.Segments...)
-		is.checkAndTrim()
-		// Handle the case where the new segment is entirely after the last existing segment.
-	} else if start > is.Segments[len(is.Segments)-1].Start {
-		is.Segments = append(is.Segments, &Segment{start, intensity}, &Segment{end, 0})
-		is.checkAndTrim()
-	} else {
-		// insert new start
-		if index, ok := is.m[start]; !ok {
-			l := is.findLeft(start)
-			if l == 0 {
-				is.Segments = append([]*Segment{{start, intensity}}, is.Segments...)
-			} else {
-				seg := &Segment{start, intensity + is.Segments[l-1].Intensity}
-				is.insert(l, seg)
-			}
+	// insert new start
+	if index, ok := is.m[start]; !ok {
+		l := is.findLeft(start)
+		if l == 0 {
+			is.Segments = append([]*Segment{{start, intensity}}, is.Segments...)
 		} else {
-			is.Segments[index].Intensity += intensity
+			seg := &Segment{start, intensity + is.Segments[l-1].Intensity}
+			is.insert(l, seg)
 		}
-		is.updateIndex()
-		// insert new end
-		if _, ok := is.m[end]; !ok {
-			r := is.findRight(end)
-			if r == len(is.Segments)-1 {
-				is.Segments = append(is.Segments, &Segment{end, 0})
-			} else if r < len(is.Segments)-1 {
-				var seg *Segment
-				if r > 0 && is.Segments[r].Start == start {
-					seg = &Segment{end, is.Segments[r-1].Intensity}
-				} else {
-					seg = &Segment{end, is.Segments[r].Intensity}
-				}
-				is.insert(r+1, seg)
-			}
-		}
-		is.updateIndex()
-		// update intensity between start and end
-		l, r := is.m[start], is.m[end]
-		for i := l + 1; i < r && i < len(is.Segments); i++ {
-			is.Segments[i].Intensity += intensity
-		}
-		is.checkAndTrim()
+	} else {
+		is.Segments[index].Intensity += intensity
 	}
+	is.updateIndex()
+	// insert new end
+	if _, ok := is.m[end]; !ok {
+		r := is.findRight(end)
+		if r == len(is.Segments)-1 {
+			is.Segments = append(is.Segments, &Segment{end, 0})
+		} else if r < len(is.Segments)-1 {
+			var seg *Segment
+			if r > 0 && is.Segments[r].Start == start {
+				seg = &Segment{end, is.Segments[r-1].Intensity}
+			} else {
+				seg = &Segment{end, is.Segments[r].Intensity}
+			}
+			is.insert(r+1, seg)
+		}
+	}
+	is.updateIndex()
+	// update intensity between start and end
+	l, r := is.m[start], is.m[end]
+	for i := l + 1; i < r && i < len(is.Segments); i++ {
+		is.Segments[i].Intensity += intensity
+	}
+	is.checkAndTrim()
 }
 
-// Set is an alias for Add.
+// Set
 func (is *IntensitySegments) Set(start, end, intensity int) {
-	is.Add(start, end, intensity)
+	if is.addNewSeg(start, end, intensity) {
+		return
+	}
+	// insert new start
+	if index, ok := is.m[start]; !ok {
+		l := is.findLeft(start)
+		seg := &Segment{start, intensity}
+		is.insert(l, seg)
+	} else {
+		is.Segments[index].Intensity = intensity
+	}
+	is.updateIndex()
+	// insert new end
+	if _, ok := is.m[end]; !ok {
+		r := is.findRight(end)
+		seg := &Segment{end, 0}
+		is.insert(r+1, seg)
+	}
+	is.updateIndex()
+	// delete intensity between start and end
+	l, r := is.m[start], is.m[end]
+	if r-l > 1 {
+		temp := is.Segments
+		is.Segments = append([]*Segment{}, temp[0:l+1]...)
+		is.Segments = append(is.Segments, temp[r:]...)
+	}
+	is.updateIndex()
+	is.checkAndTrim()
 }
 
 // ToString formats and prints the current segments like [[1,2],[3,0]]....
@@ -769,8 +778,33 @@ func (is *IntensitySegments) ToString() string {
 	return segStr
 }
 
-//  findLeft searches and returns the index of the first segment start position that is greater than the given start position.
+func (is *IntensitySegments) addNewSeg(start, end, intensity int) bool {
+	// Check for invalid arguments.
+	if start >= end {
+		panic("wrong arugments.")
+	}
+	// Handle the case where the collection is empty.
+	if len(is.Segments) == 0 {
+		is.Segments = append(is.Segments, &Segment{start, intensity}, &Segment{end, 0})
+		is.checkAndTrim()
+		return true
+	}
+	// Handle the case where the new segment is entirely before the first existing segment.
+	if end < is.Segments[0].Start {
+		is.Segments = append([]*Segment{{start, intensity}, {end, 0}}, is.Segments...)
+		is.checkAndTrim()
+		return true
+	}
+	// Handle the case where the new segment is entirely after the last existing segment.
+	if start > is.Segments[len(is.Segments)-1].Start {
+		is.Segments = append(is.Segments, &Segment{start, intensity}, &Segment{end, 0})
+		is.checkAndTrim()
+		return true
+	}
+	return false
+}
 
+// findLeft searches and returns the index of the first segment start position that is greater than the given start position.
 func (is *IntensitySegments) findLeft(start int) int {
 	for i, s := range is.Segments {
 		if s.Start > start {
@@ -781,7 +815,6 @@ func (is *IntensitySegments) findLeft(start int) int {
 }
 
 // findRight searches and returns the index of the last segment start position that is less than the given end position.
-
 func (is *IntensitySegments) findRight(end int) int {
 	for i := len(is.Segments) - 1; i >= 0; i-- {
 		if is.Segments[i].Start < end {
@@ -806,17 +839,20 @@ func (is *IntensitySegments) updateIndex() {
 }
 
 // checkAndTrim removes any leading or trailing segments with zero intensity.
-
 func (is *IntensitySegments) checkAndTrim() {
-	if is.Segments[0].Intensity == 0 {
-		delete(is.m, is.Segments[0].Start)
-		is.Segments = is.Segments[1:]
+	for i := len(is.Segments) - 1; i > 1 && is.Segments[i].Intensity == 0 && is.Segments[i-1].Intensity == 0; i -= 1 {
+		delete(is.m, is.Segments[i].Start)
+		is.Segments = is.Segments[:i]
 	}
-	l := len(is.Segments)
-	if l >= 2 && is.Segments[l-1].Intensity == 0 && is.Segments[l-2].Intensity == 0 {
-		delete(is.m, is.Segments[l-1].Start)
-		is.Segments = is.Segments[:len(is.Segments)-1]
+	var i int
+	for i = 0; i < len(is.Segments); i += 1 {
+		if is.Segments[i].Intensity == 0 {
+			delete(is.m, is.Segments[i].Start)
+		} else {
+			break
+		}
 	}
+	is.Segments = is.Segments[i:]
 	is.updateIndex()
 }
 
@@ -857,7 +893,6 @@ func main() {
 	s.ToString() // [[1,3],[2,1],[3,1],[10,6],[13,10],[18,6],[30,5],[40,0]]
 	s.Add(-9, 2, 10)
 	s.ToString() // [[-9,10],[1,13],[2,1],[3,1],[10,6],[13,10],[18,6],[30,5],[40,0]]
-
 }
 
 /*

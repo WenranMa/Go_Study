@@ -1,1 +1,0 @@
-https://refactoringguru.cn/design-patterns/go

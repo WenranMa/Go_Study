@@ -61,3 +61,6 @@ func isBitOne(n, indexBit int) bool {
 	return (n & 1) == 1
 }
 ```
+
+# 136 single number
+# 137 single number II

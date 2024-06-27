@@ -43,3 +43,6 @@ func singleNumber(nums []int) int {
 	return int(res)
 }
 ```
+
+# 136. 只出现一次的数字
+# 260. 只出现一次的数字 III

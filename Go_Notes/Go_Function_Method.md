@@ -34,6 +34,17 @@ func CountWordsAndImages(url string) (words, images int, err error) {
 ```
 前两处return等价于 `return 0,0,err` (Go会将返回值words和images在函数体的开始处，根据它们的类型，将其初始化为0)，最后一处return等价于 `return words, image, nil`。
 
+命名返回参数可被同名局部变量遮蔽，此时需要显式返回。
+```go
+func add(x, y int) (z int) {
+    { // 不能在一个级别，引发 "z redeclared in this block" 错误。
+        var z = x + y
+        // return   // Error: z is shadowed during return
+        return z // 必须显式返回。
+    }
+}
+```
+
 ### Error
 对于将运行失败看作是预期结果的函数，会返回一个额外的返回值，来传递错误信息。如果导致失败的原因只有一个，额外的返回值可以是一个布尔值，通常被命名为ok：
 `value, ok := cache.Lookup(key)` 。

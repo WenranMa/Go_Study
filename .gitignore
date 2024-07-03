@@ -5,6 +5,7 @@
 *.dll
 *.so
 *.dylib
+*.VSCodeCounter
 
 # Test binary, build with `go test -c`
 *.test

@@ -182,20 +182,37 @@ slice5 := numbers4[4:6:8]
 - 切片适用于动态长度的数据集合，如存储可变数量的元素，并且经常需要进行动态调整。
 
 ## Map
-一个无序的key/value对的集合，其中所有的key都是不同的，然后通过给定的key可以在__常数时间复杂度__内检索、更新或删除对应的value。map类型可以写为map[K]V，其中K和V分别对应key和value。map中所有的key都有相同的类型，所有的value也有着相同的类型，但是key和value之间可以是不同的数据类型。其中K对应的key必须是支持`==`比较运算符的数据类型，所以map可以通过测试key是否相等来判断是否已经存在。
+一个无序的key/value对的集合，其中所有的key都是不同的，然后通过给定的key可以在 __常数时间复杂度__ 内检索、更新或删除对应的value。map类型可以写为map[K]V，其中K和V分别对应key和value。map中所有的key都有相同的类型，所有的value也有着相同的类型，但是key和value之间可以是不同的数据类型。其中K对应的key必须是支持`==`比较运算符的数据类型，所以map可以通过测试key是否相等来判断是否已经存在。
 ```go
 m := make(map[string]int) //创建map
 n := map[string]int{} //创建map
 m["alice"] = 32  //添加key value
 delete(m, "alice") //删除key value
 ```
-删除操作是安全的，即使元素不在map中，如果一个查找失败将返回value类型对应的零值。map中的元素并不是一个变量，不能对map的元素进行取址操作: `_ = &ages["bob"] // compile error` 。禁止对map元素取址的原因是map可能随着元素数量的增长而重新分配更大的内存空间，从而可能
-导致之前的地址无效。 在向map存数据前必须先创建map。
+删除操作是安全的，即使元素不在map中，如果一个查找失败将返回value类型对应的零值。map中的元素并不是一个变量，不能对map的元素进行取址操作: `_ = &ages["bob"] // compile error` 。禁止对map元素取址的原因是map可能随着元素数量的增长而重新分配更大的内存空间，从而可能导致之前的地址无效。
+
+###  nil map 空map
+可以对未初始化的map进行取值，但取出来的东西是空：
+```go
+var m1 map[string]string
+fmt.Println(m1["1"])
+```
+
+不能对未初始化的map进行赋值，这样将会抛出一个异常：未初始化的map是nil，它与一个空map基本等价，只是nil的map不允许往里面添加值。
+```go
+var m1 map[string]string
+m1["1"] = "1"
+// panic: assignment to entry in nil map
+```
+
+通过fmt打印map时，空map和nil map结果是一样的，都为map[]。所以，这个时候别断定map是空还是nil，而应该通过map == nil来判断。nil map 未初始化，空map是长度为0。
 
 `if age, ok := ages["bob"]; !ok { /* ... */ }`，map的下标语法可以产生两个值;第二个是一个布尔值，用于报告元素是否真的存
 在。布尔变量一般命名为ok。
 
 和slice一样，map之间也不能进行相等比较;唯一的例外是和nil进行比较。
+
+map类型是容易发生并发访问问题的。不注意就容易发生程序运行时并发读写导致的panic。 Go语言内建的map对象不是线程安全的，并发读写的时候运行时会有检查，遇到并发问题就会导致panic。加锁或者用sync.Map来避免。
 
 ## 练习
 
@@ -751,6 +768,39 @@ golang 中切片底层的数据结构是数组。当使用 s1[1:] 获得切片 s
 ![slice](../file/img/slice.webp)
 
 
+```go
+/* 
+一次性追加多个元素：
+当你使用slice = append(slice, 1, 2, 3)一次性追加多个元素时，append函数能够预见到需要追加三个元素，因此它可能会直接计算出足够大的新容量来避免多次重新分配和复制，从而可能更高效地管理内存。
+
+分次追加单个元素：
+相反，如果你分三次调用append，每次只追加一个元素，那么每次调用append都可能导致检查当前切片容量、判断是否需要扩容以及执行扩容操作的过程。这意味着每次追加都可能触发一次或多次的数组分配和复制，尤其是在连续追加导致频繁超出当前容量的情况下。
+*/
+
+func AddElement(slice []int, e int) []int {
+	return append(slice, e)
+}
+
+func main() {
+	var slice []int
+	fmt.Println(cap(slice))
+	slice = append(slice, 1,2,3)
+	// slice = append(slice, 1)
+	// slice = append(slice, 2)
+	// slice = append(slice, 3)
+	fmt.Println(cap(slice))
+
+	newSlice := AddElement(slice, 4) 
+
+	fmt.Printf("%p,%p\n", slice, newSlice)
+	fmt.Println(&slice[0] == &newSlice[0])
+}
+//3
+// 0xc000016198,0xc000012510
+// false
+// 但如果分三次append, 结果为true.
+```
+
 下面的代码有什么问题？
 ```go
 func main() {
@@ -1215,5 +1265,150 @@ m = make(map[string]int)
 m["one"] = 1 
 ```
 
+slices能作为map类型的key吗？ AKA golang 哪些类型可以作为map key？ 答：在golang规范中，可比较的类型都可以作为map key；
+
+golang规范中，哪些数据类型可以比较？答：不能作为map key 的类型包括：
+- slices
+- maps
+- functions
+
+
+## 待整理 
 
 range 看源代码？
+
+```go
+func main() {
+	slice := []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
+	s1 := slice[2:5]
+	s2 := s1[2:6:7]
+
+	fmt.Println(s1)
+	fmt.Println(s2)
+	fmt.Println(slice)
+
+	s2 = append(s2, 100)
+	s2 = append(s2, 200)
+
+	s1[2] = 20
+
+	fmt.Println(s1)
+	fmt.Println(s2)
+	fmt.Println(slice)
+}
+
+// [2 3 4]
+// [4 5 6 7]
+// [0 1 2 3 4 5 6 7 8 9]
+// [2 3 20]
+// [4 5 6 7 100 200]
+// [0 1 2 3 20 5 6 7 100 9]
+```
+
+
+
+```go
+// 切片去重，用map的长度判断是不是存在
+func removeRepByMap(slc []string) []string {
+	result := make([]string, 0, len(slc))
+	tempMap := make(map[string]struct{}, len(slc))
+	for _, e := range slc {
+		l := len(tempMap)
+		tempMap[e] = struct{}{}
+		if len(tempMap) != l { // 不存在
+			result = append(result, e)
+		}
+	}
+	return result
+}
+
+```
+
+
+```go
+func main() {
+
+	arr := [10]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+	fmt.Println("原数组：", arr)
+
+	fmt.Println("对数组进行截取：")
+	//如果指定max，max的值最大不能超过截取对象（数组、切片）的容量
+	s1 := arr[2:5:9] //max:9  low：2  high;5  len:5-2(len=high-low)  cap:9-2(cap=max-low)
+	fmt.Printf("数组截取之后的类型为：%T,    数据是：%v;长度：%d;容量：%d\n", s1, s1, len(s1), cap(s1))
+	// 数组截取之后的类型为：[]int,    数据是：[3 4 5];长度：3;容量：7
+
+	//如果没有指定max，max的值为截取对象（切片、数组）的容量
+	s2 := s1[1:7] //max:7  low：1  high;7  len:7-1(len=high-low)  cap:7-1(cap=max-low)
+	fmt.Println("对切片进行截取：")
+	fmt.Printf("对切片进行截取之后的数据是：%v,长度:%d； 容量%d\n", s2, len(s2), cap(s2))
+	// 对切片进行截取之后的数据是：[4 5 6 7 8 9],长度:6； 容量6
+
+	//利用数组创建切片，切片操作的是同一个底层数组
+	s1[0] = 8888
+	s2[0] = 6666
+	fmt.Println("操作之后的数组为：", arr)
+	// 操作之后的数组为： [1 2 8888 6666 5 6 7 8 9 10]
+	/*
+		切片对数组的截取  最终都是切片操作的底层数组（通过指针操作原数组）
+	*/
+}
+```
+
+```go
+func main() {
+	var array [10]int // 定义了一个10个长度的整型数组array
+
+	var slice = array[5:6] // 定义了一个切片slice，切取数组的第6个元素
+
+	fmt.Println(array)                             // [0 0 0 0 0 0 0 0 0 0]
+	fmt.Println(slice)                             // [0]
+	fmt.Println("lenth of 数组与切片: ", len(slice))    // 1
+	fmt.Println("capacity of 数组与切片: ", cap(slice)) // 5
+	fmt.Println(&slice[0] == &array[5])            // true
+	// slice根据数组array创建，与数组共享存储空间，
+	// slice起始位置是array[5]，长度为1，容量为5，数组与切片[0]和array[5]地址相同。
+}
+```
+
+
+```go
+// 测试扩容
+package main
+
+import (
+	"fmt"
+)
+
+func main() {
+	testGrowSlice()
+}
+
+func testGrowSlice() {
+	s := make([]int, 0)
+	oldCap := cap(s)
+	for i := 0; i < 2048; i++ {
+		s = append(s, i)
+		newCap := cap(s)
+		if newCap != oldCap {
+			fmt.Printf("[%d -> %4d] cap = %-4d  |  after append %-4d  cap = %-4d\n", 0, i-1, oldCap, i, newCap)
+			oldCap = newCap
+		}
+	}
+}
+/*
+[0 ->   -1] cap = 0     |  after append 0     cap = 1		// 0 * 2
+[0 ->    0] cap = 1     |  after append 1     cap = 2		// 1 * 2
+[0 ->    1] cap = 2     |  after append 2     cap = 4		// 2 * 2
+[0 ->    3] cap = 4     |  after append 4     cap = 8		// 4 * 2
+[0 ->    7] cap = 8     |  after append 8     cap = 16		// 8 * 2
+[0 ->   15] cap = 16    |  after append 16    cap = 32		// 16 * 2
+[0 ->   31] cap = 32    |  after append 32    cap = 64		// 32 * 2
+[0 ->   63] cap = 64    |  after append 64    cap = 128		// 64 * 2
+[0 ->  127] cap = 128   |  after append 128   cap = 256		// 128 * 2
+[0 ->  255] cap = 256   |  after append 256   cap = 512		// 256 * 2
+[0 ->  511] cap = 512   |  after append 512   cap = 848		// 512 * 1.66
+[0 ->  847] cap = 848   |  after append 848   cap = 1280	// 848 * 1.5
+[0 -> 1279] cap = 1280  |  after append 1280  cap = 1792	// 1280 * 1.4
+[0 -> 1791] cap = 1792  |  after append 1792  cap = 2560	// 1792 * 1.42
+*/
+```

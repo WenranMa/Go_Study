@@ -1,45 +1,519 @@
 # Go并发
-## Goroutines
-每一个并发的执行单元叫作一个goroutine。当一个程序启动时，其主函数即在一个单独的goroutine中运行，我们叫它main goroutine。新的goroutine会用go语句来创建。主函数返回时，所有的goroutine都会被直接打断，程序退出。除了从主函数退出或者直接终止程序之外，没有其它的编程方法能够让一个goroutine来打断另一个的执行。
 
-示例：Spinner动画，B_08_Spinner
+并发编程在当前软件领域是一个非常重要的概念，随着CPU等硬件的发展，我们无一例外的想让我们的程序运行的快一点、再快一点。Go语言在语言层面天生支持并发，充分利用现代CPU的多核优势，这也是Go语言能够大范围流行的一个很重要的原因。
 
-示例：并发的Clock服务，参见B_09_Clock
+## 基本概念
 
-示例：并发的Echo服务，参见B_10_Echo
+首先我们先来了解几个与并发编程相关的基本概念。
 
-## Channel
-goroutine是Go语言程序的并发体，channel则是它们之间的通信机制。一个channel是一个通信机制，它可以让一个goroutine通过它给另一个goroutine发送值信息。每个channel都有可发送数据的类型。创建一个channel: `ch := make(chan int) // ch has type 'chan int'`。
+### 串行、并发与并行
 
-和map类似，channel也一个对应make创建的底层数据结构的引用。当我们复制一个channel或用于函数参数传递时，我们只是拷贝了一个channel引用，因此调用者何被调用者将引用同一个channel对象。和其它的引用类型一样，channel的零值也是nil。
+串行：我们都是先读小学，小学毕业后再读初中，读完初中再读高中。
+
+并发：同一时间段内执行多个任务（你在用微信和两个女朋友聊天）。
+
+并行：同一时刻执行多个任务（你和你朋友都在用微信和女朋友聊天）。
+
+### 进程、线程和协程
+
+进程（process）：程序在操作系统中的一次执行过程，系统进行资源分配和调度的一个独立单位。
+
+线程（thread）：操作系统基于进程开启的轻量级进程，是操作系统调度执行的最小单位。
+
+协程（coroutine）：非操作系统提供而是由用户自行创建和控制的用户态‘线程’，比线程更轻量级。
+
+### 并发模型
+
+业界将如何实现并发编程总结归纳为各式各样的并发模型，常见的并发模型有以下几种：
+
+- 线程&锁模型
+- Actor模型
+- CSP模型
+- Fork&Join模型
+
+Go语言中的并发程序主要是通过基于CSP（communicating sequential processes）的goroutine和channel来实现，当然也支持使用传统的多线程共享内存的并发方式。
+
+## goroutine
+
+Goroutine 是 Go 语言支持并发的核心，在一个Go程序中同时创建成百上千个goroutine是非常普遍的，一个goroutine会以一个很小的栈开始其生命周期，一般只需要2KB。区别于操作系统线程由系统内核进行调度， goroutine 是由Go运行时（runtime）负责调度。例如Go运行时会智能地将 m个goroutine 合理地分配给n个操作系统线程，实现类似m:n的调度机制，不再需要Go开发者自行在代码层面维护一个线程池。
+
+Goroutine 是 Go 程序中最基本的并发执行单元。每一个 Go 程序都至少包含一个 goroutine——main goroutine，当 Go 程序启动时它会自动创建。
+
+在Go语言编程中你不需要去自己写进程、线程、协程，你的技能包里只有一个技能——goroutine，当你需要让某个任务并发执行的时候，你只需要把这个任务包装成一个函数，开启一个 goroutine 去执行这个函数就可以了，就是这么简单粗暴。
+
+### go关键字
+
+Go语言中使用 goroutine 非常简单，只需要在函数或方法调用前加上`go`关键字就可以创建一个 goroutine ，从而让该函数或方法在新创建的 goroutine 中执行。
+
+```go
+go f()  // 创建一个新的 goroutine 运行函数f
+```
+
+匿名函数也支持使用`go`关键字创建 goroutine 去执行。
+
+```go
+go func(){
+  // ...
+}()
+```
+
+一个 goroutine 必定对应一个函数/方法，可以创建多个 goroutine 去执行相同的函数/方法。
+
+```go
+func hello() {
+	fmt.Println("hello")
+}
+
+func main() {
+	go hello() // 启动另外一个goroutine去执行hello函数
+	fmt.Println("main goroutine done!")
+}
+// 输出：main goroutine done!
+```
+
+这一次的执行结果没有打印 `hello`。这是为什么呢？
+
+其实在 Go 程序启动时，Go 程序就会为 main 函数创建一个默认的 goroutine 。在上面的代码中我们在 main 函数中使用 go 关键字创建了另外一个 goroutine 去执行 hello 函数，而此时 main goroutine 还在继续往下执行，我们的程序中此时存在两个并发执行的 goroutine。当 main 函数结束时整个程序也就结束了，同时 main goroutine 也结束了，所有由 main goroutine 创建的 goroutine 也会一同退出。也就是说我们的 main 函数退出太快，另外一个 goroutine 中的函数还未执行完程序就退出了，导致未打印出“hello”。
+
+Go 语言中通过`sync`包为我们提供了一些常用的并发原语，我们会在后面的小节单独介绍`sync`包中的内容。在这一小节，我们会先介绍一下 sync 包中的`WaitGroup`。当你并不关心并发操作的结果或者有其它方式收集并发操作的结果时，`WaitGroup`是实现等待一组并发操作完成的好方法。
+
+下面的示例代码中我们在 main goroutine 中使用`sync.WaitGroup`来等待 hello goroutine 完成后再退出。
+
+```go
+package main
+
+import (
+	"fmt"
+	"sync"
+)
+
+// 声明全局等待组变量
+var wg sync.WaitGroup
+
+func hello() {
+	fmt.Println("hello")
+	wg.Done() // 告知当前goroutine完成
+}
+
+func main() {
+	wg.Add(1) // 登记1个goroutine
+	go hello()
+	fmt.Println("你好")
+	wg.Wait() // 阻塞等待登记的goroutine完成
+}
+// 你好
+// hello
+// hello goroutine 执行完毕后程序直接退出。
+```
+
+### 启动多个goroutine
+
+在 Go 语言中实现并发就是这样简单，我们还可以启动多个 goroutine 。让我们再来看一个新的代码示例。这里同样使用了`sync.WaitGroup`来实现 goroutine 的同步。
+
+```go
+package main
+
+import (
+	"fmt"
+	"sync"
+)
+
+var wg sync.WaitGroup
+
+func hello(i int) {
+	defer wg.Done() // goroutine结束就登记-1
+	fmt.Println("hello", i)
+}
+func main() {
+	for i := 0; i < 10; i++ {
+		wg.Add(1) // 启动一个goroutine就登记+1
+		go hello(i)
+	}
+	wg.Wait() // 等待所有登记的goroutine都结束
+}
+```
+
+多次执行上面的代码会发现每次终端上打印数字的顺序都不一致。这是因为10个 goroutine 是并发执行的，而 goroutine 的调度是随机的。
+
+
+
+
+### 动态栈
+
+操作系统的线程一般都有固定的栈内存（通常为2MB）， 这个栈会用来存储当前正在被调用或挂起(指在调用其它函数时)的函数的内部变量，2MB的栈对于一个小小的goroutine来说是很大的内存浪费而 Go 语言中的 goroutine 非常轻量级，一个 goroutine 的初始栈空间很小（一般为2KB），所以在 Go 语言中一次创建数万个 goroutine 也是可能的，一个goroutine的栈，和操作系统线程一样，会保存其活跃或挂起的函数调用的本地变量，但goroutine 的栈不是固定的，可以根据需要动态地增大或缩小， Go 的 runtime 会自动为 goroutine 分配合适的栈空间。
+
+### goroutine调度
+
+OS线程会被操作系统内核调度。每几毫秒，一个硬件计时器会中断处理器，这会调用一个叫作scheduler的内核函数。这个函数会挂起当前执行的线程并保存内存中它的寄存器内容，检查线程列表并决定下一次哪个线程可以被运行，并从内存中恢复该线程的寄存器信息，然后恢复执行该线程的现场并开始执行线程。因为操作系统线程是被内核所调度，所以从一个线程向另一个“移动”需要完整的上下文切换，也就是说，保存一个用户线程的状态到内存，恢复另一个线程的到寄存器，然后更新调度器的数据结构。这几步操作很慢，因为其局部性很差需要几次内存访问，并且会增加运行的cpu周期。
+
+Go的运行时包含自己的调度器，这个调度器使用了一些技术手段，比如m:n调度，因为其会在n个操作系统线程上多工(调度)m个goroutine。Go调度器的工作和内核的调度是相似的，但是这个调度器只关注单独的Go程序中的goroutine(按程序独立)。
+
+区别于操作系统内核调度操作系统线程，goroutine 的调度是Go语言运行时（runtime）层面的实现，是完全由 Go 语言本身实现的一套调度系统——go scheduler。它的作用是按照一定的规则将所有的 goroutine 调度到操作系统线程上执行。
+
+在经历数个版本的迭代之后，目前 Go 语言的调度器采用的是 `GPM` 调度模型。
+
+![gpm](/file/img/go_gpm.png) 
+
+其中：
+
+- G：表示 goroutine，每执行一次`go f()`就创建一个 G，包含要执行的函数和上下文信息。
+- 全局队列（Global Queue）：存放等待运行的 G。
+- P：表示 goroutine 执行所需的资源，最多有 GOMAXPROCS 个。
+- P 的本地队列：同全局队列类似，存放的也是等待运行的G，存的数量有限，不超过256个。新建 G 时，G 优先加入到 P 的本地队列，如果本地队列满了会批量移动部分 G 到全局队列。
+- M：线程想运行任务就得获取 P，从 P 的本地队列获取 G，当 P 的本地队列为空时，M 也会尝试从全局队列或其他 P 的本地队列获取 G。M 运行 G，G 执行之后，M 会从 P 获取下一个 G，不断重复下去。
+- Goroutine 调度器和操作系统调度器是通过 M 结合起来的，每个 M 都代表了1个内核线程，操作系统调度器负责把内核线程分配到 CPU 的核上执行。
+
+单从线程调度讲，Go语言相比起其他语言的优势在于OS线程是由OS内核来调度的， goroutine 则是由Go运行时（runtime）自己的调度器调度的，完全是在用户态下完成的， 不涉及内核态与用户态之间的频繁切换，包括内存的分配与释放，都是在用户态维护着一块大的内存池， 不直接调用系统的malloc函数（除非内存池需要改变），成本比调度OS线程低很多。 另一方面充分利用了多核的硬件资源，近似的把若干goroutine均分在物理线程上， 再加上本身 goroutine 的超轻量级，以上种种特性保证了 goroutine 调度方面的性能。
+
+### GOMAXPROCS
+
+Go运行时的调度器使用`GOMAXPROCS`参数来确定需要使用多少个 OS 线程来同时执行 Go 代码。默认值是机器上的 CPU 核心数。例如在一个 8 核心的机器上，GOMAXPROCS 默认为 8。Go语言中可以通过`runtime.GOMAXPROCS`函数设置当前程序并发时占用的 CPU逻辑核心数。（Go1.5版本之前，默认使用的是单核心执行。Go1.5 版本之后，默认使用全部的CPU 逻辑核心数。）
+
+(GOMAXPROCS是m:n调度中的n)。在休眠中的或者在通信中被阻塞的goroutine是不需要一个对应的线程来做调度的。可以用GOMAXPROCS的环境变量来显式地控制这个参数，或者也可以在运行时用runtime.GOMAXPROCS函数来修改它。
+`GOMAXPROCS=1 go run main.go`
+
+在大多数支持多线程的操作系统和程序语言中，当前的线程都有一个独特的身份(id)，并且这个身份信息可以以一个普通值的形式被被很容易地获取到。goroutine没有可以被程序员获取到的身份(id)的概念。
+
+### 练习题
+
+1. 请写出下面程序的执行结果。
+
+```go
+func main() {
+	for i := 0; i < 5; i++ {
+		go func(i int) {
+			fmt.Println(i)
+		}(i)
+	}
+}
+// 可能打印不出任何输出，因为main goroutine 结束后，go 函数中的 goroutine 也会结束。
+// 可以这样打印 0 1 2 3 4，但顺序不定
+func main() {
+	var wg3 sync.WaitGroup
+	for i := 0; i < 5; i++ {
+		wg3.Add(1)
+		go func(i int) {
+			defer wg3.Done()
+			fmt.Println(i)
+		}(i)
+	}
+	wg3.Wait()
+}
+```
+
+## channel
+
+单纯地将函数并发执行是没有意义的。函数与函数间需要交换数据才能体现并发执行函数的意义。
+
+虽然可以使用共享内存进行数据交换，但是共享内存在不同的 goroutine 中容易发生竞态问题。为了保证数据交换的正确性，很多并发模型中必须使用互斥量对内存进行加锁，这种做法势必造成性能问题。
+
+Go语言采用的并发模型是`CSP（Communicating Sequential Processes）`，提倡**通过通信共享内存**而不是**通过共享内存而实现通信**。
+
+如果说 goroutine 是Go程序并发的执行体，`channel`就是它们之间的连接。`channel`是可以让一个 goroutine 发送特定值到另一个 goroutine 的通信机制。
+
+Go 语言中的通道（channel）是一种特殊的类型。通道像一个传送带或者队列，总是遵循先入先出（First In First Out）的规则，保证收发数据的顺序。每一个通道都是一个具体类型的导管，也就是声明channel的时候需要为其指定元素类型。
+
+### channel类型
+
+`channel`是 Go 语言中一种特有的类型。声明通道类型变量的格式如下：
+
+```go
+var 变量名称 chan 元素类型
+```
+- chan：是关键字
+- 元素类型：是指通道中传递元素的类型
+
+举几个例子：
+
+```go
+var ch1 chan int   // 声明一个传递整型的通道
+var ch2 chan bool  // 声明一个传递布尔型的通道
+var ch3 chan []int // 声明一个传递int切片的通道
+```
+
+### 初始化channel
+
+未初始化的通道类型变量其默认零值是`nil`。
+
+```go
+var ch chan int
+fmt.Println(ch) // <nil>
+```
+
+声明的通道类型变量需要使用内置的`make`函数初始化之后才能使用。具体格式如下：
+
+```go
+make(chan 元素类型, [缓冲大小])
+```
+- channel的缓冲大小是可选的。
+
+举几个例子：
+
+```go
+ch4 := make(chan int)
+ch5 := make(chan bool, 1)  // 声明一个缓冲区大小为1的通道
+fmt.Println(ch5) //	0xc000100000
+```
+
+当我们复制一个channel或用于函数参数传递时，我们只是拷贝了一个channel引用，因此调用者何被调用者将引用同一个channel对象。和其它的引用类型一样，channel的零值也是nil。
 
 两个相同类型的channel可以使用==运算符比较。`如果两个channel引用的是相同的对象，那么比较的结果为真`。一个channel也可以和nil进行比较。
 
-一个channel有发送和接受两个主要操作，都是通信行为。一个发送语句将一个值从一个goroutine通过channel发送到另一个执行接收操作的goroutine。发送和接收两个操作都是用`<‐`运算符。一个不使用接收结果的接收操作也是合法的。
+### channel操作
+
+通道共有发送（send）、接收(receive)和关闭（close）三种操作。而发送和接收操作都使用`<-`符号。
+
 ```go
-ch <- x     // a send statement
-x = <-ch    // a receive expression in an assignment statement 
-<-ch        // a receive statement; result is discared
+ch := make(chan int)
+ch <- 10 // 把10发送到ch中
 ```
-make可以指定第二个整形参数，对应channel的容量。如果channel的容量大于零，那么该channel就是带缓存的channel。
+
 ```go
-ch = make(chan int)     // unbuffered channel
-ch = make(chan int, 0)  // unbuffered channel
-ch = make(chan int, 3)  // buffered channel with capacity 3
+x := <- ch // 从ch中接收值并赋值给变量x
+<-ch       // 从ch中接收值，忽略结果
 ```
-一个基于无缓存Channels的发送操作将导致发送者goroutine阻塞，直到另一个goroutine在相同的Channels上执行接收操作，当发送的值通过Channel成功传输之后，两个goroutine可以继续执行后面的语句。反之，如果接收操作先发生，那么接收者goroutine也将阻塞，直到有另一个goroutine在相同的Channel上执行发送操作。
 
-基于无缓存Channel的发送和接收操作将导致两个goroutine做一次同步操作。因为这个原因，无缓存Channels有时候也被称为`同步Channel`。
+我们通过调用内置的`close`函数来关闭通道。
 
-Channel也可以用于将多个goroutine链接在一起，一个Channel的输出作为下一个Channel的输入。这种串联的Channel就是所谓的管道(pipeline)。
+```go
+close(ch)
+```
 
-Channel还支持close操作，用于关闭channel，使用内置的close函数就可以关闭一个channel: `close(ch)`。close后发送操作都将导致panic异常。`对一个已经被close过的channel执行接收操作依然可以接受到之前已经成功发送的数据；后续的接收操作将不再阻塞，它们会立即返回一个零值(一直可以读取零值)。`
+**注意：**一个通道值是可以被垃圾回收掉的。通道通常由发送方执行关闭操作，并且只有在接收方明确等待通道关闭的信号时才需要执行关闭操作。它和关闭文件不一样，通常在结束操作之后关闭文件是必须要做的，但关闭通道不是必须的。
 
-没有办法直接测试一个channel是否被关闭，但是接收操作有一个变体形式:它多接收一个结果，多接收的第二个结果是一个布尔值ok，true表示成功从channel接收到值，false表示channels已经被关闭并且里面没有值可接收。`x, ok := <‐naturals`
+关闭后的通道有以下特点：
 
-Go语言的range循环可直接在channel上面迭代 (使用range循环是上面ok判断的简洁语法)。它依次从channel接收数据，当channel被关闭并且没有值可接收时跳出循环。
+1. 对一个关闭的通道再发送值就会导致 panic。
+2. 对一个关闭的通道进行接收会一直获取值直到通道为空。
+3. 对一个关闭的并且没有值的通道执行接收操作会得到对应类型的零值。
+4. 关闭一个已经关闭的通道会导致 panic。
 
-例子：
+### 无缓冲的通道
+
+无缓冲的通道又称为阻塞的通道。我们来看一下如下代码片段。
+
+```go
+func main() {
+	ch := make(chan int)
+	ch <- 10
+	fmt.Println("发送成功")
+}
+/*
+上面这段代码能够通过编译，但是执行的时候会出现以下错误：
+
+fatal error: all goroutines are asleep - deadlock!
+
+goroutine 1 [chan send]:
+main.main()
+        .../main.go:8 +0x54
+*/
+```
+
+`deadlock`表示我们程序中的 goroutine 都被挂起导致程序死锁了。为什么会出现`deadlock`错误呢？
+
+因为我们使用`ch := make(chan int)`创建的是无缓冲的通道，无缓冲的通道只有在有接收方能够接收值的时候才能发送成功，否则会一直处于等待发送的阶段。同理，如果对一个无缓冲通道执行接收操作时，没有任何向通道中发送值的操作那么也会导致接收操作阻塞。简单来说就是无缓冲的通道必须有至少一个接收方才能发送成功。
+
+上面的代码会阻塞在`ch <- 10`这一行代码形成死锁，那如何解决这个问题呢？
+
+其中一种可行的方法是创建一个 goroutine 去接收值，例如：
+
+```go
+func recv(c chan int) {
+	ret := <-c
+	fmt.Println("接收成功", ret)
+}
+
+func main() {
+	ch := make(chan int)
+	go recv(ch) // 创建一个 goroutine 从通道接收值
+	ch <- 10
+	fmt.Println("发送成功")
+}
+// 注意，这里虽然不会阻塞，但输出有两种可能：
+// 1. 接收成功，10 发送成功
+// 2. 只打印发送成功
+```
+
+首先无缓冲通道`ch`上的发送操作会阻塞，直到另一个 goroutine 在该通道上执行接收操作，这时数字10才能发送成功，两个 goroutine 将继续执行。相反，如果接收操作先执行，接收方所在的 goroutine 将阻塞，直到 main goroutine 中向该通道发送数字10。
+
+使用无缓冲通道进行通信将导致发送和接收的 goroutine 同步化。因此，无缓冲通道也被称为`同步通道`。
+
+### 有缓冲的通道
+
+还有另外一种解决上面死锁问题的方法，那就是使用有缓冲区的通道。我们可以在使用 make 函数初始化通道时，可以为其指定通道的容量，例如：
+
+```go
+func main() {
+	ch := make(chan int, 1) // 创建一个容量为1的有缓冲区通道
+	ch <- 10
+	fmt.Println("发送成功")
+}
+```
+
+只要通道的容量大于零，那么该通道就属于有缓冲的通道，通道的容量表示通道中最大能存放的元素数量。当通道内已有元素数达到最大容量后，再向通道执行发送操作就会阻塞，除非有从通道执行接收操作。
+
+我们可以使用内置的`len`函数获取通道内元素的数量，使用`cap`函数获取通道的容量，虽然我们很少会这么做。
+
+### 多返回值模式
+
+当向通道中发送完数据时，我们可以通过`close`函数来关闭通道。当一个通道被关闭后，再往该通道发送值会引发`panic`，从该通道取值的操作会先取完通道中的值。通道内的值被接收完后再对通道执行接收操作得到的值会一直都是对应元素类型的零值。那我们如何判断一个通道是否被关闭了呢？
+
+对一个通道执行接收操作时支持使用如下多返回值模式。
+
+```go
+value, ok := <- ch
+```
+- value：从通道中取出的值，如果通道被关闭则返回对应类型的零值。
+- ok：通道ch关闭时返回 false，否则返回 true。
+
+下面代码片段中的`f2`函数会循环从通道`ch`中接收所有值，直到通道被关闭后退出。
+
+```go
+func f2(ch chan int) {
+	for {
+		v, ok := <-ch
+		if !ok {
+			fmt.Println("通道已关闭")
+			break
+		}
+		fmt.Printf("v:%#v ok:%#v\n", v, ok)
+	}
+}
+
+func main() {
+	ch := make(chan int, 2)
+	ch <- 1
+	ch <- 2
+	close(ch)
+	f2(ch)
+}
+// v:1 ok:true
+// v:2 ok:true
+// 通道已关闭
+```
+
+### for range接收值
+
+通常我们会选择使用`for range`循环从通道中接收值，当通道被关闭后，会在通道内的所有值被接收完毕后会自动退出循环。上面那个示例我们使用`for range`改写后会很简洁。
+
+```go
+func f3(ch chan int) {
+	for v := range ch {
+		fmt.Println(v)
+	}
+}
+```
+
+**注意：**目前Go语言中并没有提供一个不对通道进行读取操作就能判断通道是否被关闭的方法。不能简单的通过`len(ch)`操作来判断通道是否被关闭。
+
+### 单向通道
+
+在某些场景下我们可能会将通道作为参数在多个任务函数间进行传递，通常我们会选择在不同的任务函数中对通道的使用进行限制，比如限制通道在某个函数中只能执行发送或只能执行接收操作。想象一下，我们现在有`Producer`和`Consumer`两个函数，其中`Producer`函数会返回一个通道，并且会持续将符合条件的数据发送至该通道，并在发送完成后将该通道关闭。而`Consumer`函数的任务是从通道中接收值进行计算，这两个函数之间通过`Producer`函数返回的通道进行通信。完整的示例代码如下。
+
+```go
+package main
+
+import (
+	"fmt"
+)
+
+// Producer 返回一个通道
+// 并持续将符合条件的数据发送至返回的通道中
+// 数据发送完成后会将返回的通道关闭
+func Producer() chan int {
+	ch := make(chan int, 2)
+	// 创建一个新的goroutine执行发送数据的任务
+	go func() {
+		for i := 0; i < 10; i++ {
+			if i%2 == 1 {
+				ch <- i
+			}
+		}
+		close(ch) // 任务完成后关闭通道
+	}()
+	return ch // 通道工厂？
+}
+
+// Consumer 从通道中接收数据进行计算
+func Consumer(ch chan int) int {
+	sum := 0
+	for v := range ch {
+		sum += v
+	}
+	return sum
+}
+
+func main() {
+	ch := Producer()
+	res := Consumer(ch)
+	fmt.Println(res) // 25
+}
+```
+
+从上面的示例代码中可以看出正常情况下`Consumer`函数中只会对通道进行接收操作，但是这不代表不可以在`Consumer`函数中对通道进行发送操作。作为`Producer`函数的提供者，我们在返回通道的时候可能只希望调用方拿到返回的通道后只能对其进行接收操作。但是我们没有办法阻止在`Consumer`函数中对通道进行发送操作。
+
+Go语言中提供了**单向通道**来处理这种需要限制通道只能进行某种操作的情况。
+
+```go
+<- chan int // 只接收通道，只能接收不能发送
+chan <- int // 只发送通道，只能发送不能接收
+```
+
+其中，箭头`<-`和关键字`chan`的相对位置表明了当前通道允许的操作，这种限制将在编译阶段进行检测。另外对一个只接收通道执行close也是不允许的，因为默认通道的关闭操作应该由发送方来完成。
+
+我们使用单向通道将上面的示例代码进行如下改造。
+
+```go
+// Producer2 返回一个接收通道
+func Producer2() <-chan int {
+	ch := make(chan int, 2)
+	// 创建一个新的goroutine执行发送数据的任务
+	go func() {
+		for i := 0; i < 10; i++ {
+			if i%2 == 1 {
+				ch <- i
+			}
+		}
+		close(ch) // 任务完成后关闭通道
+	}()
+
+	return ch
+}
+
+// Consumer2 参数为接收通道
+func Consumer2(ch <-chan int) int {
+	sum := 0
+	for v := range ch {
+		sum += v
+	}
+	return sum
+}
+
+func main() {
+	ch2 := Producer2()
+	res2 := Consumer2(ch2)
+	fmt.Println(res2) // 25
+}
+```
+
+这一次，`Producer`函数返回的是一个只接收通道，这就从代码层面限制了该函数返回的通道只能进行接收操作，保证了数据安全。很多读者看到这个示例可能会觉着这样的限制是多余的，但是试想一下如果`Producer`函数可以在其他地方被其他人调用，你该如何限制他人不对该通道执行发送操作呢？并且返回限制操作的单向通道也会让代码语义更清晰、更易读。
+
+在函数传参及任何赋值操作中全向通道（正常通道）可以转换为单向通道，但是无法反向转换。
+
+```go
+var ch3 = make(chan int, 1)
+ch3 <- 10
+close(ch3)
+Consumer2(ch3) // 函数传参时将ch3转为单向通道
+
+var ch4 = make(chan int, 1)
+ch4 <- 10
+var ch5 <-chan int // 声明一个只接收通道ch5
+ch5 = ch4          // 变量赋值时将ch4转为单向通道
+<-ch5
+```
+
+另一个例子：
 ```go
 package main
 
@@ -76,13 +550,156 @@ func main() {
 // 每隔一秒打印0，1，4，9，16
 ```
 
-向缓存Channel的发送操作就是向内部缓存队列的尾部插入元素，接收操作则是从队列的头部删除元素。如果内部缓存队列是满的，那么发送操作将阻塞直到因另一个goroutine执行接收操作而释放了新的队列空间。相反，如果channel是空的，接收操作将阻塞直到有另一个goroutine执行发送操作而向队列插入元素。
+### 总结
 
-可以用内置的cap函数获取channel内部缓存的容量: `fmt.Println(cap(ch))`。
-内置的len函数返回channel内部缓存队列中有效元素的个数: `fmt.Println(len(ch))`。
+下面的表格中总结了对不同状态下的通道执行相应操作的结果。
 
-## 并发循环 WaitGroup
-多个goroutine同时工作是，为了知道最后一个goroutine什么时候结束(最后一个结束并不一定是最后一个开始)，我们需要一个递增的计数器，在每一个goroutine启动时加一，在goroutine退出时减一。这个计数器需要在多个goroutine操作时做到安全并且提供提供在其减为零之前一直等待的一种方法。这种计数类型被称为`sync.WaitGroup`，下面的代码就用到了这种方法：
+![img](/file/img/go_channel_state.png)
+
+**注意：**对已经关闭的通道再执行 close 也会引发 panic。
+
+### channel控制并发数量 （gotoutine数量）
+```go
+package main
+
+import (
+	"fmt"
+	"sync"
+	"time"
+)
+
+func doWork(id int, sem chan bool, wg *sync.WaitGroup) {
+	defer wg.Done()
+	sem <- true // 请求访问
+	fmt.Printf("Worker %d started\n", id)
+	time.Sleep(1 * time.Second)
+	fmt.Printf("Worker %d done\n", id)
+	<-sem // 释放访问
+}
+
+func main() {
+	var wg sync.WaitGroup
+	sem := make(chan bool, 3) // 信号量，同时只允许3个协程访问资源
+	for i := 1; i <= 10; i++ {
+		wg.Add(1)
+		go doWork(i, sem, &wg)
+	}
+	wg.Wait()
+}
+//- 创建了一个带缓冲的通道 sem 作为信号量。它的容量是 3，这意味着同时只允许 3 个协程访问资源。
+//- 此代码展示了如何使用 Go 的通道来实现信号量模式，从而限制并发访问某个资源。
+```
+
+### 通道误用示例
+#### 示例1
+
+```go
+func demo1() {
+	wg := sync.WaitGroup{}
+
+	ch := make(chan int, 10)
+	for i := 0; i < 10; i++ {
+		ch <- i
+	}
+	close(ch)
+
+	wg.Add(3)
+	for j := 0; j < 3; j++ {
+		go func() {
+			for {
+				task := <-ch
+				// 这里假设对接收的数据执行某些操作
+				fmt.Println(task)
+			}
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+}
+```
+
+将上述代码编译执行后，匿名函数所在的 goroutine 并不会按照预期在通道被关闭后退出。因为`task := <- ch`的接收操作在通道被关闭后会一直接收到零值，而不会退出。此处的接收操作应该使用`task, ok := <- ch`，通过判断布尔值`ok`为假时退出；或者使用select 来处理通道。也可以用for range读取。
+
+```go
+func demo012() {
+	wg := sync.WaitGroup{}
+	ch := make(chan int, 10)
+	for i := 0; i < 10; i++ {
+		ch <- i
+	}
+	close(ch)
+	wg.Add(3)
+	for j := 0; j < 3; j++ {
+		go func() {
+			for true {
+				task, ok := <-ch
+				if !ok {
+					break
+				}
+				fmt.Println(task)
+			}
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+}
+
+func demo011() {
+	wg := sync.WaitGroup{}
+
+	ch := make(chan int, 10)
+	for i := 0; i < 10; i++ {
+		ch <- i
+	}
+	close(ch)
+
+	wg.Add(3)
+	for j := 0; j < 3; j++ {
+		go func() {
+			for task := range ch {
+				fmt.Println(task)
+			}
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+}
+```
+
+#### 示例2
+```go
+func demo2() {
+	ch := make(chan string)
+	go func() {
+		// 这里假设执行一些耗时的操作
+		time.Sleep(3 * time.Second)
+		ch <- "job result"
+	}()
+
+	select {
+	case result := <-ch:
+		fmt.Println(result)
+	case <-time.After(time.Second): // 较小的超时时间
+		return
+	}
+}
+```
+
+上述代码片段可能导致 goroutine 泄露（goroutine 并未按预期退出并销毁）。由于 select 命中了超时逻辑，导致通道没有消费者（无接收操作），而其定义的通道为无缓冲通道，因此 goroutine 中的`ch <- "job result"`操作会一直阻塞，最终导致 goroutine 泄露。
+
+## sync.WaitGroup
+
+多个goroutine同时工作是，为了知道最后一个goroutine什么时候结束(最后一个结束并不一定是最后一个开始)，我们需要一个递增的计数器，在每一个goroutine启动时加一，在goroutine退出时减一。这个计数器需要在多个goroutine操作时做到安全并且提供提供在其减为零之前一直等待的一种方法。这种计数类型被称为`sync.WaitGroup`。
+
+有以下几个方法：
+
+|                方法名                 |        功能         |
+| :----------------------------------: | :-----------------: |
+| func (wg * WaitGroup) Add(delta int) |    计数器+delta     |
+|        (wg *WaitGroup) Done()        |      计数器-1       |
+|        (wg *WaitGroup) Wait()        | 阻塞直到计数器变为0  |
+
+下面的代码就用到了这种方法：
 ```go
 func main() {
 	var wg sync.WaitGroup
@@ -116,7 +733,36 @@ All tasks completed.
 ```
 注意`Add`和`Done`方法的不对称。`Add是为计数器加一，必须在worker goroutine开始之前调用，而不是在goroutine中`；否则的话我们没办法确定Add是在"closer" goroutine调用Wait之前被调用。并且Add还有一个参数，但Done却没有任何参数；其实它和Add(-1)是等价的。我们使用defer来确保计数器即使是在出错的情况下依然能够正确地被减掉。上面的程序代码结构是当我们使用并发循环，但又不知道迭代次数时很通常而且很地道的写法。
 
-### 示例：并发Web爬虫
+多生产者channel关闭示例：
+```go
+package main
+
+import (
+	"fmt"
+	"sync"
+)
+
+func main() {
+	ch := make(chan int)
+	workN := 5 // 生产者数
+	var wg sync.WaitGroup
+	wg.Add(workN)
+	for i := 0; i < workN; i++ {
+		go func(i int) {
+			n := i * i
+			ch <- n
+			wg.Done()
+		}(i)
+	}
+	go func() {
+		wg.Wait()
+		close(ch)
+	}()
+	for i := range ch {
+		fmt.Println(i)
+	}
+}
+```
 
 ## Select
 火箭发射的例子，两个channel，一个负责计时，一个负责终止。现在每一次计数循环的迭代都需要等待两个channel中的其中一个返回事件了：ticker channel正常计数，或者异常时返回的abort事件。我们无法做到从每一个channel中接收信息，如果我们这么做的话，如果第一个channel中没有事件发过来那么程序就会立刻被阻塞，这样我们就无法收到第二个channel中发过来的事件。这时候我们需要多路复用(multiplex)这些操作了，为了能够多路复用，我们使用了select语句。
@@ -134,7 +780,7 @@ select {
 ```
 select语句的一般形式：会有几个case和最后的default。每一个case代表一个通信操作(在某个channel上进行发送或者接收)并且会包含一些语句组成的一个语句块。
 
-select会等待case中有能够执行的case时去执行。当条件满足时，select才会去通信并执行case之后的语句；这时候其它通信是不会执行的。一个没有任何case的select语句写作select{}，会永远地等待下去。如果多个case同时就绪时，select会随机地选择一个执行，这样来保证每一个channel都有平等的被select的机会。
+select会等待case中有能够执行的case时去执行。当条件满足时，select才会去通信并执行case之后的语句；这时候其它通信是不会执行的。一个没有任何case的select语句写作select{}，会永远地等待下去 （可用于阻塞 main 函数，防止退出）。如果多个case同时就绪时，select会随机地选择一个执行，这样来保证每一个channel都有平等的被select的机会。
 
 如果 select 控制结构中包含 default 语句，那么这个 select 语句在执行时会遇到以下两种情况：
 - 当存在可以收发的 Channel 时，直接处理该 Channel 对应的 case；
@@ -190,15 +836,23 @@ for i := 0; i < 10; i++ {
     case ch <- i:
     }
 }
+//第一次循环时 i = 0，select 语句中包含两个 case 分支，此时由于通道中没有值可以接收，所以x := <-ch 这个 case 分支不满足，而ch <- i这个分支可以执行，会把1发送到通道中，结束本次 for 循环；
+//第二次 for 循环时，i = 1，由于通道缓冲区已满，所以ch <- i这个分支不满足，而x := <-ch这个分支可以执行，从通道接收值0并赋值给变量 x ，所以会在终端打印出 0；
+//后续的 for 循环以此类推会依次打印出2、4、6、8。
 ```
 channel的零值是nil。对一个nil的channel发送和接收操作会永远阻塞，在select语句中操作nil的channel永远都不会被select到。
 
-### 示例：并发的字典遍历
-
 ## Context
-context可以用来在goroutine之间传递上下文信息，相同的context可以传递给运行在不同goroutine中的函数，上下文对于多个goroutine同时使用是安全的，context包定义了上下文类型，可以使用background、TODO创建一个上下文，在函数调用链之间传播context，也可以使用WithDeadline、WithTimeout、WithCancel 或 WithValue 创建的修改副本替换它，听起来有点绕，其实总结起就是一句话：context的作用就是在不同的goroutine之间同步请求特定的数据、取消信号以及处理请求的截止日期。
+Golang context是Golang应用开发常用的并发控制技术，它与WaitGroup最大的不同点是context对于派生goroutine有更强的控制力，它可以控制多级的goroutine。
 
-### context的使用
+context翻译成中文是”上下文”，即它可以控制一组呈树状结构的goroutine，每个goroutine拥有相同的上下文。
+
+典型的使用场景如下图所示：
+
+![goroutine](/file/img/goroutine_tree.png)
+
+上图中由于goroutine派生出子goroutine，而子goroutine又继续派生新的goroutine，这种情况下使用WaitGroup就不太容易，因为子goroutine个数不容易确定。而使用context就可以很容易实现。context的作用就是在不同的goroutine之间同步请求特定的数据、取消信号以及处理请求的截止日期。
+
 context包主要提供了两种方式创建context:
 
 - context.Backgroud()
@@ -210,7 +864,81 @@ context.Background 是上下文的默认值，所有其他的上下文都应该�
 context.TODO 应该只在不确定应该使用哪种上下文时使用；
 所以在大多数情况下，我们都使用context.Background作为起始的上下文向下传递。
 
-上面的两种方式是创建根context，不具备任何功能，具体实践还是要依靠context包提供的With系列函数来进行派生：
+### Context实现原理
+
+context实际上只定义了接口，凡是实现该接口的类都可称为是一种context，官方包中实现了几个常用的context，分别可用于不同的场景。
+
+源码包中`src/context/context.go:Context` 定义了该接口：
+
+```go
+type Context interface {
+    Deadline() (deadline time.Time, ok bool)
+    Done() <-chan struct{}
+    Err() error
+    Value(key interface{}) interface{}
+}
+```
+基础的context接口只定义了4个方法，下面分别简要说明一下：
+
+- Deadline()
+
+该方法返回一个deadline （context.Context 被取消的时间，也就是完成工作的截止日期）和标识是否已设置deadline的bool值，如果没有设置deadline，则ok == false，此时deadline为一个初始值的time.Time值
+
+- Done()
+
+该方法返回一个channel，需要在select-case语句中使用，如`case <-context.Done():`。
+
+当context关闭后，Done()返回一个被关闭的管道，关闭的管道仍然是可读的，据此goroutine可以收到关闭请求；当context还未关闭时，Done()返回nil。
+
+- Err()
+
+该方法描述context关闭的原因。关闭原因由context实现控制，不需要用户设置。比如Deadline context，关闭原因可能是因为deadline，也可能提前被主动关闭，那么关闭原因就会不同:
+
+- 因deadline关闭：“context deadline exceeded”；
+- 因主动关闭： “context canceled”。
+
+当context关闭后，Err()返回context的关闭原因；当context还未关闭时，Err()返回nil；
+
+- Value()
+
+有一种context，它不是用于控制呈树状分布的goroutine，而是用于在树状分布的goroutine间传递信息。Value()方法就是用于此种类型的context，该方法根据key值查询map中的value。具体使用后面示例说明。
+
+### 空context
+context包中定义了一个空的context， 名为emptyCtx，用于context的根节点，空的context只是简单的实现了Context，本身不包含任何值，仅用于其他context的父节点。
+
+emptyCtx类型定义如下代码所示：
+
+```go
+type emptyCtx int
+
+func (*emptyCtx) Deadline() (deadline time.Time, ok bool) {
+    return
+}
+
+func (*emptyCtx) Done() <-chan struct{} {
+    return nil
+}
+
+func (*emptyCtx) Err() error {
+    return nil
+}
+
+func (*emptyCtx) Value(key interface{}) interface{} {
+    return nil
+}
+```
+
+context包中定义了一个公用的emptCtx全局变量，名为background，可以使用context.Background()获取它，实现代码如下所示：
+
+```go
+var background = new(emptyCtx)
+func Background() Context {
+    return background
+}
+```
+
+context包提供了`4个方法`创建不同类型的context，使用这四个方法时如果没有父context，都需要传入backgroud，即backgroud作为其父节点：
+
 ```go
 func WithCancel(parent Context) (ctx Context, cancel CancelFunc)
 func WithDeadline(parent Context, deadline time.Time) (Context, CancelFunc)
@@ -218,12 +946,378 @@ func WithTimeout(parent Context, timeout time.Duration) (Context, CancelFunc)
 func WithValue(parent Context, key, val interface{}) Context
 ```
 
-### 超时控制，goroutine退出
+context包中实现Context接口的struct，除了emptyCtx外，还有cancelCtx、timerCtx和valueCtx三种struct，正是基于这三种context实例，实现了上述4种类型的context。
 
-为了能够达到退出多个goroutine的目的，我们需要靠谱的策略，来通过一个channel把消息广播出去，这样goroutine们能够看到这条事件消息，并且在事件完成之后，可以知道这件事已经发生过了。
+context包中各context类型之间的关系，如下图所示：
 
-可以使用context:
+![go_context](/file/img/go_context.png)
 
+struct cancelCtx、timerCtx、valueCtx都继承于Context，下面分别介绍这三个struct。
+
+### cancelCtx
+
+源码包中`src/context/context.go:cancelCtx` 定义了该类型context：
+
+```go
+type cancelCtx struct {
+    Context
+
+    mu       sync.Mutex            // protects following fields
+    done     chan struct{}         // created lazily, closed by first cancel call
+    children map[canceler]struct{} // set to nil by the first cancel call
+    err      error                 // set to non-nil by the first cancel call
+}
+```
+
+children中记录了由此context派生的所有child，此context被cancel时会把其中的所有child都cancel掉。
+
+cancelCtx与deadline和value无关，所以只需要实现Done()和Err()外露接口即可。
+
+#### Done()接口实现
+
+按照Context定义，Done()接口只需要返回一个channel即可，对于cancelCtx来说只需要返回成员变量done即可。
+
+这里直接看下源码，非常简单：
+
+```go
+func (c *cancelCtx) Done() <-chan struct{} {
+    c.mu.Lock()
+    if c.done == nil {
+        c.done = make(chan struct{})
+    }
+    d := c.done
+    c.mu.Unlock()
+    return d
+}
+```
+
+由于cancelCtx没有指定初始化函数，所以cancelCtx.done可能还未分配，所以需要考虑初始化。
+cancelCtx.done会在context被cancel时关闭，所以cancelCtx.done的值一般经历如下三个阶段：
+`nil –> chan struct{} –> closed chan`。
+
+#### Err()接口实现
+
+按照Context定义，Err()只需要返回一个error告知context被关闭的原因。对于cancelCtx来说只需要返回成员变量err即可。
+
+还是直接看下源码：
+
+```go
+func (c *cancelCtx) Err() error {
+    c.mu.Lock()
+    err := c.err
+    c.mu.Unlock()
+    return err
+}
+```
+
+cancelCtx.err默认是nil，在context被cancel时指定一个error变量： `var Canceled = errors.New("context canceled")`。
+
+#### cancel()实现
+
+cancel()内部方法是理解cancelCtx的最关键的方法，其作用是关闭自己和其后代，其后代存储在cancelCtx.children的map中，其中key值即后代对象，value值并没有意义，这里使用map只是为了方便查询而已。
+
+cancel方法实现伪代码如下所示：
+
+```go
+func (c *cancelCtx) cancel(removeFromParent bool, err error) {
+    c.mu.Lock()
+
+    c.err = err                          //设置一个error，说明关闭原因
+    close(c.done)                     //将channel关闭，以此通知派生的context
+
+    for child := range c.children {   //遍历所有children，逐个调用cancel方法
+        child.cancel(false, err)
+    }
+    c.children = nil
+    c.mu.Unlock()
+
+    if removeFromParent {            //正常情况下，需要将自己从parent删除
+        removeChild(c.Context, c)
+    }
+}
+```
+
+实际上，WithCancel()返回的第二个用于cancel context的方法正是此cancel()。
+
+#### WithCancel()方法实现
+
+WithCancel()方法作了三件事：
+
+- 初始化一个cancelCtx实例
+- 将cancelCtx实例添加到其父节点的children中(如果父节点也可以被cancel的话)
+- 返回cancelCtx实例和cancel()方法
+
+其实现源码如下所示：
+
+```go
+func WithCancel(parent Context) (ctx Context, cancel CancelFunc) {
+    c := newCancelCtx(parent)
+    propagateCancel(parent, &c)   //将自身添加到父节点
+    return &c, func() { c.cancel(true, Canceled) }
+}
+```
+
+这里将自身添加到父节点的过程有必要简单说明一下：
+
+1. 如果父节点也支持cancel，也就是说其父节点肯定有children成员，那么把新context添加到children里即可；
+2. 如果父节点不支持cancel，就继续向上查询，直到找到一个支持cancel的节点，把新context添加到children里；
+3. 如果所有的父节点均不支持cancel，则启动一个协程等待父节点结束，然后再把当前context结束。
+
+#### 典型使用案例
+
+一个典型的使用cancel context的例子如下所示：
+
+```go
+package main
+
+import (
+    "fmt"
+    "time"
+    "context"
+)
+
+func HandelRequest(ctx context.Context) {
+    go WriteRedis(ctx)
+    go WriteDatabase(ctx)
+    for {
+        select {
+        case <-ctx.Done():
+            fmt.Println("HandelRequest Done.")
+            return
+        default:
+            fmt.Println("HandelRequest running")
+            time.Sleep(2 * time.Second)
+        }
+    }
+}
+
+func WriteRedis(ctx context.Context) {
+    for {
+        select {
+        case <-ctx.Done():
+            fmt.Println("WriteRedis Done.")
+            return
+        default:
+            fmt.Println("WriteRedis running")
+            time.Sleep(2 * time.Second)
+        }
+    }
+}
+
+func WriteDatabase(ctx context.Context) {
+    for {
+        select {
+        case <-ctx.Done():
+            fmt.Println("WriteDatabase Done.")
+            return
+        default:
+            fmt.Println("WriteDatabase running")
+            time.Sleep(2 * time.Second)
+        }
+    }
+}
+
+func main() {
+    ctx, cancel := context.WithCancel(context.Background())
+    go HandelRequest(ctx)
+
+    time.Sleep(5 * time.Second)
+    fmt.Println("It's time to stop all sub goroutines!")
+    cancel()
+
+    //Just for test whether sub goroutines exit or not
+    time.Sleep(5 * time.Second)
+}
+```
+
+上面代码中协程HandelRequest()用于处理某个请求，其又会创建两个协程：WriteRedis()、WriteDatabase()，main协程创建context，并把context在各子协程间传递，main协程在适当的时机可以cancel掉所有子协程。
+
+程序输出如下所示：
+
+```
+HandelRequest running
+WriteDatabase running
+WriteRedis running
+HandelRequest running
+WriteDatabase running
+WriteRedis running
+HandelRequest running
+WriteDatabase running
+WriteRedis running
+It's time to stop all sub goroutines!
+WriteDatabase Done.
+HandelRequest Done.
+WriteRedis Done.
+```
+
+另一个例子：
+```go
+func main()  {
+    ctx,cancel := context.WithCancel(context.Background())
+    go Speak(ctx)
+    time.Sleep(10*time.Second)
+    cancel()
+    time.Sleep(1*time.Second)
+}
+
+func Speak(ctx context.Context)  {
+    for range time.Tick(time.Second){
+        select {
+        case <- ctx.Done():
+            fmt.Println("我要闭嘴了")
+            return
+        default:
+            fmt.Println("balabalabalabala")
+        }
+    }
+}
+// 运行结果：
+// 
+// balabalabalabala
+// ....省略
+// balabalabalabala
+// 我要闭嘴了
+```
+我们使用withCancel创建一个基于Background的ctx，然后启动一个讲话程序，每隔1s说一话，main函数在10s后执行cancel，那么speak检测到取消信号就会退出。
+
+### timerCtx
+
+源码包中`src/context/context.go:timerCtx` 定义了该类型context：
+
+```go
+type timerCtx struct {
+    cancelCtx
+    timer *time.Timer // Under cancelCtx.mu.
+
+    deadline time.Time
+}
+```
+
+timerCtx在cancelCtx基础上增加了deadline用于标示自动cancel的最终时间，而timer就是一个触发自动cancel的定时器。
+
+由此，衍生出WithDeadline()和WithTimeout()。实现上这两种类型实现原理一样，只不过使用语境不一样：
+
+- deadline: 指定最后期限，比如context将2018.10.20 00:00:00之时自动结束
+- timeout: 指定最长存活时间，比如context将在30s后结束。
+
+对于接口来说，timerCtx在cancelCtx基础上还需要实现Deadline()和cancel()方法，其中cancel()方法是重写的。
+
+#### Deadline()接口实现
+
+Deadline()方法仅仅是返回timerCtx.deadline而矣。而timerCtx.deadline是WithDeadline()或WithTimeout()方法设置的。
+
+#### cancel()实现
+
+cancel()方法基本继承cancelCtx，只需要额外把timer关闭。
+
+timerCtx被关闭后，timerCtx.cancelCtx.err将会存储关闭原因：
+
+- 如果deadline到来之前手动关闭，则关闭原因与cancelCtx显示一致；
+- 如果deadline到来时自动关闭，则原因为：”context deadline exceeded”
+
+#### WithDeadline()方法实现
+
+WithDeadline()方法实现步骤如下：
+
+- 初始化一个timerCtx实例
+- 将timerCtx实例添加到其父节点的children中(如果父节点也可以被cancel的话)
+- 启动定时器，定时器到期后会自动cancel本context
+- 返回timerCtx实例和cancel()方法
+
+也就是说，timerCtx类型的context不仅支持手动cancel，也会在定时器到来后自动cancel。
+
+#### WithTimeout()方法实现
+
+WithTimeout()实际调用了WithDeadline，二者实现原理一致。
+
+看代码会非常清晰：
+
+```go
+func WithTimeout(parent Context, timeout time.Duration) (Context, CancelFunc) {
+    return WithDeadline(parent, time.Now().Add(timeout))
+}
+```
+
+#### 典型使用案例
+
+下面例子中使用WithTimeout()获得一个context并在其子协程中传递：
+
+```go
+package main
+
+import (
+    "fmt"
+    "time"
+    "context"
+)
+
+func HandelRequest(ctx context.Context) {
+    go WriteRedis(ctx)
+    go WriteDatabase(ctx)
+    for {
+        select {
+        case <-ctx.Done():
+            fmt.Println("HandelRequest Done.")
+            return
+        default:
+            fmt.Println("HandelRequest running")
+            time.Sleep(2 * time.Second)
+        }
+    }
+}
+
+func WriteRedis(ctx context.Context) {
+    for {
+        select {
+        case <-ctx.Done():
+            fmt.Println("WriteRedis Done.")
+            return
+        default:
+            fmt.Println("WriteRedis running")
+            time.Sleep(2 * time.Second)
+        }
+    }
+}
+
+func WriteDatabase(ctx context.Context) {
+    for {
+        select {
+        case <-ctx.Done():
+            fmt.Println("WriteDatabase Done.")
+            return
+        default:
+            fmt.Println("WriteDatabase running")
+            time.Sleep(2 * time.Second)
+        }
+    }
+}
+
+func main() {
+    ctx, _ := context.WithTimeout(context.Background(), 5 * time.Second)
+    go HandelRequest(ctx)
+
+    time.Sleep(10 * time.Second)
+}
+```
+
+主协程中创建一个10s超时的context，并将其传递给子协程，10s自动关闭context。程序输出如下：
+
+```
+HandelRequest running
+WriteRedis running
+WriteDatabase running
+HandelRequest running
+WriteRedis running
+WriteDatabase running
+HandelRequest running
+WriteRedis running
+WriteDatabase running
+HandelRequest Done.
+WriteDatabase Done.
+WriteRedis Done.
+```
+
+另一个例子：
 ```go
 func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second) // 创建带有超时的上下文
@@ -251,8 +1345,6 @@ func worker(ctx context.Context, num int) {
 ```
 
 健壮的程序都是要设置超时时间的，避免因为服务端长时间响应消耗资源，一些web框架或rpc框架都会采用withTimeout或者withDeadline来做超时控制，当一次请求到达我们设置的超时时间，就会及时取消，不在往下执行。withTimeout和withDeadline作用是一样的，就是传递的时间参数不同而已，他们都会通过传入的时间来自动取消Context，这里要注意的是他们都会返回一个cancelFunc方法，通过调用这个方法可以达到提前进行取消，不过在使用的过程还是建议在自动取消后也调用cancelFunc去停止定时减少不必要的资源浪费。
-
-withTimeout、WithDeadline不同在于WithTimeout将持续时间作为参数输入而不是时间对象，这两个方法使用哪个都是一样的，看业务场景和个人习惯了，因为本质withTimout内部也是调用的WithDeadline。
 
 ```go
 //达到超时时间终止接下来的执行
@@ -326,76 +1418,174 @@ func deal1(ctx context.Context, cancel context.CancelFunc)  {
 ```
 使用起来还是比较容易的，既可以超时自动取消，又可以手动控制取消。
 
-### withCancel
-日常业务开发中我们往往为了完成一个复杂的需求会开多个gouroutine去做一些事情，这就导致我们会在一次请求中开了多个goroutine确无法控制他们，这时我们就可以使用withCancel来衍生一个context传递到不同的goroutine中，当我想让这些goroutine停止运行，就可以调用cancel来进行取消。
+### valueCtx
 
-来看一个例子：
+源码包中`src/context/context.go:valueCtx` 定义了该类型context：
+
 ```go
-func main()  {
-    ctx,cancel := context.WithCancel(context.Background())
-    go Speak(ctx)
-    time.Sleep(10*time.Second)
-    cancel()
-    time.Sleep(1*time.Second)
+type valueCtx struct {
+    Context
+    key, val interface{}
 }
+```
 
-func Speak(ctx context.Context)  {
-    for range time.Tick(time.Second){
+valueCtx只是在Context基础上增加了一个key-value对，用于在各级协程间传递一些数据。
+
+由于valueCtx既不需要cancel，也不需要deadline，那么只需要实现Value()接口即可。
+
+#### Value（）接口实现
+
+由valueCtx数据结构定义可见，valueCtx.key和valueCtx.val分别代表其key和value值。 实现也很简单：
+
+```go
+func (c *valueCtx) Value(key interface{}) interface{} {
+    if c.key == key {
+        return c.val
+    }
+    return c.Context.Value(key)
+}
+```
+
+这里有个细节需要关注一下，即当前context查找不到key时，会向父节点查找，如果查询不到则最终返回interface{}。也就是说，可以通过子context查询到父的value值。
+
+#### WithValue() 方法实现
+
+WithValue()实现也是非常的简单, 伪代码如下：
+
+```go
+func WithValue(parent Context, key, val interface{}) Context {
+    if key == nil {
+        panic("nil key")
+    }
+    return &valueCtx{parent, key, val}
+}
+```
+
+#### 典型使用案例
+
+下面示例程序展示valueCtx的用法：
+
+```go
+package main
+
+import (
+    "fmt"
+    "time"
+    "context"
+)
+
+func HandelRequest(ctx context.Context) {
+    for {
         select {
-        case <- ctx.Done():
-            fmt.Println("我要闭嘴了")
+        case <-ctx.Done():
+            fmt.Println("HandelRequest Done.")
             return
         default:
-            fmt.Println("balabalabalabala")
+            fmt.Println("HandelRequest running, parameter: ", ctx.Value("parameter"))
+            time.Sleep(2 * time.Second)
         }
     }
 }
-// 运行结果：
-// 
-// balabalabalabala
-// ....省略
-// balabalabalabala
-// 我要闭嘴了
-```
-我们使用withCancel创建一个基于Background的ctx，然后启动一个讲话程序，每隔1s说一话，main函数在10s后执行cancel，那么speak检测到取消信号就会退出。
 
-context.Context 是 Go 语言在 1.7 版本中引入标准库的接口1，该接口定义了四个需要实现的方法，其中包括：
+func main() {
+    ctx := context.WithValue(context.Background(), "parameter", "1")
+    go HandelRequest(ctx)
 
-- Deadline — 返回 context.Context 被取消的时间，也就是完成工作的截止日期；
-- Done — 返回一个 Channel，这个 Channel 会在当前工作完成或者上下文被取消后关闭，多次调用 Done 方法会返回同一个 Channel；
-- Err — 返回 context.Context 结束的原因，它只会在 Done 方法对应的 Channel 关闭时返回非空的值；
-	- 如果 context.Context 被取消，会返回 Canceled 错误；
-	- 如果 context.Context 超时，会返回 DeadlineExceeded 错误；
-- Value — 从 context.Context 中获取键对应的值，对于同一个上下文来说，多次调用 Value 并传入相同的 Key 会返回相同的结果，该方法可以用来传递请求特定的数据；
-```go
-type Context interface {
-	Deadline() (deadline time.Time, ok bool)
-	Done() <-chan struct{}
-	Err() error
-	Value(key interface{}) interface{}
+    time.Sleep(10 * time.Second)
 }
 ```
-context reference:
-https://segmentfault.com/a/1190000040917752
 
-### 示例：聊天服务 -- Todo
+上例main()中通过WithValue()方法获得一个context，需要指定一个父context、key和value。然后通将该context传递给子协程HandelRequest，子协程可以读取到context的key-value。
 
----
+注意：本例中子协程无法自动结束，因为context是不支持cancle的，也就是说<-ctx.Done()永远无法返回。如果需要返回，需要在创建context时指定一个可以cancel的context作为父节点，使用父节点的cancel()在适当的时机结束整个context。
 
-## 基于共享变量的并发
+### 总结
+
+- Context仅仅是一个接口定义，根据实现的不同，可以衍生出不同的context类型；
+- cancelCtx实现了Context接口，通过WithCancel()创建cancelCtx实例；
+- timerCtx实现了Context接口，通过WithDeadline()和WithTimeout()创建timerCtx实例；
+- valueCtx实现了Context接口，通过WithValue()创建valueCtx实例；
+- 三种context实例可互为父节点，从而可以组合成不同的应用形式；
+
+## 并发安全
 
 ### 竞争条件
 在一个线性(只有一个goroutine的)的程序中，程序的执行顺序只由程序的逻辑来决定。在有两个或更多goroutine的程序中，每一个goroutine内的语句也是按照既定的顺序去执行的，但是一般情况下没法知道分别位于两个goroutine的事件x和y的执行顺序，x是在y之前还是之后还是同时发生是没法判断的。这也说明x和y这两个事件是并发的。
 
 一个函数在线性、在并发的情况下，这个函数可以正确地工作，那么这个函数是并发安全的，并发安全的函数不需要额外的同步工作。可以把这个概念概括为一个特定类型的一些方法和操作函数，如果这个类型是并发安全的话，那么所有它的访问方法和操作就都是并发安全的。
 
-在一个程序中有非并发安全的类型的情况下，我们依然可以使这个程序并发安全。并发安全的类型是例外，而不是规则，所以只有当文档中明确地说明了其是并发安全的情况下，你才可以并发地去访问它。
+数据竞争：只要有两个goroutine并发访问同一变量，且至少其中的一个是写操作的时候就会发生数据竞争。
 
-数据竞争：只要有两个goroutine并发访问同一变量，且至少其中的一个是写操作的时候就会发生数据竞争。有三种方式可以避免数据竞争：第一种方法是不要去写变量。第二种避免多个goroutine访问变量。第三种避免数据竞争的方法是允许很多goroutine去访问变量，但是在同一个时刻最多只有一个goroutine在访问，这种方式被称为“互斥”。
+我们用下面的代码演示一个数据竞争的示例。
 
-### sync.Mutex互斥锁
-可以用一个容量只有1的channel来保证最多只有一个goroutine在同一时刻访问一个共享变量。
 ```go
+package main
+
+import (
+	"fmt"
+	"sync"
+)
+
+var (
+	x int64
+	wg sync.WaitGroup // 等待组
+)
+
+// add 对全局变量x执行5000次加1操作
+func add() {
+	for i := 0; i < 5000; i++ {
+		x = x + 1
+	}
+	wg.Done()
+}
+
+func main() {
+	wg.Add(2)
+	go add()
+	go add()
+	wg.Wait()
+	fmt.Println(x)
+}
+```
+每次执行都会输出诸如9537、5865、6527等不同的结果。
+
+在上面的示例代码片中，我们开启了两个 goroutine 分别执行 add 函数，这两个 goroutine 在访问和修改全局的`x`变量时就会存在数据竞争，某个 goroutine 中对全局变量`x`的修改可能会覆盖掉另一个 goroutine 中的操作，所以导致最后的结果与预期不符。
+
+有一种方法，利用channel的阻塞特性，用一个容量只有1的channel来保证最多只有一个goroutine在同一时刻访问一个共享变量。
+```go
+package main
+
+import (
+	"fmt"
+	"sync"
+)
+
+var (
+	x  int64
+	wg sync.WaitGroup // 等待组
+	m  chan struct{}
+)
+
+// add 对全局变量x执行5000次加1操作
+func add() {
+	for i := 0; i < 5000; i++ {
+		m <- struct{}{}
+		x = x + 1
+		<-m
+	}
+	wg.Done()
+}
+
+func main() {
+	m = make(chan struct{}, 1)
+	wg.Add(2)
+	go add()
+	go add()
+	wg.Wait()
+	fmt.Println(x)
+}
+
+// 另一个例子：
 var (
     sema    = make(chan struct{}, 1) // a binary semaphore guarding balance
     balance int
@@ -412,7 +1602,53 @@ func Balance() int {
     return b
 }
 ```
+
+### sync.Mutex互斥锁
+互斥锁是一种常用的控制共享资源访问的方法，它能够保证同一时间只有一个 goroutine 可以访问共享资源。Go 语言中使用`sync`包中提供的`Mutex`类型来实现互斥锁。
+
+`sync.Mutex`提供了两个方法供我们使用。
+
+|          方法名          |    功能    |
+| ---------------------- | -------- |
+|  func (m *Mutex) Lock()  | 获取互斥锁 |
+| func (m *Mutex) Unlock() | 释放互斥锁 |
+
 sync包里的Mutex类型，它的Lock方法能够获取到token(这里叫锁)，并且Unlock方法会释放这个token。
+我们在下面的示例代码中使用互斥锁限制每次只有一个 goroutine 才能修改全局变量`x`，从而修复上面代码中的问题。
+
+```go
+package main
+
+import (
+	"fmt"
+	"sync"
+)
+
+var (
+	x int64
+	wg sync.WaitGroup // 等待组
+	m sync.Mutex // 互斥锁
+)
+
+// add 对全局变量x执行5000次加1操作
+func add() {
+	for i := 0; i < 5000; i++ {
+		m.Lock() // 修改x前加锁
+		x = x + 1
+		m.Unlock() // 改完解锁
+	}
+	wg.Done()
+}
+
+func main() {
+	wg.Add(2)
+	go add()
+	go add()
+	wg.Wait()
+	fmt.Println(x)
+}
+//每一次都会得到预期中的结果——10000。
+```
 
 Mutex实现了Locker接口
 ```go
@@ -426,7 +1662,8 @@ type Locker interface {
 func (m *Mutex) Lock()
 func (m *Mutex) Unlock()
 ```
-下面的写法与上面的功能一样：
+
+下面的写法与之前的例子功能一样：
 ```go
 import "sync"
 var (
@@ -445,7 +1682,8 @@ func Balance() int {
     return b
 }
 ```
-每次一个goroutine访问bank变量时(这里只有balance余额变量)，它都会调用mutex的Lock方法来获取一个互斥锁。如果其它的goroutine已经获得了这个锁的话，这个操作会被阻塞直到其它goroutine调用了Unlock使该锁变回可用状态。mutex会保护共享变量。
+
+每次一个goroutine调用mutex的Lock方法来获取一个互斥锁。如果其它的goroutine已经获得了这个锁的话，这个操作会被阻塞直到其它goroutine调用了Unlock使该锁变回可用状态。mutex会保护共享变量。
 
 更好的方法是用defer来调用Unlock。无法对一个已经锁上的mutex来再次上锁­­这会导致程序死锁，没法继续执行下去。
 
@@ -473,64 +1711,97 @@ Mutex可能处于两种操作模式下：正常模式和饥饿模式
 - 重入锁，Mutex是不可重入锁，如果一个线程成功获取到这个锁。之后，如果其它线程再请求这个锁，就会处于阻塞等待的状态
 - 死锁，两个或两个以上的goroutine争夺共享资源，互相等待对方的锁释放
 
-### 内存同步
-因为赋值和打印指向不同的变量，编译器可能会断定两条语句的顺序不会影响执行结果，并且会交换两个语句的执行顺序。可能的话，将变量限定在goroutine内部;如果是多个goroutine都需要访问的变量，使用互斥条件来访问。
-
 ### sync.RWMutex读写锁
-允许多个只读操作并行执行，但写操作会完全互斥。这种锁叫作“多读单写”锁(multiple readers, single writer lock)，Go语言提供的这样的锁是sync.RWMutex。
+互斥锁是完全互斥的，但是实际上有很多场景是读多写少的，当我们并发的去读取一个资源而不涉及资源修改的时候是没有必要加互斥锁的，这种场景下使用读写锁是更好的一种选择。读写锁在 Go 语言中使用`sync`包中的`RWMutex`类型。
+
+`sync.RWMutex`提供了以下5个方法。
+
+|               方法名                |              功能              |
+| :---------------------------------: | :----------------------------: |
+|      func (rw *RWMutex) Lock()      |            获取写锁            |
+|     func (rw *RWMutex) Unlock()     |            释放写锁            |
+|     func (rw *RWMutex) RLock()      |            获取读锁            |
+|    func (rw *RWMutex) RUnlock()     |            释放读锁            |
+| func (rw *RWMutex) RLocker() Locker | 返回一个实现Locker接口的读写锁 |
+
+读写锁分为两种：读锁和写锁。当一个 goroutine 获取到读锁之后，其他的 goroutine 如果是获取读锁会继续获得锁，如果是获取写锁就会等待；而当一个 goroutine 获取写锁之后，其他的 goroutine 无论是获取读锁还是写锁都会等待。
+
+RLocker：这个方法的作用是为读操作返回一个 Locker 接口的对象。它的 Lock 方法会调用 RWMutex 的 RLock 方法，它的 Unlock 方法会调用 RWMutex 的 RUnlock 方法。
+
+下面我们使用代码构造一个读多写少的场景，然后分别使用互斥锁和读写锁查看它们的性能差异。
+
 ```go
-var mu sync.RWMutex
-var balance int
-func Balance() int {
-    mu.RLock() // readers lock defer 
-    mu.RUnlock()
-    return balance
+var (
+	x       int64
+	wg      sync.WaitGroup
+	mutex   sync.Mutex
+	rwMutex sync.RWMutex
+)
+
+// writeWithLock 使用互斥锁的写操作
+func writeWithLock() {
+	mutex.Lock() // 加互斥锁
+	x = x + 1
+	time.Sleep(10 * time.Millisecond) // 假设读操作耗时10毫秒
+	mutex.Unlock()                    // 解互斥锁
+	wg.Done()
 }
-```
-RWMutex 是一个 reader/writer 互斥锁。RWMutex 在某一时刻只能由任意数量的 reader goroutine 持有，或者是只被单个的 writer goroutine 持有，适用于读多写少的场景。
 
-- Lock/Unlock：写操作时调用的方法
-- RLock/RUnlock：读操作时调用的方法
-- RLocker：这个方法的作用是为读操作返回一个 Locker 接口的对象。它的 Lock 方法会调用 RWMutex 的 RLock 方法，它的 Unlock 方法会调用 RWMutex 的 RUnlock 方法。
+// readWithLock 使用互斥锁的读操作
+func readWithLock() {
+	mutex.Lock()                 // 加互斥锁
+	time.Sleep(time.Millisecond) // 假设读操作耗时1毫秒
+	mutex.Unlock()               // 释放互斥锁
+	wg.Done()
+}
 
-使用示例：
-```go
+// writeWithLock 使用读写互斥锁的写操作
+func writeWithRWLock() {
+	rwMutex.Lock() // 加写锁
+	x = x + 1
+	time.Sleep(10 * time.Millisecond) // 假设读操作耗时10毫秒
+	rwMutex.Unlock()                  // 释放写锁
+	wg.Done()
+}
+
+// readWithRWLock 使用读写互斥锁的读操作
+func readWithRWLock() {
+	rwMutex.RLock()              // 加读锁
+	time.Sleep(time.Millisecond) // 假设读操作耗时1毫秒
+	rwMutex.RUnlock()            // 释放读锁
+	wg.Done()
+}
+
+func do(wf, rf func(), wc, rc int) {
+	start := time.Now()
+	// wc个并发写操作
+	for i := 0; i < wc; i++ {
+		wg.Add(1)
+		go wf()
+	}
+
+	//  rc个并发读操作
+	for i := 0; i < rc; i++ {
+		wg.Add(1)
+		go rf()
+	}
+
+	wg.Wait()
+	cost := time.Since(start)
+	fmt.Printf("x:%v cost:%v\n", x, cost)
+}
+
 func main() {
-	var counter Counter
-	for i := 0; i < 10; i++ { // 10个reader
-		go func() {
-			for {
-				fmt.Println("worker: ", i, " count: ", counter.Count()) // 计数器读操作
-				time.Sleep(1 * time.Second)
-			}
-		}()
-	}
+	// 使用互斥锁，10并发写，1000并发读
+	do(writeWithLock, readWithLock, 10, 100) // x:10 cost:1.466500951s
 
-	for { // 一个writer
-		counter.Incr() // 计数器写操作
-		time.Sleep(time.Second)
-	}
-}
-
-type Counter struct {
-	mu    sync.RWMutex
-	count uint64
-}
-
-func (c *Counter) Incr() {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.count++
-}
-
-func (c *Counter) Count() uint64 {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.count
+	// 使用读写互斥锁，10并发写，1000并发读
+	do(writeWithRWLock, readWithRWLock, 10, 100) // x:20 cost:117.207592ms
 }
 ```
+从最终的执行结果可以看出，使用读写互斥锁在读多写少的场景下能够极大地提高程序的性能。不过需要注意的是如果一个程序中的读操作和写操作数量级差别不大，那么读写互斥锁的优势就发挥不出来。
 
-底层结构
+#### 底层结构 ------ TBD
 ```go
 type RWMutex struct {
     w           Mutex   // 互斥锁解决多个writer的竞争
@@ -557,16 +1828,6 @@ const rwmutexMaxReaders = 1 << 30
 
 ### sync.Once初始化
 sync包提供了一个专门的方案来解决一次性初始化的问题:sync.Once。一次性的初始化需要一个互斥量mutex和一个boolean变量来记录初始化是不是已经完成了;互斥量用来保护boolean变量和客户端数据结构。
-```go
-var loadIconsOnce sync.Once
-var icons map[string]image.Image
-// Concurrency‐safe.
-func Icon(name string) image.Image {
-    loadIconsOnce.Do(loadIcons)
-    return icons[name]
-}
-//每一次对Do(loadIcons)的调用都会锁定mutex，并会检查boolean变量。在第一次调用时，变量的值是false，Do会调用loadIcons并会将boolean设置为true。
-```
 
 Once 可以用来执行且仅仅执行一次动作，常常用于单例对象的初始化场景。Once 常常用来初始化单例资源，或者并发访问只需初始化一次的共享资源，或者在测试的时候初始化一次测试资源。
 
@@ -594,9 +1855,8 @@ func main() {
 		<- done
 	}
 }
+//只输出一次 only once.
 ```
-
-只输出一次 “only once”.
 
 #### 源码分析
 接下来分析 sync.Do 究竟是如何实现的，它存储在包sync下 once.go 文件中，源代码如下:
@@ -694,24 +1954,86 @@ func nestedDo2() {
 
 会打印出 ‘nested do’. once1，once2是两个对象,互不影响. 所以sync.Once是使方法只执行一次对象的实现。
 
-### 示例：并发的非阻塞缓存 -- todo
+### sync.Map
+Go 语言中内置的 map 不是并发安全的，请看下面这段示例代码。
 
-### Goroutines和线程
-每一个OS线程都有一个固定大小的内存块(一般会是2MB)来做栈，这个栈会用来存储当前正在被调用或挂起(指在调用其它函数时)的函数的内部变量。2MB的栈对于一个小小的goroutine来说是很大的内存浪费。修改固定的大小可以提升空间的利用率允许创建更多的线程，并且可以允许更深的递归调用，不过这两者是没法同时兼备的。
+```go
+package main
 
-相反，一个goroutine会以一个很小的栈开始其生命周期，一般只需要2KB。一个goroutine的栈，和操作系统线程一样，会保存其活跃或挂起的函数调用的本地变量，但是和OS线程不太一样的是一个goroutine的栈大小并不是固定的;栈的大小会根据需要动态地伸缩。而goroutine的栈的最大值有1GB，比传统的固定大小的线程栈要大得多。
+import (
+	"fmt"
+	"strconv"
+	"sync"
+)
 
-OS线程会被操作系统内核调度。每几毫秒，一个硬件计时器会中断处理器，这会调用一个叫作scheduler的内核函数。这个函数会挂起当前执行的线程并保存内存中它的寄存器内容，检查线程列表并决定下一次哪个线程可以被运行，并从内存中恢复该线程的寄存器信息，然后恢复执行该线程的现场并开始执行线程。因为操作系统线程是被内核所调度，所以从一个线程向另一个“移动”需要完整的上下文切换，也就是说，保存一个用户线程的状态到内存，恢复另一个线程的到寄存器，然后更新调度器的数据结构。这几步操作很慢，因为其局部性很差需要几次内存访问，并且会增加运行的cpu周期。
+var m = make(map[string]int)
 
-Go的运行时包含自己的调度器，这个调度器使用了一些技术手段，比如m:n调度，因为其会在n个操作系统线程上多工(调度)m个goroutine。Go调度器的工作和内核的调度是相似的，但是这个调度器只关注单独的Go程序中的goroutine(按程序独立)。
-和操作系统的线程调度不同的是，Go调度器并不是用一个硬件定时器而是被Go语言"建筑"本身进行调度的。这种调度方式不需要进入内核的上下文，所以重新调度一个goroutine比调度一个线程代价要低得多。
+func get(key string) int {
+	return m[key]
+}
 
-Go的调度器使用了一个叫做 `GOMAXPROCS` 的变量来决定会有多少个操作系统的线程同时执行Go的代码。其默认的值是运行机器上的CPU的核心数，所以在一个有8个核心的机器上时，调度器一次会在8个OS线程上去调度GO代码。(GOMAXPROCS是m:n调度中的n)。在休眠中的或者在通信中被阻塞的goroutine是不需要一个对应的线程来做调度的。
-可以用GOMAXPROCS的环境变量来显式地控制这个参数，或者也可以在运行时用runtime.GOMAXPROCS函数来修改它。
-`GOMAXPROCS=1 go run main.go`
+func set(key string, value int) {
+	m[key] = value
+}
 
-在大多数支持多线程的操作系统和程序语言中，当前的线程都有一个独特的身份(id)，并且这个身份信息可以以一个普通值的形式被被很容易地获取到。
-goroutine没有可以被程序员获取到的身份(id)的概念。
+func main() {
+	wg := sync.WaitGroup{}
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func(n int) {
+			key := strconv.Itoa(n)
+			set(key, n)
+			fmt.Printf("k=:%v,v:=%v\n", key, get(key))
+			wg.Done()
+		}(i)
+	}
+	wg.Wait()
+}
+```
+
+将上面的代码编译后执行，会报出`fatal error: concurrent map writes`错误。我们不能在多个 goroutine 中并发对内置的 map 进行读写操作，否则会存在数据竞争问题。
+
+像这种场景下就需要为 map 加锁来保证并发的安全性了，Go语言的`sync`包中提供了一个开箱即用的并发安全版 map——`sync.Map`。开箱即用表示其不用像内置的 map 一样使用 make 函数初始化就能直接使用。同时`sync.Map`内置了诸如`Store`、`Load`、`LoadOrStore`、`Delete`、`Range`等操作方法。
+
+|                            方法名                            |              功能               |
+| :----------------------------------------------------------: | :-----------------------------: |
+| func (m *Map) Store(key, value interface{})          |        存储key-value数据        |
+| func (m *Map) Load(key interface{}) (value interface{}, ok bool) |       查询key对应的value        |
+| func (m *Map) LoadOrStore(key, value interface{}) (actual interface{}, loaded bool) |    查询或存储key对应的value     |
+| func (m *Map) LoadAndDelete(key interface{}) (value interface{}, loaded bool) |          查询并删除key          |
+| func (m *Map) Delete(key interface{})             |             删除key             |
+| func (m *Map) Range(f func(key, value interface{}) bool)   | 对map中的每个key-value依次调用f |
+
+下面的代码示例演示了并发读写`sync.Map`。
+
+```go
+package main
+
+import (
+	"fmt"
+	"strconv"
+	"sync"
+)
+
+// 并发安全的map
+var m = sync.Map{}
+
+func main() {
+	wg := sync.WaitGroup{}
+	// 对m执行20个并发的读写操作
+	for i := 0; i < 20; i++ {
+		wg.Add(1)
+		go func(n int) {
+			key := strconv.Itoa(n)
+			m.Store(key, n)         // 存储key-value
+			value, _ := m.Load(key) // 根据key取值
+			fmt.Printf("k=:%v,v:=%v\n", key, value)
+			wg.Done()
+		}(i)
+	}
+	wg.Wait()
+}
+```
 
 ## sync.Cond
 Cond 通常应用于等待某个条件的一组 goroutine，等条件变为 true 的时候，其中一个 goroutine 或者所有的 goroutine 都会被唤醒执行。
@@ -785,7 +2107,7 @@ func (c *Cond) Signal() {
 
 func (c *Cond) Broadcast() {
     c.checker.check()
-    runtime_notifyListNotifyAll(&c.notify）
+    runtime_notifyListNotifyAll(&c.notify)
 }
 ```
 在上述的实现源码中，Signal和Broadcast调用了底层的通知方法；重点在Wait方法中，把调用者加入到等待队列时会释放锁，在被唤醒之后还会请求锁。在阻塞休眠期间，调用者是不持有锁的，这样能让其他 goroutine 有机会检查或者更新等待变量，因此在使用Wait方法的时候必须持有锁。
@@ -795,7 +2117,113 @@ func (c *Cond) Broadcast() {
 - 调用Wait方法没有加锁
 - 没有检查等待条件是否满足
 
---- 
+## 原子操作
+
+针对整数数据类型（int32、uint32、int64、uint64）我们还可以使用原子操作来保证并发安全，通常直接使用原子操作比使用锁操作效率更高。Go语言中原子操作由内置的标准库`sync/atomic`提供。
+
+### atomic包
+
+五种类型操作：读取操作，写入操作，修改操作，交换操作，比较并交换操作
+
+| 方法                                                         |      解释      |
+| :----------------------------------------------------------- | :------------: |
+| func LoadInt32(addr *int32) (val int32) func LoadInt64(addr *int64) (val int64) func LoadUint32(addr *uint32) (val uint32) func LoadUint64(addr *uint64) (val uint64) func LoadUintptr(addr *uintptr) (val uintptr) func LoadPointer(addr *unsafe.Pointer) (val unsafe.Pointer) |    读取操作    |
+| func StoreInt32(addr *int32, val int32) func StoreInt64(addr *int64, val int64) func StoreUint32(addr *uint32, val uint32) func StoreUint64(addr *uint64, val uint64) func StoreUintptr(addr *uintptr, val uintptr) func StorePointer(addr *unsafe.Pointer, val unsafe.Pointer) |    写入操作    |
+| func AddInt32(addr *int32, delta int32) (new int32) func AddInt64(addr *int64, delta int64) (new int64) func AddUint32(addr *uint32, delta uint32) (new uint32) func AddUint64(addr *uint64, delta uint64) (new uint64) func AddUintptr(addr *uintptr, delta uintptr) (new uintptr) |    修改操作    |
+| func SwapInt32(addr *int32, new int32) (old int32) func SwapInt64(addr *int64, new int64) (old int64) func SwapUint32(addr *uint32, new uint32) (old uint32) func SwapUint64(addr *uint64, new uint64) (old uint64) func SwapUintptr(addr *uintptr, new uintptr) (old uintptr) func SwapPointer(addr *unsafe.Pointer, new unsafe.Pointer) (old unsafe.Pointer) |    交换操作    |
+| func CompareAndSwapInt32(addr *int32, old, new int32) (swapped bool) func CompareAndSwapInt64(addr *int64, old, new int64) (swapped bool) func CompareAndSwapUint32(addr *uint32, old, new uint32) (swapped bool) func CompareAndSwapUint64(addr *uint64, old, new uint64) (swapped bool) func CompareAndSwapUintptr(addr *uintptr, old, new uintptr) (swapped bool) func CompareAndSwapPointer(addr *unsafe.Pointer, old, new unsafe.Pointer) (swapped bool) | 比较并交换操作 |
+
+### 示例
+
+我们填写一个示例来比较下互斥锁和原子操作的性能。
+
+```go
+package main
+
+import (
+	"fmt"
+	"sync"
+	"sync/atomic"
+	"time"
+)
+
+type Counter interface {
+	Inc()
+	Load() int64
+}
+
+// CommonCounter  普通版
+type CommonCounter struct {
+	counter int64
+}
+
+func (c CommonCounter) Inc() {
+	c.counter++
+}
+
+func (c CommonCounter) Load() int64 {
+	return c.counter
+}
+
+// MutexCounter 互斥锁版
+type MutexCounter struct {
+	counter int64
+	lock    sync.Mutex
+}
+
+func (m *MutexCounter) Inc() {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	m.counter++
+}
+
+func (m *MutexCounter) Load() int64 {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	return m.counter
+}
+
+// AtomicCounter 原子操作版
+type AtomicCounter struct {
+	counter int64
+}
+
+func (a *AtomicCounter) Inc() {
+	atomic.AddInt64(&a.counter, 1)
+}
+
+func (a *AtomicCounter) Load() int64 {
+	return atomic.LoadInt64(&a.counter)
+}
+
+func test(c Counter) {
+	var wg sync.WaitGroup
+	start := time.Now()
+	for i := 0; i < 10000; i++ {
+		wg.Add(1)
+		go func() {
+			c.Inc()
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+	end := time.Now()
+	fmt.Println(c.Load(), end.Sub(start))
+}
+
+func main() {
+	c1 := CommonCounter{} // 非并发安全				//	0 4.165322ms
+	test(c1)
+	c2 := MutexCounter{} // 使用互斥锁实现并发安全		//	10000 3.837352ms
+	test(&c2)
+	c3 := AtomicCounter{} // 并发安全且比互斥锁效率高	//	10000 3.276938ms
+	test(&c3)
+}
+```
+
+`atomic`包提供了底层的原子级内存操作，对于同步算法的实现很有用。这些函数必须谨慎地保证正确使用。除了某些特殊的底层应用，使用通道或者 sync 包的函数/类型实现同步更好。
+
+
 ## 练习：
 
 下面语法正确的是（）
@@ -1159,11 +2587,395 @@ func main() {
 //当 A 协程还没起时，主协程已经将 channel 关闭了，当 A 协程往关闭的 channel 发送数据时会 panic，`panic: send on closed channel`。
 ```
 
-map可以被多个goroutine操作吗？ 可以，线程不安全，怎么办，枷锁，其他办法，sync.Map 线程安全。
+多个 goroutine 对同一个 map 写会 panic，异常是否可以用 defer 捕获？答：可以捕获异常，但是只能捕获一次
+
+下面代码有什么问题？
+```go
+package main
+ 
+import (
+    "fmt"
+    "io"
+    "net/http"
+	"time"
+)
+
+func httpget(ch chan int){
+    resp, err := http.Get("http://localhost:8000/rest/api/user")
+    if err != nil {
+        fmt.Println(err)
+        return
+    }
+    defer resp.Body.Close()
+    body, err := io.ReadAll(resp.Body)
+    fmt.Println(string(body))
+    fmt.Println(resp.StatusCode)
+    if resp.StatusCode == 200 {
+        fmt.Println("ok")
+    }
+	ch <- 1
+}
+
+func main() {
+    start := time.Now()
+    // 注意设置缓冲区大小要和开启协程的个人相等
+    chs := make([]chan int, 2000)
+    for i := 0; i < 2000; i++ {
+        chs[i] = make(chan int)
+        go httpget(chs[i])
+    }
+    for _, ch := range chs {
+        <- ch
+    }
+    end := time.Now()
+    consume := end.Sub(start).Seconds()
+    fmt.Println("程序执行耗时(s)：", consume)
+}
+// 有泄露风险：
+// httpGet中，如果err!= nil, 提前return，导致 chs[i] <- 1 不执行。main函数中 <- ch 会阻塞。
+```
+
+下面代码有什么问题?
+```go
+package main
+
+import (
+	"fmt"
+	"io"
+	"net/http"
+	"runtime"
+	"sync"
+	"time"
+)
+
+var counter int = 0
+
+func httpget(lock *sync.Mutex) {
+	lock.Lock()
+	// defer lock.Unlock()
+	counter++
+	resp, err := http.Get("http://localhost:8000/rest/api/user")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	fmt.Println(string(body))
+	fmt.Println(resp.StatusCode)
+	if resp.StatusCode == 200 {
+		fmt.Println("ok")
+	}
+	lock.Unlock() // 应该注释
+}
+
+func main() {
+	start := time.Now()
+	lock := &sync.Mutex{}
+	for i := 0; i < 800; i++ {
+		go httpget(lock)
+	}
+	for {
+		lock.Lock()
+		c := counter
+		lock.Unlock()
+		runtime.Gosched()
+		if c >= 800 {
+			break
+		}
+	}
+	end := time.Now()
+	consume := end.Sub(start).Seconds()
+	fmt.Println("程序执行耗时(s)：", consume)
+}
+// httpget 如果err!=nil 直接返回，没有释放锁，导致死锁。
+```
+
+Go 如何实现原子操作？
+
+答：原子操作就是不可中断的操作，外界是看不到原子操作的中间状态，要么看到原子操作已经完成，要么看到原子操作已经结束。在某个值的原子操作执行的过程中，CPU 绝对不会再去执行其他针对该值的操作，那么其他操作也是原子操作。Go 语言的标准库代码包 sync/atomic 提供了原子的读取（Load 为前缀的函数）或写入（Store 为前缀的函数）某个值。
+
+原子操作与互斥锁的区别？
+- 互斥锁是一种数据结构，用来让一个线程执行程序的关键部分，完成互斥的多个操作。
+- 原子操作是针对某个值的单个互斥操作。
+
+channel 是否线程安全？锁用在什么地方？ 答：
+- Golang的Channel,发送一个数据到Channel 和 从Channel接收一个数据 都是 原子性的。
+- 而且Go的设计思想就是:不要通过共享内存来通信，而是通过通信来共享内存，前者就是传统的加锁，后者就是Channel。
+- 设计Channel的主要目的就是在多任务间传递数据的，这当然是安全的
+
+
+1. 使用 goroutine 和 channel 实现一个计算int64随机数各位数和的程序，例如生成随机数61345，计算其每个位数上的数字之和为19。
+    1. 开启一个 goroutine 循环生成int64类型的随机数，发送到`jobChan`
+    2. 开启24个 goroutine 从`jobChan`中取出随机数计算各位数的和，将结果发送到`resultChan`
+    3. 主 goroutine 从`resultChan`取出结果并打印到终端输出
+
+
+## 一些代码
+
+```go
+func main() {
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	result := make(chan int, 0)
+	asyncDoStuffWithTimeout(ctx, result)
+	fmt.Printf("restult get: %v", <-result)
+}
+
+func asyncDoStuffWithTimeout(ctx context.Context, result chan int) {
+	go func() {
+		select {
+		case <-ctx.Done():
+			fmt.Printf("ctx is done, %v\n", ctx.Err())
+			result <- 0
+			return
+		case <-time.After(2 * time.Second):
+			fmt.Println("set result")
+			result <- 10
+		}
+	}()
+}
+// ctx is done, context deadline exceeded
+// restult get: 0
+```
+
+```go
+package main
+
+import (
+	"fmt"
+	"sync"
+)
+
+//整体思路
+//简单讲解下，由于goroutine的执行顺序是没有保证的，所以当需要顺序打印时，需要借助其他的一些全局变量控制打印顺序，我此处是通过一个tag，通过tag这个变量控制数据进入chan的顺序，进而使得输出可以按序输出
+//需要注意的一个小点
+//通过协程进行写入时，不能直接用变量i，需要通过参数把i传递进去，因为i对于这个协程来说是全局的，而i这个全局变量又是在自增的，所以不能直接用i
+
+//使用channel按顺序输出1-10
+func orderchan() {
+	wg := sync.WaitGroup{}
+	wg.Add(10)
+	chs := make(chan int)
+	//通过一个全局变量控制进channel的顺序
+	tag := 1
+	for i := 1; i <= 10; i++ {
+		go func(value int) {
+			//死循环，保证按顺序进chan
+			for {
+				if tag == value {
+					chs <- value
+					break
+				}
+			}
+		}(i)
+	}
+	for i := 0; i < 10; i++ {
+		fmt.Print(<-chs)
+		wg.Done()
+		tag++
+	}
+	wg.Wait()
+}
+
+func main() {
+	orderchan()
+}
+```
+
+```go
+// 死锁
+package main
+
+import (
+	"fmt"
+	"sync"
+)
+
+func f1(in chan int, wg *sync.WaitGroup) {
+	defer wg.Done()
+	fmt.Println("in:===", <-in)
+}
+
+func main() {
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	out := make(chan int)
+	//out := make(chan int, 1) // solution 2
+	//go f1(out, &wg) // solution 1
+	out <- 2
+	go f1(out, &wg) // solution 2
+	wg.Wait()
+}
+
+// 这段代码会造成死锁。问题的根源是在 out <- 2 处。在此处，主 goroutine 尝试向 out 通道发送一个整数值，但是没有其他的 goroutine 在接收这个值，导致主 goroutine 被阻塞。
+//这是一个常见的 Go 并发模型中的问题。当一个 goroutine 尝试向一个无缓冲的通道发送数据时，它会阻塞，直到另一个 goroutine 从该通道读取数据。但在这段代码中，在发送数据之前没有启动任何接收数据的 goroutine，所以会出现死锁。
+// 有两种解决方案：
+// 向通道发送数据之前，启动一个 goroutine 来接收数据。
+// 将通道的容量设置为 1，这样就可以发送一个数据，然后再阻塞。
+```
+
+```go
+// 只消费一次。
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+var cnt = 0
+
+func main() {
+	ch1 := make(chan int)
+	go pump(ch1)       // pump hangs
+	fmt.Println(<-ch1) // prints only 0
+	time.Sleep(time.Second)
+	fmt.Println(cnt) // prints 1
+}
+
+func pump(ch chan int) {
+	for i := 0; ; i++ {
+		ch <- i // the channel will be block due to lack of consumer
+		cnt++   // this code will only execute once
+	}
+}
+```
+
+```go
+// 用一个channel done 阻塞main
+package main
+
+import "fmt"
+
+func tel(ch chan int) {
+	for i := 0; i < 15; i++ {
+		ch <- i
+	}
+	close(ch) // 关闭通道，这很重要，否则 main 函数中的 for 循环会永远阻塞等待
+}
+
+func main() {
+	ch := make(chan int)
+	done := make(chan bool)
+	go tel(ch)
+	go cus(ch, done)
+	<-done
+}
+
+func cus(ch chan int, done chan bool) {
+	go func() {
+		for i := range ch {
+			fmt.Printf("The counter is at %d\n", i)
+		}
+		done <- true
+	}()
+}
+```
+
+```go
+package main
+
+import "fmt"
+
+func tel2(ch chan int, done chan struct{}) {
+	for i := 0; i < 15; i++ {
+		ch <- i
+	}
+	close(ch)
+	done <- struct{}{}
+}
+
+func main() {
+	ch := make(chan int)
+	done := make(chan struct{})
+	go tel2(ch, done)
+	// 使用 select 语句来从 ch 和 done 中接收数据
+	for {
+		select {
+		case i, ok := <-ch:
+			if ok {
+				fmt.Printf("The counter is at %d\n", i)
+			}
+		case <-done:
+			fmt.Println("Finished receiving!")
+			return
+		}
+	}
+}
+```
+
+```go
+func main() {
+	c := make(chan int)
+	go func() {
+		for {
+			fmt.Print(<-c, " ")
+		}
+	}()
+	for {
+		select {
+		case c <- 0:
+		case c <- 1:
+		}
+	}
+}
+// 随机打印1 0
+```
+
+fibonacci的一些写法：
+```go
+// 1. select
+func goFibonacciSelect(c, quit chan int) {
+	x, y := 1, 1
+	for {
+		select {
+		case c <- x:
+			x, y = y, x+y
+		case <-quit:
+			fmt.Println("quit")
+			return
+		}
+	}
+}
+
+func main() {
+	c := make(chan int)
+	quit := make(chan int)
+	go func() {
+		for i := 0; i < 10; i++ {
+			fmt.Println(<-c)
+		}
+		quit <- 0
+	}()
+	goFibonacciSelect(c, quit)
+}
+
+// 2
+func fibonacci(n int, c chan int) {
+	x, y := 1, 1
+	for i := 0; i < n; i++ {
+		c <- x
+		x, y = y, x+y
+	}
+	close(c)
+}
+
+func main() {
+	c := make(chan int, 10)
+	go fibonacci(cap(c), c)
+	for i := range c {
+		fmt.Println(i)
+	}
+}
+
+// 3
+```
 
 
 
-
+## 待整理。。
 
 07 Channel
 

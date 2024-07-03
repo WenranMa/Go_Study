@@ -795,6 +795,33 @@ func main() {
 // 闭包引用相同变量。
 ```
 
+
+```go
+package main
+
+import "fmt"
+
+func calc(base int) (func(int) int, func(int) int) {
+	add := func(i int) int { base += i
+		return base }
+	sub := func(i int) int { base -= i
+		return base }
+	return add, sub
+}
+func main() {
+	f1,f2 := calc(10)
+	fmt.Println(f1(1),f2(2))	// 11  9
+	fmt.Println(f1(3),f2(4))	// 12  8
+	fmt.Println(f1(5),f2(6))	// 13  7
+	fmt.Println(f1(7),f2(8))	// 14  6
+}
+```
+
+
+
+
+
+
 已知 Add() 函数的调用代码，则Add函数定义正确的是()  A,C
 ```go
 func main() {
@@ -827,5 +854,57 @@ func (a *Integer) Add(b Integer) Integer {
 type Integer int
 func (a *Integer) Add(b *Integer) Integer {
         return *a + *b
+}
+```
+
+
+
+
+
+
+
+
+
+```go
+package main
+
+import (
+	"fmt"
+)
+
+type People struct {
+	age  *int
+	name string
+}
+
+func NewPeople(name string, age int) (p *People) {
+	p = new(People)
+	p.age = new(int)
+	p.SetName(name)
+	p.SetAge(age)
+	return
+}
+
+func (p People) SetAge(age int) {
+	p.age = &age
+}
+
+func (p People) GetAge() int {
+	return *p.age
+}
+
+func (p People) SetName(name string) {
+	p.name = name
+}
+
+func (p People) GetName() string {
+	return p.name
+}
+
+func main() {
+	var people *People = NewPeople("John", 22)
+	people.SetName("Grace")
+	people.SetAge(45)
+	fmt.Printf("%s,%d", people.GetName(), people.GetAge()) // ,0
 }
 ```

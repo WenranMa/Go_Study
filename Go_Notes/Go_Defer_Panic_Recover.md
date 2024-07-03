@@ -703,3 +703,46 @@ func main() {
 知识点：defer()、for-range。
 
 ~~for-range 虽然使用的是 :=，但是 v 不会重新声明，可以打印 v 的地址验证下。~~
+
+
+下面两组代码输出：
+```go
+func b() (i int) { 	
+    defer func() { 		
+        i++ 		
+        fmt.Println("defer2:", i) 	
+    }() 	
+    defer func() { 		
+        i++ 		
+        fmt.Println("defer1:", i) 	
+    }() 	
+    return 
+} 
+func main() { 	
+    fmt.Println("return:", b()) 
+} 
+// defer 1
+// defer 2
+// return 2
+```
+
+```go
+func c() *int { 	
+    var i int 	
+    defer func() { 		
+        i++ 		
+        fmt.Println("defer2:", i) 	
+    }() 	
+    defer func() { 		
+        i++ 		
+        fmt.Println("defer1:", i) 	
+    }() 	
+    return &i 
+} 
+func main() { 	
+    fmt.Println("return:", *(c())) 
+}
+// defer 1
+// defer 2
+// return 2
+```

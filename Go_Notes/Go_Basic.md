@@ -26,7 +26,17 @@ bufio包使处理输入和输出方便高效。Scanner类型读取输入并将�
 `input:=bufio.NewScanner(os.Stdin)`从程序的标准输入中读取内容。每次调用，即读入下一行，并移除行末的换行符，读取的内容可以调用`input.Text()`得到。
 
 `fmt.Printf`函数对表达式产生格式化输出。`%d`:十进制整数。`%x,%o,%b`:十六进制，八进制，二进制整数。`%f,%g,%e`:浮点数:3.141593 3.141592653589793 3.141593e+00。`%t`:布尔:true或false。`%c`:字符(rune) (Unicode码点)。`%s`:字符串。`%q`:带双引号的字符串"abc"或带单引号的字符'c'。`%v`:变量的自然形式(natural format)。`%T`:变量的类型。`%%`:字面上的百分号标志(无操作数)。按照惯例，以字母f结尾的格式化函数，如Printf和Errorf。而以ln结尾的在最后添加一个换行符。
+
+### GoRoot, GoPath
+GoRoot 是 Go 的安装路径。mac 或 unix 是在 `/usr/local/go` 路径上，Go 工具目录中比较重要的有编译器 `compile`，链接器 `link`
+
+GoPath 的作用在于提供一个可以寻找 `.go` 源码的路径，它是一个工作空间的概念，可以设置多个目录。Go 官方要求，GoPath 下面需要包含三个文件夹：src 存放源文件，pkg 存放源文件编译后的库文件，后缀为 `.a`；bin 则存放可执行文件。
  
+Go 源码里的编译器源码位于 `src/cmd/compile` 路径下，链接器源码位于 `src/cmd/link` 路径下。
+
+Go 语言的源码文件分为三类：命令源码、库源码、测试源码。命令源码文件：是 Go 程序的入口，包含 `func main()` 函数，且第一行用 `package main` 声明属于 main 包。库源码文件：主要是各种函数、接口等，例如工具类的函数。测试源码文件：以 `_test.go` 为后缀的文件，用于测试程序的功能和性能。注意，`go build` 会忽略 `*_test.go` 文件。
+
+运行 `go install` 命令，库源码包对应的 `.a` 文件会被放置到 `pkg` 目录下，命令源码包生成的可执行文件会被放到 GOBIN 目录。
 
 ## 程序结构
 关键字有25个：
@@ -487,6 +497,19 @@ func main() {
 // `invalid operation: a + b (mismatched types int and float64)`
 // `a` 的类型是`int` ，`b` 的类型是`float` ，两个不同类型的数值不能相加，编译报错。
 ```
+
+
+格式化输出 float
+```go
+func main() {
+	var f float64 = 1.0
+	fmt.Println(f) // 1
+	value := strconv.FormatFloat(f, 'f', 2, 64)
+	fmt.Println(value) // 1.00
+}
+```
+
+
 
 ### 包和文件
 Go语言的代码通过包(package)组织。一个包由位于单个目录下的一个或多个.go源代码文件组成。每个源文件都以一条package声明语句开始（例如package main）表示该文件属于哪个包，紧跟着一系列导入(import)的包。import声明必须跟在文件的package声明之后。
@@ -1256,6 +1279,47 @@ for i, c:= range s {
 }
 ```
 
+```go
+package main
+
+import (
+	"fmt"
+	"strings"
+)
+
+/**
+[]byte中每一个byte的默认值是0，而空格的值是32；按照实验的结果，TrimSpace可以剪掉byte为32的（空格），但不能剪掉byte为0的
+返回将s前后端所有空白（unicode.IsSpace指定）都去掉的字符串。
+*/
+
+func testa() {
+	buf := make([]byte, 10)
+	buf[0] = ' '
+	buf[1] = ' '
+	buf[2] = 'b'
+	buf[3] = 'b'
+	buf[4] = ' '
+	//buf[5] = ' '
+	//buf[6] = 'b'
+	// buf[7] = ' '
+	// buf[8] = ' '
+	buf[9] = ' '
+	fmt.Println(buf)
+	fmt.Printf("%s\n", strings.TrimSpace(string(buf)))
+	fmt.Printf("%d\n", len(strings.TrimSpace(string(buf))))
+}
+
+func main() {
+	testa()
+}
+// [32 32 98 98 32 0 0 0 0 32]
+// bb
+// 7
+```
+
+
+
+
 ## 复合数据类型
 数组和结构体是聚合类型;它们的值由许多元素或成员字段的值组成。数组元素都是完全相同的类型;结构体则是由异构的元素组成的。数组和结构体都是有固定内存大小的数据结构。slice和map则是动态的数据结构，它们将根据需要动态增长。
 
@@ -1455,16 +1519,18 @@ func main()  {
 // goto loop jumps into block starting at
 ```
 
+golang 中 make 和 new 的区别？
+
+- 共同点：给变量分配内存
+- 不同点：
+    - 作用变量类型不同，new给string,int和数组分配内存，make给切片，map，channel分配内存；
+    - 返回类型不一样，new返回指向变量的指针，make返回变量本身；
+    - new 分配的空间被清零。make 分配空间后，会进行初始化；
+
+
 ---
 
-### Bit数组
 
-### 封装
-
-## Project List: 
-
-### IO
-简单的IO练习
 
 ### Pipeline: 外部排序Pipeline
 选自慕课网：搭建并行处理管道

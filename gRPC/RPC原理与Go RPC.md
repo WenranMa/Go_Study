@@ -45,7 +45,7 @@ func main(){
 
 ### HTTP调用RESTful API
 
-[rest_api code](../code/Http_Restful_API/)
+[rest_api code](/gRPC/code/Http_Restful_API/)
 
 这种模式是我们目前比较常见的跨服务或跨语言之间基于RESTful API的服务调用模式。 既然使用API调用也能实现类似远程调用的目的，为什么还要用RPC呢？
 
@@ -58,18 +58,18 @@ RESTful API多用于前后端之间的数据传输，而目前微服务架构下
 ### 基础RPC示例
 Go语言的 rpc 包提供对通过网络或其他 i/o 连接导出的对象方法的访问，服务器注册一个对象，并把它作为服务对外可见（服务名称就是类型名称）。注册后，对象的导出方法将支持远程访问。服务器可以注册不同类型的多个对象(服务) ，但是不支持注册同一类型的多个对象。
 
-[http_rpc code](../code/Http_Based_RPC_Demo/)
+[http_rpc code](/gRPC/code/Http_Based_RPC_Demo/)
 
 ### 基于TCP协议的RPC
 当然 rpc 包也支持直接使用 TCP 协议而不使用HTTP协议。
 
-[tcp_rpc code](../code/TCP_Based_RPC_Demo)
+[tcp_rpc code](/gRPC/code/TCP_Based_RPC_Demo)
 
 
 ### 使用JSON协议的RPC
 rpc 包默认使用的是 gob 协议对传输数据进行序列化/反序列化，比较有局限性。下面的代码将尝试使用 JSON 协议对传输数据进行序列化与反序列化。
 
-[tcp_json_rpc code](../code/TCP_Based_RPC_with_Json/)
+[tcp_json_rpc code](/gRPC/code/TCP_Based_RPC_with_Json/)
 
 ### Python调用RPC
 

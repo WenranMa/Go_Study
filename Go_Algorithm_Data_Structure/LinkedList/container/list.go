@@ -6,7 +6,6 @@ import (
 )
 
 // list包实现了双向链表
-// http://doc.golang.ltd/
 
 func main() {
 	// Create a new list and put some numbers in it.
@@ -59,5 +58,4 @@ func main() {
 	for e := l.Front(); e != nil; e = e.Next() { // 遍历得：空
 		fmt.Println("Init清空链表", e.Value)
 	}
-
 }

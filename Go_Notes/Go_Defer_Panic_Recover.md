@@ -405,10 +405,10 @@ func F(n int) func() int {
 func main() {
     f := F(5)
     defer func() {
-        fmt.Println(f())
+        fmt.Println(f()) // 3rd call
     }()
-    defer fmt.Println(f())
-    i := f()
+    defer fmt.Println(f())   //1st call
+    i := f()  // 2nd call
     fmt.Println(i)
 }
 // 7 6 8
@@ -745,4 +745,56 @@ func main() {
 // defer 1
 // defer 2
 // return 2
+```
+
+输出：
+
+```go
+func main() {
+    {
+        defer fmt.Println("defer runs")
+        fmt.Println("block ends")
+    }
+
+    fmt.Println("main ends")
+}
+// block ends
+// main ends
+// defer runs
+// 不是在当前代码块的作用域时执行的, `defer`只会在当前函数和方法返回之前被调用
+```
+
+输出：
+
+```go
+type Test struct {
+    value int
+}
+
+func (t Test) print() {
+    println(t.value)
+}
+
+func main() {
+    test := Test{}
+    defer test.print()
+    test.value += 1
+}
+// 0
+
+type Test struct {
+    value int
+}
+
+func (t *Test) print() {
+    println(t.value)
+}
+
+func main() {
+    test := Test{}
+    defer test.print()
+    test.value += 1
+}
+// 1
+// 还是进行的值传递,不过发生复制的是指向`test`的指针,上面那个复制的是结构体,这段是复制的指针,修改`test.value`时,`defer`捕获的指针其实就能够访问到修改后的变量了
 ```

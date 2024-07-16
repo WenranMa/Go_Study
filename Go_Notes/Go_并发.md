@@ -556,7 +556,8 @@ func main() {
 
 ![img](/file/img/go_channel_state.png)
 
-**注意：**对已经关闭的通道再执行 close 也会引发 panic。
+图里差2个：
+**注意：**对已经关闭的通道再执行 close 也会引发 panic。往关闭的管道写数据会 panic。
 
 ### channel控制并发数量 （gotoutine数量）
 ```go
@@ -687,7 +688,92 @@ func demo2() {
 
 上述代码片段可能导致 goroutine 泄露（goroutine 并未按预期退出并销毁）。由于 select 命中了超时逻辑，导致通道没有消费者（无接收操作），而其定义的通道为无缓冲通道，因此 goroutine 中的`ch <- "job result"`操作会一直阻塞，最终导致 goroutine 泄露。
 
+## Channel 原理
+
+```go
+type hchan struct {
+	qcount   uint           // total data in the queue
+	dataqsiz uint           // size of the circular queue
+	buf      unsafe.Pointer // points to an array of dataqsiz elements
+	elemsize uint16
+	closed   uint32
+	timer    *timer // timer feeding this chan
+	elemtype *_type // element type
+	sendx    uint   // send index
+	recvx    uint   // receive index
+	recvq    waitq  // list of recv waiters
+	sendq    waitq  // list of send waiters
+
+	// lock protects all fields in hchan, as well as several
+	// fields in sudogs blocked on this channel.
+	//
+	// Do not change another G's status while holding this lock
+	// (in particular, do not ready a G), as this can deadlock
+	// with stack shrinking.
+	lock mutex
+}
+```
+
+对于有缓冲的channel存储数据，借助的是循环数组的结构
+
+- `qcount` 已经接收但还未被取走的元素个数 内置函数len获取到
+- `datasiz` 循环队列的大小 暂时认为是cap容量的值
+- `buf` 指向底层循环数组的指针, 无缓冲通道中 buf的值为nil
+- `elemsize` 声明chan时到元素类型和大小 固定, 能够收发元素的大小
+- `closed` channel是否关闭的标志
+- `elemtype` channel中的元素类型
+
+有缓冲channel内的缓冲数组会被作为一个“环型”来使用。当下标超过数组容量后会回到第一个位置，所以需要有两个字段记录当前读和写的下标位置
+- `sendx` 下一次发送数据的下标位置,处理发送进来数据的指针在buf中的位置 接收到数据 指针会加上elemsize，移向下一个位置
+- `recvx` 下一次读取数据的下标位置,处理接收请求（发送出去）的指针在buf中的位置
+
+当循环数组中没有数据时，收到了接收请求，那么接收数据的变量地址将会写入读等待队列，当循环数组中数据已满时，收到了发送请求，那么发送数据的变量地址将写入写等待队列
+- `recvq` 读等待队列, 如果没有数据可读而阻塞， 会加入到recvq队列中
+- `sendq` 写等待队列, 向一个满了的buf 发送数据而阻塞，会加入到sendq队列中
+
+- `lock` 互斥锁，保证读写channel时不存在并发竞争问题
+
+
+### 发送流程：
+
+1. 如果等待接收队列recvq不为空，说明缓冲区中没有数据或者没有缓冲区，此时直接从recvq取出G,并把数据写入，最后把该G唤醒，结束发送过程；
+2. 如果缓冲区中有空余位置，将数据写入缓冲区，结束发送过程；
+3. 如果缓冲区中没有空余位置，或没有缓冲区，将待发送数据写入G，将当前G加入sendq，进入睡眠，等待被读goroutine唤醒；
+
+简单流程图如下：
+
+![img](https://cdn.nlark.com/yuque/0/2022/png/22219483/1661788117541-f82a3d7e-8b22-46cd-9bd9-dde26f0d290c.png)
+
+### 接收流程：
+
+1. 如果等待发送队列sendq不为空，且没有缓冲区，直接从sendq中取出G，把G中数据读出，最后把G唤醒，结束读取过程；
+2. 如果等待发送队列sendq不为空，此时说明缓冲区已满，从缓冲区中首部读出数据，把G中数据写入缓冲区尾部，把G唤醒，结束读取过程；
+3. 如果缓冲区中有数据，则从缓冲区取出数据，结束读取过程；
+4. 将当前goroutine加入recvq，进入睡眠，等待被写goroutine唤醒；
+
+简单流程图如下：
+
+![img](https://cdn.nlark.com/yuque/0/2022/png/22219483/1661788153163-c386fedf-84b2-42ed-9965-d5d80743650c.png)
+
+
+### 总结hchan结构体的主要组成部分有四个：
+
+![img](https://cdn.nlark.com/yuque/0/2022/webp/22219483/1661787750459-2608e3a8-f5f9-4d1c-a97f-314d4d83fecf.webp)
+
+- 用来保存goroutine之间传递数据的循环链表。=====> buf。
+- 用来记录此循环链表当前发送或接收数据的下标值。=====> sendx和recvx。
+- 用于保存向该chan发送和从改chan接收数据的goroutine的队列。=====> sendq 和 recvq
+- 保证channel写入和读取数据时线程安全的锁。 =====> lock
+
+### 关闭channel
+
+关闭channel时会把recvq中的G全部唤醒，本该写入G的数据位置为nil。把sendq中的G全部唤醒，但这些G会panic。
+
+**使用场景：** 消息传递、消息过滤，信号广播，事件订阅与广播，请求、响应转发，任务分发，结果汇总，并发控制，限流，同步与异步
+
 ## sync.WaitGroup
+- `WaitGroup` 是Go语言`sync` 包中比较常见的同步机制,它可以用于等待一系列的Goroutine的返回。
+- 通过`WaitGroup` 我们可以在多个Goroutine之间非常轻松的同步信息,原本顺序执行的代码也可以在多个Goroutine中并发执行,加快了程序处理的速度。
 
 多个goroutine同时工作是，为了知道最后一个goroutine什么时候结束(最后一个结束并不一定是最后一个开始)，我们需要一个递增的计数器，在每一个goroutine启动时加一，在goroutine退出时减一。这个计数器需要在多个goroutine操作时做到安全并且提供提供在其减为零之前一直等待的一种方法。这种计数类型被称为`sync.WaitGroup`。
 
@@ -731,7 +817,7 @@ Finished task: Task 3
 All tasks completed.
 */
 ```
-注意`Add`和`Done`方法的不对称。`Add是为计数器加一，必须在worker goroutine开始之前调用，而不是在goroutine中`；否则的话我们没办法确定Add是在"closer" goroutine调用Wait之前被调用。并且Add还有一个参数，但Done却没有任何参数；其实它和Add(-1)是等价的。我们使用defer来确保计数器即使是在出错的情况下依然能够正确地被减掉。上面的程序代码结构是当我们使用并发循环，但又不知道迭代次数时很通常而且很地道的写法。
+注意`Add`和`Done`方法的不对称。`Add是为计数器加一，必须在worker goroutine开始之前调用，而不是在goroutine中`；否则的话我们没办法确定Add是在"closer" goroutine调用Wait之前被调用。并且Add还有一个参数，但Done却没有任何参数；其实它和Add(-1)是等价的，`Done` 只是调用了`wg.Add(-1)`。我们使用defer来确保计数器即使是在出错的情况下依然能够正确地被减掉。上面的程序代码结构是当我们使用并发循环，但又不知道迭代次数时很通常而且很地道的写法。
 
 多生产者channel关闭示例：
 ```go
@@ -763,6 +849,29 @@ func main() {
 	}
 }
 ```
+
+### 源码
+
+```go
+type WaitGroup struct {
+	noCopy noCopy
+
+	state atomic.Uint64 // high 32 bits are counter, low 32 bits are waiter count.
+	sema  uint32
+}
+```
+
+在 Go 语言中，`noCopy` 是一种用于标记某个结构体不应该被值拷贝的机制。Go 的工具链中有一个工具叫做 govet，它可以检测出可能违反 noCopy 约定的情况。当一个结构体嵌入了 noCopy 字段后，如果尝试对该结构体执行值拷贝，govet 或其他静态分析工具会发出警告，因为复制包含 noCopy 的结构体会导致不可预料的行为。noCopy 并不会阻止 Go 编译器或运行时执行拷贝操作，它只是一个约定，依赖于开发者遵循这一约定并利用工具进行检查。
+
+- `noCopy` 的主要作用就是保证`WaitGroup` 不会被开发者通过再赋值的方式进行拷贝,进而导致一些诡异的行为。
+- `copyLock` 包就是一个用于检测类似错误的分析器,它的原理就是在 编译期间 检查被拷贝的变量中是否包含的`noCopy` 或者`sync` 关键字
+- `state` 是一个64位的无符号整数,其高32位表示计数器,低32位表示等待的Goroutine个数
+
+- `Add`方法的主要作用就是更新`WaitGroup`中持有的计数器`counter`,64位状态的高32位,虽然`Add`方法传入的参数可以为负数,但是一个`WaitGroup`的计数器只能是非负数,当调用`Add`方法导致计数器归零并且还有等待的Goroutine时,就会通过`runtime_Semrelease` 唤醒处于等待状态的所有Goroutine。
+- Add方法在等待goroutine为0，如果传入负值，则panic. `sync: negative WaitGroup counter`.
+
+- 另一个`WaitGroup`的方法`Wait`就会在当前计数器中保存的数据大于0 时修改等待Goroutine 的个数`waiter`并调用 `runtime_Semacquire`陷入睡眠状态。
+- 陷入睡眠的`Goroutine` 就会等待`Add`方法在计数器为 0 时唤醒。
 
 ## Select
 火箭发射的例子，两个channel，一个负责计时，一个负责终止。现在每一次计数循环的迭代都需要等待两个channel中的其中一个返回事件了：ticker channel正常计数，或者异常时返回的abort事件。我们无法做到从每一个channel中接收信息，如果我们这么做的话，如果第一个channel中没有事件发过来那么程序就会立刻被阻塞，这样我们就无法收到第二个channel中发过来的事件。这时候我们需要多路复用(multiplex)这些操作了，为了能够多路复用，我们使用了select语句。
@@ -1711,6 +1820,50 @@ Mutex可能处于两种操作模式下：正常模式和饥饿模式
 - 重入锁，Mutex是不可重入锁，如果一个线程成功获取到这个锁。之后，如果其它线程再请求这个锁，就会处于阻塞等待的状态
 - 死锁，两个或两个以上的goroutine争夺共享资源，互相等待对方的锁释放
 
+#### 源码
+```go
+type Mutex struct {
+	state int32
+	sema  uint32
+}
+
+const (
+	mutexLocked = 1 << iota // mutex is locked
+	mutexWoken
+	mutexStarving
+	mutexWaiterShift = iota
+
+	// 这段注释讲了正常，饥饿模式，看原文
+	starvationThresholdNs = 1e6
+)
+```
+- 由`state` 和`sema` 组成, `state` 表示 当前互斥锁的状态, 而`sema` 真正用于控制锁状态的信号量, 这两个加起来只占8字节空间的结构体就表示了Go语言中的互斥锁。
+- 互斥锁的状态是用`int32`来表示的,但是锁的状态并不是互斥的,它的最低三位分别表示`mutexLocked`,`mutexWoken`,`mutexStarving`,剩下的位置都用来表示当前有多少个Goroutine等待互斥锁被释放。
+- 互斥锁在被创建出来时,所有的状态位的默认值都是`0`,当互斥锁被锁定时,`mutexLocked` 就会被置成`1`,当互斥锁被在正常模式下被唤醒`mutexWoken`就会被置成`1`,`mutexStarving`用于表示当前的互斥锁进入了饥饿状态,最后的几位是在当前互斥锁上等待的Goroutine个数。
+
+#### 加锁
+
+- 互斥锁`Mutex`的加锁是靠`Lock` 方法完成的,当锁的状态是 `0` 时直接将`mutexLocked` 位置成 `1`。
+- 当`Lock` 方法被调用时`Mutex`的状态不是 `0` 时就会进入 `lockSlow` 方法尝试通过自旋或者其他方法等待锁的释放并获取互斥锁。
+- 自旋其实是在多线程同步的过程中使用的一种机制,当前的进程在进入自旋的过程中会一直保持CPU的占用,持续检查某个条件是否为真,在多核的CPU上,自旋的优点是避免了Goroutine的切换,如果使用恰当会对性能带来非常大的增益。
+
+- 互斥锁中,只有在普通模式下才可能进入自旋,除了模式的限制之外 `runtime_canSpin` 方法中会判断当前方法是否可以进入自旋,进入自旋的条件非常苛刻:
+	- 运行在多CPU的机器上
+	- 当前Goroutine 为了获取该锁进入自旋的次数小于四次
+	- 当前机器上至少存在一个正在运行的处理器`P`并且处理的运行队列是空的
+
+- 如果互斥锁处于`mutexLocked` 并且在普通模式下工作,就会进入自旋,执行30次`PAUSE`指令消耗CPU时间等待锁的释放
+
+- `runtime_SemacquireMutex` 方法主要作用就是使用互斥锁中的信号量保证资源不会被两个Goroutine获取,从这里我们就能看出`Mutex`其实就是对更底层的信号量进行封装,对外提供更加易用的API,`runtime_SemacquireMutex` 会在方法中不断调用 `goparkunlock`将当前 Goroutine陷入休眠等待信号量可以被获取.
+- 一旦当前Goroutine 可以获取信号量,就证明互斥锁已经被解锁,该方法就会立刻返回,`Lock`方法的剩余代码也会继续执行下去了,当前互斥锁处于饥饿模式时,如果该Goroutine是队列中最后的一个Goroutine 或者等待锁的时间小于 `starvationThresho1dNs(1ms)` 当前Goroutine 就会直接获得互斥锁并且从饥饿模式中退出并获得锁.
+
+#### 解锁
+
+- 互斥锁的解锁过程相比之下就非常简单,`Unlock` 方法会直接使用`atomic` 包提供的`AddInt32`减一,如果返回的新状态不等于 `0` 就会进入 `unlockSlow` 方法
+- `unlockSlow` 方法首先会对锁的状态进行校验,如果当前互斥锁已经被解锁过了就会直接抛出异常`sync: unlock of unlocked mutex` 中止当前程序,在正常情况下会根据当前互斥锁的状态是正常模式还是饥饿模式进入不同的分支!
+- 如果当前互斥锁的状态是饥饿模式就会直接调用`runtime_Semrelease` 方法直接将当前锁交给下一个正在正在尝试获取锁的等待者,等待者会在被唤醒之后设置`mutexLocked`状态,由于此时仍然处于`mutexStarving`,所以新的Goroutine也无法获得锁。
+- 在正常模式下,如果当前互斥锁不存在等待者或者最低三位表示的状态都是0, 那么当前方法就不需要唤醒其他Goroutine可以直接返回,当有 Goroutine 正在处于等待状态时,还是会通过`runtime_Semrelease` 唤醒对应的 Goroutine并移交锁的所有权
+
 ### sync.RWMutex读写锁
 互斥锁是完全互斥的，但是实际上有很多场景是读多写少的，当我们并发的去读取一个资源而不涉及资源修改的时候是没有必要加互斥锁的，这种场景下使用读写锁是更好的一种选择。读写锁在 Go 语言中使用`sync`包中的`RWMutex`类型。
 
@@ -1801,7 +1954,9 @@ func main() {
 ```
 从最终的执行结果可以看出，使用读写互斥锁在读多写少的场景下能够极大地提高程序的性能。不过需要注意的是如果一个程序中的读操作和写操作数量级差别不大，那么读写互斥锁的优势就发挥不出来。
 
-#### 底层结构 ------ TBD
+#### 源码
+
+读写互斥锁在Go语音中的实现是 `RWMutex`,其中不仅包含一个互斥锁,还持有两个信号量,分别用于写等待读和读等待写。
 ```go
 type RWMutex struct {
     w           Mutex   // 互斥锁解决多个writer的竞争
@@ -1813,17 +1968,33 @@ type RWMutex struct {
 
 const rwmutexMaxReaders = 1 << 30
 ```
-实现原理:
+- `readerCount` 存储了当前正在执行的读操作的数量,最后的`readerWait`表示当写操作被阻塞时等待完成读操作个数
 
-一个 writer goroutine 获得了内部的互斥锁，就会反转 readerCount 字段，把它从原来的正整数 readerCount(>=0) 修改为负数（readerCount - rwmutexMaxReaders），让这个字段保持两个含义（既保存了 reader 的数量，又表示当前有 writer）。也就是说当readerCount为负数的时候表示当前writer goroutine持有写锁中，reader goroutine会进行阻塞。
+#### 读写锁
 
-当一个 writer 释放锁的时候，它会再次反转 readerCount 字段。可以肯定的是，因为当前锁由 writer 持有，所以，readerCount 字段是反转过的，并且减去了 rwmutexMaxReaders 这个常数，变成了负数。所以，这里的反转方法就是给它增加 rwmutexMaxReaders 这个常数值。
+- 当资源的使用者想要获取读写锁时,就需要通过`Lock` 方法了,在`Lock` 方法中首先调用了读写互斥锁持有的`Mutex`的`Lock`方法保证其他获取读写锁的Goroutine 进入等待状态,随后的`atomic.AddInt32(&rw.readerCount, -rwmutexMaxReaders)` 其实是为了堵塞后续的读操作，（此时readerCount为负数，一个 writer goroutine 获得了内部的互斥锁，就会反转 readerCount 字段，把它从原来的正整数 readerCount(>=0) 修改为负数，让这个字段保持两个含义（既保存了 reader 的数量，又表示当前有 writer）。也就是说当readerCount为负数的时候表示当前writer goroutine持有写锁中，reader goroutine会进行阻塞。）。
+- 如果当时仍然有其他Goroutine持有读锁,该Goroutine就会调用`runtime_SemacquireMutex`进入休眠状态,等待读锁释放时触发`writerSem`信号量将当前协程唤醒。
+- 对资源的读写操作完成之后就会将通过`atomic.AddInt32(&rw.readerCount, rwmutexMaxReaders)` 变回正数，并通过for循环出发所有由于获取读锁而陷入等待的 Goroutine （当一个 writer 释放锁的时候，它会再次反转 readerCount 字段。这里的反转方法就是给它增加 rwmutexMaxReaders 这个常数值。）
+- 最后,`RWMutex` 会释放持有的互斥锁让其他的协程能够重新获取读写锁
+
+#### 读锁
+
+- 读锁的加锁非常简单,通过`atomic.AddInt32`方法为`readerCount`加一,如果该方法返回了负数说明当前有Goroutine获得了写锁,当前Goroutine就会调用`runtime_SemacquireMutex`陷入休眠等待唤醒。
+- 如果没有写操作获取当前互斥锁,当前方法就会在`readerCount`加一后返回,当Goroutine想要释放读锁时会调用`RUnlock`方法,该方法会减少正在读资源的`readerCount`,当前方法如果遇到了返回值小于零的情况,说明有一个正在进行的写操作,在这时就应该通过`rUnlockSlow`方法减少当前写操作等待的读操作数`readerWait`并在所有都被释放之后出发写操作的信号量`writerSem`,`writerSem`被触发之后,尝试获取读写锁的进程就会被唤醒并获得锁。
+
+#### 总结
+
+- `readerSem` - 读写锁释放时，通知由于获取读锁等待的Goroutine
+- `writerSem` - 读锁释放时，通知由于获取读写锁等待的Goroutine
+- `w`互斥锁 - 保证写操作之间的互斥
+- `readerCount` - 统计当前进行读操作的协程数,触发写锁时会将其减少`rwmutexMaxReaders`阻塞后续的读操作
+- `readerWait` - 当前读写锁等待的进行读操作的协程数,在出发`Lock`之后的每次`RUnlock`都会将其减一,当它归零时该Goroutine就会获得读写锁
+- 当读写锁被释放`Unlock`时，首先通知所有的读操作,然后才会释放持有的互斥锁,这样能够保证读操作不会被连续的写操作`饿死`。
 
 易错场景
 
 - 复制已经使用的读写锁，会把它的状态也给复制过来，原来的锁在释放的时候，并不会修改你复制出来的这个读写锁，这就会导致复制出来的读写锁的状态不对，可能永远无法释放锁
 - 重入导致死锁，因为读写锁内部基于互斥锁实现对 writer 的并发访问，而互斥锁本身是有重入问题的，所以，writer 重入调用 Lock 的时候，就会出现死锁的现象, 在 reader 的读操作时调用 writer 的写操作（调用 Lock 方法），那么，这个 reader 和 writer 就会形成互相依赖的死锁状态。
-当一个 writer 请求锁的时候，如果已经有一些活跃的 reader，它会等待这些活跃的 reader 完成，才有可能获取到锁，但是，如果之后活跃的 reader 再依赖新的 reader 的话，这些新的 reader 就会等待 writer 释放锁之后才能继续执行，这就形成了一个环形依赖： writer 依赖活跃的 reader -> 活跃的 reader 依赖新来的 reader -> 新来的 reader 依赖 writer
 - 释放未加锁的 RWMutex，和互斥锁一样，Lock 和 Unlock 的调用总是成对出现的，RLock 和 RUnlock 的调用也必须成对出现。Lock 和 RLock 多余的调用会导致锁没有被释放，可能会出现死锁，而 Unlock 和 RUnlock 多余的调用会导致 panic
 
 ### sync.Once初始化
@@ -2037,6 +2208,9 @@ func main() {
 
 ## sync.Cond
 Cond 通常应用于等待某个条件的一组 goroutine，等条件变为 true 的时候，其中一个 goroutine 或者所有的 goroutine 都会被唤醒执行。
+
+Go语言在标准库中提供的`Cond` 其实是一个条件变量,通过`Cond`我们可以让一系列的 Goroutine 都在触发某个事件或者条件时才被唤醒,每一个`Cond`结构体都包含一个互斥锁`L`。
+
 ```go
 // 基本方法
 func NeWCond(l Locker) *Cond 
@@ -2050,30 +2224,51 @@ func (c *Cond) Wait()
 
 使用示例：
 ```go
+package main
+
+import (
+	"fmt"
+	"sync"
+	"time"
+)
+
 func main() {
+	var wg sync.WaitGroup
 	c := sync.NewCond(&sync.Mutex{})
-	var ready int
-	for i := 0; i < 10; i++ {
-		go func(i int) {
-			time.Sleep(time.Duration(rand.Int63n(10)) * time.Second)
+	// 共享资源初始化完成的标志
+	sharedResourceReady := false
+	// 添加5个 goroutines
+	for i := 0; i < 5; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			// 加锁
 			c.L.Lock()
-			ready++
+			// 如果资源还没有准备好，等待
+			c.Wait()
+			// 资源准备好了，开始工作
+			fmt.Printf("Worker %d: Resource is ready, starting work...\n", id)
 			c.L.Unlock()
-			log.Printf("运动员#%d 已准备就绪\n", i)
-			c.Broadcast()
 		}(i)
 	}
-	c.L.Lock()
-	for ready != 10 {
-		c.Wait()
-		log.Println("裁判员被唤醒一次")
-	}
-	c.L.Unlock()
-	log.Println("所有运动员都准备就绪。比赛开始，3，2，1, ......")
+
+	// 模拟资源初始化需要的时间
+	time.Sleep(2 * time.Second)
+
+	// 当资源准备好后，唤醒所有等待的 goroutines
+	//c.L.Lock()
+	sharedResourceReady = true
+	c.Broadcast()
+	//c.L.Unlock()
+
+	// 等待所有 goroutines 完成
+	fmt.Println(sharedResourceReady)
+	wg.Wait()
+	fmt.Println("All workers have finished.")
 }
 ```
 
-实现原理
+### 源码
 ```go
 type Cond struct {
     noCopy noCopy
@@ -2110,12 +2305,22 @@ func (c *Cond) Broadcast() {
     runtime_notifyListNotifyAll(&c.notify)
 }
 ```
-在上述的实现源码中，Signal和Broadcast调用了底层的通知方法；重点在Wait方法中，把调用者加入到等待队列时会释放锁，在被唤醒之后还会请求锁。在阻塞休眠期间，调用者是不持有锁的，这样能让其他 goroutine 有机会检查或者更新等待变量，因此在使用Wait方法的时候必须持有锁。
+- `Cond` 结构体中包含`noCopy` 和 `copyChecker` 两个字段,前者用于保证`Cond` 不会再编译期间拷贝,后者保证在运行期间发生拷贝会直接`panic`,持有的另一个锁`L`其实是一个接口`Locker`,任意实现`Lock`和`Unlock`方法的结构体都可以作为`NewCond`方法的参数
+- 结构体中的最后的变量`notifyList` 其实也就是为了实现`Cond`同步机制,该结构体其实就是一个Goroutine的链表
+- `Cond` 对外暴露的`Wait` 方法会将当前Goroutine陷入休眠状态,它会先调用`runtime_notifyListAdd`将等待计数器 +1,然后解锁并调用 `runtime_notifyListWait` 等待其他Goroutine的唤醒
+- `notifyListWait` 方法的主要作用就是获取当前的Goroutine并将它追加到 `notifyList`链表的最末端
+- 除了将当前Goroutine追加到链表的最末端之外,我们还会调用`goparkunlock`陷入睡眠状态,该函数也是在Go语音切换Goroutine 时经常会使用的方法,它会直接让当前处理器的使用权并等待调度器的唤醒
+- `Cond`对外提供的`Signal` 和 `Broadcast` 方法就是用来唤醒调用`Wait`陷入休眠的Goroutine,前者会唤醒队列最前面的Goroutine,后者会唤醒队列中全部的Goroutine
+- `notifyListNotifyAll`方法会从链表中取出全部的Goroutine并为他们依次调用 `readyWithTime`, 该方法会通过`goready` 将目标的Goroutine 唤醒
+- 虽然它会唤醒全部的Goroutine,但是这里唤醒的顺序其实还是按照加入队列的先后顺序,先加入的会先被`goready`唤醒,后加入的Goroutine可能就需要等待调度器的调度
+- `notifyListNotifyOne` 函数就只会从 `sudog` 构成的链表中满足 `sudog.ticket == l.notify`的Goroutine并通过`readyWithTime`唤醒
+- 在一般情况下我们会选择在不满足特定条件时调用`Wait`陷入休眠,当某些Goroutine检测到当前满足了唤醒的条件,就可以选择使用`Signal`通过一个或者 `Broadcast`通知全部的Goroutine当前条件已经满足,可以继续完成工作了
 
-易错场景
+### 总结
 
-- 调用Wait方法没有加锁
-- 没有检查等待条件是否满足
+- `Wait`方法在调用之前一定要使用`L.Lock` 持有该资源,否则会发生`panic`导致程序崩溃。把调用者加入到等待队列时会释放锁，在被唤醒之后还会请求锁。在阻塞休眠期间，调用者是不持有锁的，这样能让其他 goroutine 有机会检查或者更新等待变量，因此在使用Wait方法的时候必须持有锁。
+- `Signal`方法唤醒Goroutine都是队列最前面 等待最久的Goroutine
+- `Broadcast`虽是广播通知等待的Goroutine,但是真正被唤醒时也是按照一定顺序的
 
 ## 原子操作
 
@@ -2223,6 +2428,22 @@ func main() {
 
 `atomic`包提供了底层的原子级内存操作，对于同步算法的实现很有用。这些函数必须谨慎地保证正确使用。除了某些特殊的底层应用，使用通道或者 sync 包的函数/类型实现同步更好。
 
+### Compare and Swap
+不同的类型有不同的CompareAndSwap操作，如 `atomic.CompareAndSwapInt64` 等。这是一个原子操作，用于在多线程环境中更新共享变量。这个操作允许线程检查一个变量的当前值是否与期望值相等，如果相等，则将变量的值设置为新值；如果不相等，则不做任何改变并返回当前值。整个检查和更新的过程是原子的，意味着它不能被其他线程中断。
+
+```go
+func CompareAndSwapInt64(addr *int64, old, new int64) (swapped bool)
+```
+- addr 是指向 int64 变量的指针。
+- old 是期望的旧值。
+- new 是要设置的新值。
+- 返回值 swapped 是一个布尔值，表示操作是否成功（即 addr 指向的值是否确实为 old）。
+
+CompareAndSwap 的主要作用包括：
+- 保证原子性：确保读取、比较和修改操作作为一个整体执行，防止其他线程在这些操作之间插入额外的操作。
+- 实现无锁编程：可以用来实现某些数据结构和算法，比如无锁队列、栈或其他同步结构，从而避免了使用锁带来的性能开销。
+- 避免死锁和优先级反转：由于没有锁的竞争，可以减少死锁的可能性以及因线程调度引起的优先级反转问题。
+- 在并发编程中，CompareAndSwap 是构建更复杂同步原语的基础，如自旋锁、信号量和原子引用等。
 
 ## 练习：
 
@@ -2713,6 +2934,7 @@ channel 是否线程安全？锁用在什么地方？ 答：
 
 ## 一些代码
 
+### 1. context相关
 ```go
 func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
@@ -2740,6 +2962,7 @@ func asyncDoStuffWithTimeout(ctx context.Context, result chan int) {
 // restult get: 0
 ```
 
+### 2. 10 个goroutine顺序打印 1-10
 ```go
 package main
 
@@ -2784,6 +3007,7 @@ func main() {
 }
 ```
 
+### 3. 写一共死锁
 ```go
 // 死锁
 package main
@@ -2816,6 +3040,7 @@ func main() {
 // 将通道的容量设置为 1，这样就可以发送一个数据，然后再阻塞。
 ```
 
+### 4. 只消费一次
 ```go
 // 只消费一次。
 package main
@@ -2843,8 +3068,8 @@ func pump(ch chan int) {
 }
 ```
 
+### 5. 用一个channel done 阻塞main
 ```go
-// 用一个channel done 阻塞main
 package main
 
 import "fmt"
@@ -2872,8 +3097,15 @@ func cus(ch chan int, done chan bool) {
 		done <- true
 	}()
 }
+
+// The counter is at 0
+// The counter is at 1
+// ...
+// The counter is at 13
+// The counter is at 14
 ```
 
+使用select 语句阻塞
 ```go
 package main
 
@@ -2906,6 +3138,7 @@ func main() {
 }
 ```
 
+### 6. select 随机打印1 0
 ```go
 func main() {
 	c := make(chan int)
@@ -2924,6 +3157,7 @@ func main() {
 // 随机打印1 0
 ```
 
+### 7. fibonacci
 fibonacci的一些写法：
 ```go
 // 1. select
@@ -2973,51 +3207,229 @@ func main() {
 // 3
 ```
 
+### 8. 优先级选择
+```go
+func priority_select(ch1, ch2 <-chan string) {
+	for {
+		select {
+		case val := <-ch1:
+			fmt.Println(val)
+		case val2 := <-ch2:
+			select {
+			case val1 := <-ch1:
+				fmt.Println(val1)
+			default:
+				fmt.Println(val2)
+			}
+		}
+	}
+}
+```
+
+### 9. 实现sync.WaitGroup的三个功能：Add、Done、Wait
+
+- 定义一个count用来实现Add, Done的加一减一功能。
+- `cwg.done`是一个`chan struct{}`类型的通道，当调用`close(cwg.done)`时，会向该通道发送一个零值的结构体，表示通道已经关闭。Wait()方法就是调用`<-cwg.done`这一行代码，它会阻塞等待，直到收到通道关闭的信号。
+
+```go
+package main
+
+import (
+	"fmt"
+	"sync/atomic"
+	"time"
+)
+
+type CustomWaitGroup struct {
+	count int32
+	done  chan struct{}
+}
+
+func NewCustomWaitGroup() *CustomWaitGroup {
+	return &CustomWaitGroup{
+		count: 0,
+		done:  make(chan struct{}),
+	}
+}
+
+func (cwg *CustomWaitGroup) Add(delta int) {
+	atomic.AddInt32(&cwg.count, int32(delta))
+}
+
+func (cwg *CustomWaitGroup) Done() {
+	if atomic.AddInt32(&cwg.count, -1) == 0 {
+		close(cwg.done)
+	}
+}
+
+func (cwg *CustomWaitGroup) Wait() {
+	<-cwg.done
+}
+
+func main() {
+	cwg := NewCustomWaitGroup()
+
+	for i := 0; i < 3; i++ {
+		cwg.Add(1)
+		go func(i int) {
+			defer cwg.Done()
+			fmt.Printf("Task %d started\n", i)
+			time.Sleep(1 * time.Second)
+			fmt.Printf("Task %d completed\n", i)
+		}(i)
+	}
+
+	cwg.Wait()
+	fmt.Println("All tasks completed")
+}
+```
+
+### 10. 一个简单的携程池
+```go
+// 主函数
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+/* 有关Task任务相关定义及操作 */
+//定义任务Task类型,每一个任务Task都可以抽象成一个函数
+type Task struct {
+	f func() error //一个无参的函数类型
+}
+
+// 通过NewTask来创建一个Task
+func NewTask(f func() error) *Task {
+	t := Task{
+		f: f,
+	}
+	return &t
+}
+
+// 执行Task任务的方法
+func (t *Task) Execute() {
+	t.f() //调用任务所绑定的函数
+}
+
+/* 有关协程池的定义及操作 */
+//定义池类型
+type Pool struct {
+	EntryChannel chan *Task //对外接收Task的入口
+	worker_num   int        //协程池最大worker数量,限定Goroutine的个数
+	JobsChannel  chan *Task //协程池内部的任务就绪队列
+}
+
+// 创建一个协程池
+func NewPool(cap int) *Pool {
+	p := Pool{
+		EntryChannel: make(chan *Task),
+		worker_num:   cap,
+		JobsChannel:  make(chan *Task),
+	}
+	return &p
+}
+
+// 协程池创建一个worker并且开始工作
+func (p *Pool) worker(work_ID int) {
+	//worker不断的从JobsChannel内部任务队列中拿任务
+	for task := range p.JobsChannel {
+		//如果拿到任务,则执行task任务
+		//time.Sleep(1 * time.Second)
+		task.Execute()
+		fmt.Println("worker ID ", work_ID, " 执行完毕任务")
+	}
+}
+
+// 让协程池Pool开始工作
+func (p *Pool) Run() {
+	//1,首先根据协程池的worker数量限定,开启固定数量的Worker,
+	//  每一个Worker用一个Goroutine承载
+	for i := 0; i < p.worker_num; i++ {
+		fmt.Println("开启固定数量的Worker:", i)
+		go p.worker(i)
+	}
+
+	//2, 从EntryChannel协程池入口取外界传递过来的任务
+	//   并且将任务送进JobsChannel中
+	for task := range p.EntryChannel {
+		p.JobsChannel <- task
+	}
+
+	//3, 执行完毕需要关闭JobsChannel
+	close(p.JobsChannel)
+	fmt.Println("执行完毕需要关闭JobsChannel")
+
+	// 需要延时一下
+}
+
+// 主函数
+func main() {
+	//创建一个Task
+	t := NewTask(func() error {
+		fmt.Println("创建一个Task:", time.Now().Format("2006-01-02 15:04:05"))
+		return nil
+	})
+
+	//创建一个协程池,最大开启3个协程worker
+	p := NewPool(3)
+
+	//开一个协程 不断的向 Pool 输送打印一条时间的task任务
+	go func() {
+		for i := 0; i < 10; i++ {
+			p.EntryChannel <- t
+		}
+		close(p.EntryChannel)
+		fmt.Println("执行完毕需要关闭EntryChannel")
+	}()
+
+	//启动协程池p
+	p.Run()
+}
+```
+这不对，还是得用waitgroup
+
+```go
+func main() {
+	c1 := make(chan int)
+	c2 := make(chan int)
+	var wg sync.WaitGroup
+
+	// 发送数据到c1
+	go func() {
+		for i := 0; i < 10; i++ {
+			c1 <- i
+		}
+		close(c1) // 关闭c1通道
+	}()
+
+	// 创建工作协程
+	for i := 0; i < 3; i++ {
+		wg.Add(1) // 增加WaitGroup计数器
+		go func(i int) {
+			defer wg.Done() // 完成时减小计数器
+			for in := range c2 {
+				fmt.Println("Worker:", i, "接收到外界传递过来的任务:", in)
+			}
+		}(i)
+	}
+
+	// 从c1读取数据并转发到c2
+	for n := range c1 {
+		c2 <- n
+	}
+	close(c2) // 关闭c2通道
+
+	// 等待所有工作协程完成
+	wg.Wait()
+}
+```
 
 
-## 待整理。。
 
-07 Channel
 
-底层结构
-qcount 已经接收但还未被取走的元素个数 内置函数len获取到
-
-datasiz 循环队列的大小 暂时认为是cap容量的值
-
-elemtype和elemsize 声明chan时到元素类型和大小 固定
-
-buf 指向缓冲区的指针 无缓冲通道中 buf的值为nil
-
-sendx 处理发送进来数据的指针在buf中的位置 接收到数据 指针会加上elemsize，移向下一个位置
-
-recvx 处理接收请求（发送出去）的指针在buf中的位置
-
-recvq 如果没有数据可读而阻塞， 会加入到recvq队列中
-
-sendq 向一个满了的buf 发送数据而阻塞，会加入到sendq队列中
-
-实现原理
-向channel写数据的流程：
-
-有缓冲区：
-优先查看recvq是否为空，如果不为空，优先唤醒recvq的中goroutine，并写入数据；如果队列为空，则写入缓冲区，如果缓冲区已满则写入sendq队列；
-
-无缓冲区：
-直接写入sendq队列
-
-向channel读数据的流程：
-
-有缓冲区：优先查看缓冲区，如果缓冲区有数据并且未满，直接从缓冲区取出数据；
-如果缓冲区已满并且sendq队列不为空，优先读取缓冲区头部的数据，并将队列的G的数据写入缓冲区尾部；
-
-无缓冲区：将当前goroutine加入recvq队列，等到写goroutine的唤醒
-
-易错点
-channel未初始化，写入或者读取都会阻塞
-往close的channel写入数据会发生panic
-close未初始化channel会发生panic
-close已经close过的channel会发生panic
-
+## TBD
 
 
 08 SingleFlight

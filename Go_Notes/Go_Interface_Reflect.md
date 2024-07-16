@@ -1021,6 +1021,231 @@ reflect.Value也满足fmt.Stringer接口, fmt包的`%v`标志参数会对reflect
 
 reflect.Value的Kind方法可以用来枚举类型，kinds类型是有限的: Bool, String和所有数字类型的基础类型; Array和Struct对应的聚合类型; Chan, Func, Ptr, Slice和Map对应的引用类型; interface类型; 还有表示空值的Invalid类型(空的reflect.Value的kind即为Invalid)。
 
+### reflect get tag
+//请您简短介绍下反射具体可以实现哪些功能，如果您在工作中曾经使用过反射，请说说具体的应用场景？
+//1. golang中反射最常见的使用场景是做对象的序列化，go语言标准库的encoding/json、xml、gob、binary等包就大量依赖于反射功能来实现
+//2. 反射能够在运行时检查类型，它还允许在运行时检查，修改和创建变量，函数和结构体。
+
+```go
+// tag获取
+package main
+
+import (
+	"reflect"
+	"fmt"
+)
+
+type Server struct {
+	ServerName string `key1:"value1" key11:"value11"`
+	ServerIP   string `key2:"value2"`
+}
+
+func main() {
+	s := Server{}
+	st := reflect.TypeOf(s)
+
+	field1 := st.Field(0)
+	fmt.Printf("key1:%v\n", field1.Tag.Get("key1"))
+	fmt.Printf("key11:%v\n", field1.Tag.Get("key11"))
+
+	filed2 := st.Field(1)
+	fmt.Printf("key2:%v\n", filed2.Tag.Get("key2"))
+
+}
+```
+
+### 用字符串调用函数
+```go
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+type Animal struct {
+}
+
+func (a *Animal) Eat() {
+	fmt.Println("Eat")
+}
+
+func main() {
+	a := Animal{}
+	reflect.ValueOf(&a).MethodByName("Eat").Call([]reflect.Value{})
+}
+// Eat
+```
+
+## 一个nil与interface{}比较的问题。
+Go 语言中有两种略微不同的接口，`一种是带有一组方法的接口，另一种是不带任何方法的空接口 interface{}。` Go 语言使用runtime.iface表示带方法的接口，使用runtime.eface表示不带任何方法的空接口interface{}。
+
+一个 interface{} 类型的变量包含了 2 个指针，一个指针指向值的类型，另外一个指针指向实际的值。在 Go 源码中 runtime 包下，我们可以找到runtime.eface的定义。
+```go
+type eface struct {
+	_type *_type
+	data  unsafe.Pointer
+}
+```
+从空接口的定义可以看到，当一个空接口变量为 nil 时，需要其两个指针均为 0 才行。
+
+回到最初的问题，我们打印下传入函数中的空接口变量值，来看看它两个指针值的情况。
+
+```go
+// InterfaceStruct 定义了一个 interface{} 的内部结构
+type InterfaceStruct struct {
+	pt uintptr // 到值类型的指针
+	pv uintptr // 到值内容的指针
+}
+
+// ToInterfaceStruct 将一个 interface{} 转换为 InterfaceStruct
+func ToInterfaceStruct(i interface{}) InterfaceStruct {
+	return *(*InterfaceStruct)(unsafe.Pointer(&i))
+}
+
+func IsNil(i interface{}) {
+	fmt.Printf("i value is %+v\n", ToInterfaceStruct(i))
+}
+
+func main() {
+	var sl []string
+	IsNil(sl)
+	IsNil(nil)
+}
+// 运行输出：
+// i value is {pt:6769760 pv:824635080536}
+// i value is {pt:0 pv:0}
+```
+可见，虽然 sl 是 nil 切片，但是其本上是一个类型为 []string，值为空结构体 slice 的一个变量，所以 sl 传给空接口时是一个非 nil 变量。
+
+再细究的话，你可能会问，既然 sl 是一个有类型有值的切片，为什么又是个 nil。针对具体类型的变量，判断是否是 nil 要根据其值是否为零值。因为 sl 一个切片类型，而切片类型的定义在源码包src/runtime/slice.go我们可以找到。
+
+```go
+type slice struct {
+	array unsafe.Pointer
+	len   int
+	cap   int
+}
+```
+我们继续看一下值为 nil 的切片对应的 slice 是否为零值。
+```go
+type slice struct {
+	array unsafe.Pointer
+	len   int
+	cap   int
+}
+
+func main() {
+	var sl []string
+	fmt.Printf("sl value is %+v\n", *(*slice)(unsafe.Pointer(&sl)))
+}
+// 运行输出：
+// sl value is {array:<nil> len:0 cap:0}
+// 是零值。
+```
+
+至此解释了开篇出乎意料的比较结果背后的原因：空切片为 nil 因为其值为零值，类型为 []string 的空切片传给空接口后，因为空接口的值并不是零值，所以接口变量不是 nil。
+
+有两个办法：
+1. 既然值为 nil 的具型变量赋值给空接口会出现如此莫名其妙的情况，我们不要这么做，再赋值前先做判空处理，不为 nil 才赋给空接口；
+2. 使用reflect.ValueOf().IsNil()来判断。不推荐这种做法，因为当空接口对应的具型是值类型，会 panic。
+
+```go
+func IsNil(i interface{}) {
+	if i != nil {
+		if reflect.ValueOf(i).IsNil() {
+			fmt.Println("i is nil")
+			return
+		}
+		fmt.Println("i isn't nil")
+	}
+	fmt.Println("i is nil")
+}
+
+func main() {
+	var sl []string
+	IsNil(sl)	// i is nil
+	IsNil(nil)  // i is nil
+}
+```
+
+Go 中变量是否为 nil 要看变量的值是否是零值。
+
+###  iface 和 eface 的区别是什么
+
+iface 和 eface 都是 Go 中描述接口的底层结构体，区别在于 iface 描述的接口包含方法，而 eface 则是不包含任何方法的空接口：interface{}。
+
+从源码层面看一下：
+
+```go
+type iface struct {
+    tab  *itab
+    data unsafe.Pointer
+}
+
+type ITab struct {
+	Inter *InterfaceType
+	Type  *Type
+	Hash  uint32     // copy of Type.Hash. Used for type switches.
+	Fun   [1]uintptr // variable sized. fun[0]==0 means Type does not implement Inter.
+}
+```
+
+iface 内部维护两个指针，tab 指向一个 itab 实体， 它表示接口的类型以及赋给这个接口的实体类型。data 则指向接口具体的值，一般而言是一个指向堆内存的指针。
+
+再来仔细看一下 itab 结构体：_type 字段描述了实体的类型，包括内存对齐方式，大小等；inter 字段则描述了接口的类型。fun 字段放置和接口方法对应的具体数据类型的方法地址，实现接口调用方法的动态分派，一般在每次给接口赋值发生转换时会更新此表，或者直接拿缓存的 itab。
+
+这里只会列出实体类型和接口相关的方法，实体类型的其他方法并不会出现在这里。
+
+另外，你可能会觉得奇怪，为什么 fun 数组的大小为 1，要是接口定义了多个方法可怎么办？实际上，这里存储的是第一个方法的函数指针，如果有更多的方法，在它之后的内存空间里继续存储。从汇编角度来看，通过增加地址就能获取到这些函数指针，没什么影响。顺便提一句，这些方法是按照函数名称的字典序进行排列的。
+
+再看一下 interfacetype 类型，它描述的是接口的类型：
+
+```go
+type InterfaceType struct {
+	Type
+	PkgPath Name      // import path
+	Methods []Imethod // sorted by hash
+}
+```
+
+可以看到，它包装了 _type 类型，_type 实际上是描述 Go 语言中各种数据类型的结构体。我们注意到，这里还包含一个 mhdr 字段，表示接口所定义的函数列表， pkgpath 记录定义了接口的包名。
+
+
+接着来看一下 eface 的源码：
+
+```go
+type eface struct {
+    _type *_type
+    data  unsafe.Pointer
+}
+```
+
+相比 iface，eface 就比较简单了。只维护了一个 _type 字段，表示空接口所承载的具体的实体类型。data 描述了具体的值。
+
+### 接口转换的原理
+
+通过前面提到的 iface 的源码可以看到，实际上它包含接口的类型 interfacetype 和 实体类型的类型 _type，这两者都是 iface 的字段 itab 的成员。也就是说生成一个 itab 同时需要接口的类型和实体的类型。
+
+当判定一种类型是否满足某个接口时，Go 使用类型的方法集和接口所需要的方法集进行匹配，如果类型的方法集完全包含接口的方法集，则可认为该类型实现了该接口。
+
+例如某类型有 m 个方法，某接口有 n 个方法，则很容易知道这种判定的时间复杂度为 O(mn)，Go 会对方法集的函数按照函数名的字典序进行排序，所以实际的时间复杂度为 O(m+n)。
+
+这里我们来探索将一个接口转换给另外一个接口背后的原理，当然，能转换的原因必然是类型兼容。
+
+1. 具体类型转空接口时，_type 字段直接复制源类型的 _type；调用 mallocgc 获得一块新内存，把值复制进去，data 再指向这块新内存。
+2. 具体类型转非空接口时，入参 tab 是编译器在编译阶段预先生成好的，新接口 tab 字段直接指向入参 tab 指向的 itab；调用 mallocgc 获得一块新内存，把值复制进去，data 再指向这块新内存。
+3. 而对于接口转接口，itab 调用 getitab 函数获取。只用生成一次，之后直接从 hash 表中获取。
+
+###  如何用 interface 实现多态
+多态是一种运行期的行为，它有以下几个特点：
+
+1. 一种类型具有多种类型的能力
+2. 允许不同的对象对同一消息做出灵活的反应
+3. 以一种通用的方式对待个使用的对象
+4. 非动态语言必须通过继承和接口的方式来实现
+
+运行期间选择具体的多态操作执行的过程,在Go语言中,对于一个接口类型的方法调用,会在运行期间决定具体调用该方法的哪个实现
 
 ## 练习：
 
@@ -1595,138 +1820,4 @@ func (g GetPodAction) Exec(transInfo *TransInfo) error {
 // B. var fragment Fragment = GetPodAction
 // C. var fragment Fragment = &GetPodAction{}
 // D. var fragment Fragment = GetPodAction{}
-```
-
-## 一个nil与interface{}比较的问题。
-Go 语言中有两种略微不同的接口，`一种是带有一组方法的接口，另一种是不带任何方法的空接口 interface{}。` Go 语言使用runtime.iface表示带方法的接口，使用runtime.eface表示不带任何方法的空接口interface{}。
-
-一个 interface{} 类型的变量包含了 2 个指针，一个指针指向值的类型，另外一个指针指向实际的值。在 Go 源码中 runtime 包下，我们可以找到runtime.eface的定义。
-```go
-type eface struct {
-	_type *_type
-	data  unsafe.Pointer
-}
-```
-从空接口的定义可以看到，当一个空接口变量为 nil 时，需要其两个指针均为 0 才行。
-
-回到最初的问题，我们打印下传入函数中的空接口变量值，来看看它两个指针值的情况。
-
-```go
-// InterfaceStruct 定义了一个 interface{} 的内部结构
-type InterfaceStruct struct {
-	pt uintptr // 到值类型的指针
-	pv uintptr // 到值内容的指针
-}
-
-// ToInterfaceStruct 将一个 interface{} 转换为 InterfaceStruct
-func ToInterfaceStruct(i interface{}) InterfaceStruct {
-	return *(*InterfaceStruct)(unsafe.Pointer(&i))
-}
-
-func IsNil(i interface{}) {
-	fmt.Printf("i value is %+v\n", ToInterfaceStruct(i))
-}
-
-func main() {
-	var sl []string
-	IsNil(sl)
-	IsNil(nil)
-}
-// 运行输出：
-// i value is {pt:6769760 pv:824635080536}
-// i value is {pt:0 pv:0}
-```
-可见，虽然 sl 是 nil 切片，但是其本上是一个类型为 []string，值为空结构体 slice 的一个变量，所以 sl 传给空接口时是一个非 nil 变量。
-
-再细究的话，你可能会问，既然 sl 是一个有类型有值的切片，为什么又是个 nil。针对具体类型的变量，判断是否是 nil 要根据其值是否为零值。因为 sl 一个切片类型，而切片类型的定义在源码包src/runtime/slice.go我们可以找到。
-
-```go
-type slice struct {
-	array unsafe.Pointer
-	len   int
-	cap   int
-}
-```
-我们继续看一下值为 nil 的切片对应的 slice 是否为零值。
-```go
-type slice struct {
-	array unsafe.Pointer
-	len   int
-	cap   int
-}
-
-func main() {
-	var sl []string
-	fmt.Printf("sl value is %+v\n", *(*slice)(unsafe.Pointer(&sl)))
-}
-// 运行输出：
-// sl value is {array:<nil> len:0 cap:0}
-// 是零值。
-```
-
-至此解释了开篇出乎意料的比较结果背后的原因：空切片为 nil 因为其值为零值，类型为 []string 的空切片传给空接口后，因为空接口的值并不是零值，所以接口变量不是 nil。
-
-有两个办法：
-1. 既然值为 nil 的具型变量赋值给空接口会出现如此莫名其妙的情况，我们不要这么做，再赋值前先做判空处理，不为 nil 才赋给空接口；
-2. 使用reflect.ValueOf().IsNil()来判断。不推荐这种做法，因为当空接口对应的具型是值类型，会 panic。
-
-```go
-func IsNil(i interface{}) {
-	if i != nil {
-		if reflect.ValueOf(i).IsNil() {
-			fmt.Println("i is nil")
-			return
-		}
-		fmt.Println("i isn't nil")
-	}
-	fmt.Println("i is nil")
-}
-
-func main() {
-	var sl []string
-	IsNil(sl)	// i is nil
-	IsNil(nil)  // i is nil
-}
-```
-
-Go 中变量是否为 nil 要看变量的值是否是零值。
-
-Ref:
-
-https://juejin.cn/post/7100078516334493733
-https://www.cnblogs.com/wpgraceii/p/10528183.html
-
-
-## 其他
-//请您简短介绍下反射具体可以实现哪些功能，如果您在工作中曾经使用过反射，请说说具体的应用场景？
-//1. golang中反射最常见的使用场景是做对象的序列化，go语言标准库的encoding/json、xml、gob、binary等包就大量依赖于反射功能来实现
-//2. 反射能够在运行时检查类型，它还允许在运行时检查，修改和创建变量，函数和结构体。
-
-
-```go
-// tag获取
-package main
-
-import (
-	"reflect"
-	"fmt"
-)
-
-type Server struct {
-	ServerName string `key1:"value1" key11:"value11"`
-	ServerIP   string `key2:"value2"`
-}
-
-func main() {
-	s := Server{}
-	st := reflect.TypeOf(s)
-
-	field1 := st.Field(0)
-	fmt.Printf("key1:%v\n", field1.Tag.Get("key1"))
-	fmt.Printf("key11:%v\n", field1.Tag.Get("key11"))
-
-	filed2 := st.Field(1)
-	fmt.Printf("key2:%v\n", filed2.Tag.Get("key2"))
-
-}
 ```

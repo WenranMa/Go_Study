@@ -216,7 +216,7 @@ https://blog.golang.org/strings
 
 ---
 
-### encoding/xml encoding/json
+## encoding/xml encoding/json
 Marshal() 返回[]byte数组
 print(string([]byte))
 
@@ -230,6 +230,17 @@ Unmarshl
 xml.NewDecoder
 for循环遍历decoder.Tocken()
 
+
+a field with tag "-" is omitted.
+a field with tag "name,attr" becomes an attribute with the given name in the XML element.
+a field with tag ",attr" becomes an attribute with the field name in the XML element.
+a field with tag ",chardata" is written as character data, not as an XML element.
+a field with tag ",cdata" is written as character data wrapped in one or more <![CDATA[ ... ]]> tags, not as an XML element.
+a field with tag ",innerxml" is written verbatim, not subject to the usual marshaling procedure.
+a field with tag ",comment" is written as an XML comment, not subject to the usual marshaling procedure. It must not contain the "--" string within it.
+a field with a tag including the "omitempty" option is omitted if the field value is empty. The empty values are false, 0, any nil pointer or interface value, and any array, slice, map, or string of length zero.
+
+If a field uses a tag "a>b>c", then the element c will be nested inside parent elements a and b. Fields that appear next to each other that name the same parent will be enclosed in one XML element.
 
 
 ### os.Args

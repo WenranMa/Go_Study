@@ -429,12 +429,6 @@ func main() {
 
 下面这段代码输出什么？
 ```go
-package main
-
-import (  
-    "fmt"
-)
-
 func main() {  
     a := [5]int{1, 2, 3, 4, 5}
     t := a[3:4:4]
@@ -795,7 +789,7 @@ func main() {
 	fmt.Printf("%p,%p\n", slice, newSlice)
 	fmt.Println(&slice[0] == &newSlice[0])
 }
-//3
+// 3
 // 0xc000016198,0xc000012510
 // false
 // 但如果分三次append, 结果为true.
@@ -1273,6 +1267,38 @@ golang规范中，哪些数据类型可以比较？答：不能作为map key 的
 - functions
 
 
+下面代码输出：
+
+```go
+func main() {
+	arr := []int{1, 2, 3}
+	fmt.Println("addr ai:", &arr[0])
+	fmt.Println("addr ai:", &arr[1])
+	fmt.Println("addr ai:", &arr[2])
+
+	newArr := []*int{}
+	for i, v := range arr {
+		fmt.Println("addrv: ", &v, "addr ai:", &arr[i])
+		newArr = append(newArr, &v)
+	}
+	for _, v := range newArr {
+		fmt.Println(*v)
+	}
+}
+// addr ai: 0xc000016198
+// addr ai: 0xc0000161a0
+// addr ai: 0xc0000161a8
+// addrv:  0xc00000a0e0 addr ai: 0xc000016198
+// addrv:  0xc00000a0e8 addr ai: 0xc0000161a0
+// addrv:  0xc00000a0f0 addr ai: 0xc0000161a8
+// 1
+// 2
+// 3
+```
+
+
+
+
 ## 待整理 
 
 range 看源代码？
@@ -1386,7 +1412,7 @@ func main() {
 func testGrowSlice() {
 	s := make([]int, 0)
 	oldCap := cap(s)
-	for i := 0; i < 2048; i++ {
+	for i := 0; i < 40000; i++ {
 		s = append(s, i)
 		newCap := cap(s)
 		if newCap != oldCap {
@@ -1410,5 +1436,14 @@ func testGrowSlice() {
 [0 ->  847] cap = 848   |  after append 848   cap = 1280	// 848 * 1.5
 [0 -> 1279] cap = 1280  |  after append 1280  cap = 1792	// 1280 * 1.4
 [0 -> 1791] cap = 1792  |  after append 1792  cap = 2560	// 1792 * 1.42
+[0 -> 3407] cap = 3408  |  after append 3408  cap = 5120     
+[0 -> 5119] cap = 5120  |  after append 5120  cap = 7168
+[0 -> 7167] cap = 7168  |  after append 7168  cap = 9216
+[0 -> 9215] cap = 9216  |  after append 9216  cap = 12288
+[0 -> 12287] cap = 12288  |  after append 12288  cap = 16384
+[0 -> 16383] cap = 16384  |  after append 16384  cap = 21504
+[0 -> 21503] cap = 21504  |  after append 21504  cap = 27648
+[0 -> 27647] cap = 27648  |  after append 27648  cap = 34816   // 27648 * 1.259
+[0 -> 34815] cap = 34816  |  after append 34816  cap = 44032   // 34816 * 1.264
 */
 ```

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 )
 
 type dollars float32
@@ -18,6 +19,7 @@ func (db database) list(w http.ResponseWriter, req *http.Request) {
 	for item, price := range db {
 		fmt.Fprintf(w, "%s: %s\n", item, price)
 	}
+	time.Sleep(1 * time.Second)
 }
 
 func (db database) price(w http.ResponseWriter, req *http.Request) {
@@ -29,6 +31,7 @@ func (db database) price(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	fmt.Fprintf(w, "%s\n", price)
+	time.Sleep(1 * time.Second)
 }
 
 func main() {

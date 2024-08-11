@@ -1,69 +1,46 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
-	"io"
+	"os"
+	"strconv"
+	"strings"
 )
 
-func isPrime(num int) bool {
-	if num == 1 {
-		return false
-	}
-	for i := 2; i*i <= num; i++ {
-		if num%i == 0 {
-			return false
-		}
-	}
-	return true
-}
-
-func match(odd int, evens []int, visited map[int]int, suited map[int]int) bool {
-	for _, even := range evens {
-		if isPrime(odd+even) && visited[even] == 0 {
-			visited[even] = 1
-			if suited[even] == 0 || match(suited[even], evens, visited, suited) {
-				suited[even] = odd
-				return true
-			}
-		}
-	}
-	return false
-}
-
 func main() {
-	for {
-		var n int
-		var num int
-		var odds []int
-		var evens []int
+	scanner := bufio.NewScanner(os.Stdin)
+	scanner.Scan()
+	n, _ := strconv.Atoi(scanner.Text())
 
-		c, err := fmt.Scanf("%d\n", &n)
-		if c == 0 || err == io.EOF {
-			break
-		}
-
-		//分奇数和偶数
-		for i := 0; i < n; i++ {
-			fmt.Scanf("%d", &num)
-			if num%2 == 0 {
-				evens = append(evens, num)
-			} else {
-				odds = append(odds, num)
-			}
-		}
-
-		var suited map[int]int = make(map[int]int)
-		var res int
-		for i := 0; i < len(odds); i++ {
-
-			var visited map[int]int = make(map[int]int)
-
-			ok := match(odds[i], evens, visited, suited)
-			if ok {
-				res++
-			}
-		}
-
-		fmt.Println(res)
+	scores := make([]int, n)
+	scanner.Scan()
+	temp := strings.Split(scanner.Text(), " ")
+	for i := 0; i < n; i++ {
+		s, _ := strconv.Atoi(temp[i])
+		scores = append(scores, s)
 	}
+	scanner.Scan()
+	k, _ := strconv.Atoi(scanner.Text())
+
+	fmt.Println(maxResult(scores, k))
+}
+func maxResult(nums []int, k int) int {
+	n := len(nums)
+	dp := make([]int, n)
+	dp[0] = nums[0]
+	queue := make([]int, n) // 模拟双端队列
+	qi, qj := 0, 1
+	for i := 1; i < n; i++ {
+		for qi < qj && queue[qi] < i-k {
+			qi++
+		}
+		dp[i] = dp[queue[qi]] + nums[i]
+		for qi < qj && dp[queue[qj-1]] <= dp[i] {
+			qj--
+		}
+		queue[qj] = i
+		qj++
+	}
+	return dp[n-1]
 }

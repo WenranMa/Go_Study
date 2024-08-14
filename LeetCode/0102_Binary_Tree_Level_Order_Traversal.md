@@ -72,3 +72,23 @@ func levelOrder(root *TreeNode) [][]int {
 	return res
 }
 ```
+
+```go
+func levelOrder(root *TreeNode) [][]int {
+	res := [][]int{}
+	var order func(root *TreeNode, level int)
+	order = func(root *TreeNode, level int) {
+		if root == nil {
+			return
+		}
+		if level > len(res) {
+			res = append(res, []int{})
+		}
+		res[level-1] = append(res[level-1], root.Val)		
+		order(root.Left, level+1, !flag)
+		order(root.Right, level+1, !flag)
+	}
+	order(root, 1)
+	return res
+}
+```

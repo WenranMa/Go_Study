@@ -1,11 +1,12 @@
 package main
 
 import (
-	"./node"
 	"bufio"
 	"fmt"
 	"os"
 	"strconv"
+
+	"./node"
 )
 
 const (
@@ -174,3 +175,11 @@ func sortDemo() {
 	writeToFile(p, fileNameOut)
 	printFile(fileNameOut)
 }
+
+/*
+### Pipeline: 外部排序Pipeline
+选自慕课网：搭建并行处理管道
+
+- 原始数据过大，无法一次读入内存，所以分块读入内存。每个块数据进行内部排序（直接调用API排序），
+最后讲各个节点归并，归并选择两两归并。
+*/

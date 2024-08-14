@@ -1,25 +1,14 @@
 # defer,panic,recover
 ## defer
-当defer语句被执行时，跟在defer后面的函数会被延迟执行。直到包含该defer语句的函数执行完毕时，defer后的函数才会被执行，不论包含defer语句的函数是通过return正常结束，还是由于panic导致的异常结束。可以在一个函数中执行多条defer语句，它们的执行顺序与声明顺序相反。
+
+### 1. 延迟执行
+当defer语句被执行时，跟在defer后面的函数会被延迟执行。直到包含该defer语句的函数执行完毕时，defer后的函数才会被执行，不论包含defer语句的函数是通过return正常结束，还是由于panic导致的异常结束。
 
 defer语句经常被用于处理成对的操作，如打开、关闭、连接、断开连接、加锁、释放锁。通过defer机制，不论函数逻辑多复杂，都能保证在任何执行路径下，资源被释放。释放资源的defer应该直接跟在请求资源的语句后。
 
-`defer语句中的函数会在return语句更新返回值变量后再执行，又因为在函数中定义的匿名函数可以访问该函数包括返回值变量在内的所有变量，所以，对匿名函数采用defer机制，可以使其观察函数的返回值。`
-```go
-func main() {
-    _ = double(4) // "double(4) = 9"
-}
+### 2. 一个函数中可以执行多条defer语句，它们的执行顺序与声明顺序相反。
+defer的特点就是LIFO，即后进先出，所以如果在同一个函数下多个defer的话，会逆序执行。
 
-func double(x int) (result int) {
-    defer func() {
-        result += 1
-        fmt.Printf("double(%d) = %d\n", x, result) 
-    }()
-    return x + x
-}
-```
-
-Defer栈，defer的特点就是LIFO，即后进先出，所以如果在同一个函数下多个defer的话，会逆序执行。
 ```go
 func main() {
     f(3)
@@ -40,7 +29,42 @@ panic: runtime error: integer divide by zero
 */
 ```
 
-defer携带的表达式语句代表的是对某个函数或方法的调用。这个调用可能会有参数传入，比如：fmt.Print(i + 1)。如果传入参数的是一个表达式，那么在defer语句被执行的时候该表达式就会被求值了。注意，这与被携带的表达式语句的执行时机是不同的。请揣测下面这段代码的执行：
+### 3. defer with 具名返回值
+defer语句中的函数会在return语句更新返回值变量后再执行，又因为在函数中定义的匿名函数可以访问该函数包括返回值变量在内的所有变量，所以，对匿名函数采用defer机制，可以使其观察函数的返回值。
+```go
+func main() {
+    _ = double(4) // "double(4) = 9"
+}
+
+func double(x int) (result int) {
+    defer func() {
+        result += 1
+        fmt.Printf("double(%d) = %d\n", x, result) 
+    }()
+    return x + x
+}
+// result = x + x = 8, reslult += 1 = 9
+```
+
+### 4. defer 变量赋值，初始化
+
+defer后面函数的参数，在真正执行defer 语句之前会保存一份副本。
+```go
+func hello(i int) {  
+    fmt.Println(i)
+}
+
+func main() {  
+    i := 5
+    defer hello(i)
+    i = i + 10
+}
+// 5
+// hello() 函数的参数在执行 defer 语句的时候会保存一份副本，在实际调用 hello() 函数时用，所以是 5。
+```
+
+defer携带的表达式语句代表的是对某个函数或方法的调用。这个传入的函数，会在defer函数调用之前就被实际调用了。
+
 ```go
 func deferIt3() {
     f := func(i int) int {
@@ -48,12 +72,18 @@ func deferIt3() {
         return i * 10
     }
     for i := 1; i < 5; i++ {
-        defer fmt.Printf("%d ", f(i))
+        defer fmt.Printf("%d ", f(i)) // 这里f(i) 会被执行
     }
 }
-// 它在被执行之后，标准输出上打印出1 2 3 4 40 30 20 10 。
+
+func main() {
+    deferIt3()
+}
+// 标准输出上打印出1 2 3 4 40 30 20 10 。
 ```
-   
+
+### 这个不对 -- TBD
+
 如果defer携带的表达式语句代表的是对匿名函数的调用，那么我们就一定要非常警惕。请看下面的示例：
 ```go
 func deferIt4() {
@@ -76,10 +106,10 @@ func deferIt4() {
 }
 ```
 
-### Panic
+### 5. Panic
 有些错误只能在运行时检查，如数组访问越界、空指针引用等。这些运行时错误会引起painc异常。当panic异常发生时，程序会中断运行，并立即执行在该goroutine中被延迟的函数(defer机制)。
 
-`panic会停掉当前正在执行的程序（注意，不只是协程），但是与os.Exit(-1)这种直愣愣的退出不同，panic的撤退比较有秩序，他会先处理完当前goroutine已经defer挂上去的任务，执行完毕后再退出整个程序。panic仅保证当前goroutine下的defer都会被调到，但不保证其他协程的defer也会调到。`
+panic会停掉当前正在执行的程序（注意，不只是协程），但是与os.Exit(-1)不同，panic的撤退比较有秩序，**panic会先处理完当前goroutine已经defer挂上去的任务，执行完毕后再退出整个程序。** panic仅保证当前goroutine下的defer都会被调到，但不保证其他协程的defer也会调到。`
 
 直接调用内置的`panic函数`也会引发panic异常，panic函数接受任何值作为参数。参数通常是将出错的信息以字符串的形式来表示。panic会打印这个字符串，以及触发panic的调用栈。当某些不应该发生的场景发生时，我们就应该调用panic。
 
@@ -110,15 +140,16 @@ func main() {
     time.Sleep(1 * time.Second)
     panic("main") 
 }
-//defer here  
-//defer caller  
+// defer here
+// defer caller
+// panic: should set user env.
 //main中增加一个defer，但会睡1s，在这个过程中panic了，还没等到main睡醒，进程已经退出了，因此main的defer不会被调到；而跟panic同一个goroutine的”defer caller”还是会打印的，并且其打印在”defer here”之后。
 ```
 
-### Recover
+### 6. Recover
 有时可以从异常中恢复，至少可以在程序崩溃前，做一些操作。例如当web服务器遇到问题时，在崩溃前应该将所有的连接关闭，否则会使得客户端一直于等待状态。
 
-如果在deferred函数中调用了内置函数recover，并且定义该defer语句的函数发生了panic异常， recover会使程序从panic中恢复，并返回panic value。导致panic异常的函数不会继续运行，但能正常返回。注意 `recover只在defer的函数中有效，如果不是在refer上下文中调用，或在未发生panic时调用recover，recover会返回nil（选择性recover）`。
+如果在deferred函数中调用了内置函数recover，并且定义该defer语句的函数发生了panic异常， recover会使程序从panic中恢复，并返回panic value。导致panic异常的函数不会继续运行，但能正常返回。注意 **recover只在defer的函数中有效，如果不是在refer上下文中调用，或在未发生panic时调用recover，recover会返回nil（选择性recover）。**
 ```go
 package main
 
@@ -156,7 +187,7 @@ func main() {
 //defer caller
 //recover success.
 //defer main
-//recover力挽狂澜，避免了因为panic导致的节节败退，最终main拿到了结果，有秩序的退场了。注意，panic后面的”after panic”字符串并没有打印，这正是我们想要的。遇到解决不了的难题，只管甩panic就行，外面总有人能接的住。
+//recover避免了因为panic导致的程序推出，最终main拿到了结果，有秩序的退场了。注意，panic后面的”after panic”字符串并没有打印，这正是我们想要的。遇到解决不了的难题，只管甩panic就行，外面总有人能接的住。
 ```
 
 panic可被意译为运行时恐慌。因为它只有在程序运行的时候才会被“抛出来”。并且，恐慌是会被扩散的。当有运行时恐慌发生时，它会被迅速地向调用栈的上层传递。如果我们不显式地处理它的话，程序的运行瞬间就会被终止 -- 程序崩溃。内建函数panic可以让我们人为地产生一个运行时恐慌。不过，这种致命错误是可以被恢复的。在Go语言中，内建函数recover就可以做到这一点。
@@ -204,21 +235,6 @@ func defer_call()  {
 // defer的执行顺序是先进后出。出现panic语句的时候，会先按照 `defer` 的后进先出顺序执行，最后才会执行panic。
 ```
 
-下面这段代码输出什么?
-```go
-func hello(i int) {  
-    fmt.Println(i)
-}
-
-func main() {  
-    i := 5
-    defer hello(i)
-    i = i + 10
-}
-// 5
-// hello() 函数的参数在执行 defer 语句的时候会保存一份副本，在实际调用 hello() 函数时用，所以是 5。
-```
-
 下面这段代码输出什么？
 ```go
 func f(n int) (r int) {
@@ -229,7 +245,7 @@ func f(n int) (r int) {
 
     var f func()
 
-    defer f()
+    defer f() // 未定义。。。
     f = func() {
         r += 2
     }
@@ -240,7 +256,7 @@ func main() {
     fmt.Println(f(3))
 }
 // 7
-// 第一步执行`r = n +1`，接着执行第二个 defer，由于此时 f() 未定义，引发异常，随即执行第一个 defer，异常被 recover()，程序正常执行，最后 return。
+// 第一步执行`r = n +1 = 4`，接着执行第二个 defer，由于此时 f() 未定义，引发异常，随即执行第一个 defer，r += n = 4+3 = 7 异常被 recover()，程序正常执行，最后 return。
 ```
 
 f1()、f2()、f3() 函数分别返回什么？
@@ -272,7 +288,7 @@ func f3() (r int) {
 // f3 返回值有名字，先执行 r= 1, defer 函数中的r和返回值的r不一样，defer中的r += 5 不影响返回值，返回 1。如果defer 中没有传入参数，
 defer func() { 
     r = r + 5 
-} ()
+}()
 // 则返回6.
 ```
 
@@ -499,7 +515,7 @@ func main() {
 		fmt.Print("1-", recover())
 	}()
 	defer func() {
-		defer fmt.Print("2-", recover())
+		defer fmt.Print("2-", recover()) // 这个recover会先于panic(1)执行
 		panic(1)
 	}()
 	panic(2)

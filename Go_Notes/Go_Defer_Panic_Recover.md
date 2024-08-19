@@ -82,7 +82,7 @@ func main() {
 // 标准输出上打印出1 2 3 4 40 30 20 10 。
 ```
 
-### 这个不对 -- TBD
+### 对匿名函数的调用
 
 如果defer携带的表达式语句代表的是对匿名函数的调用，那么我们就一定要非常警惕。请看下面的示例：
 ```go
@@ -93,9 +93,11 @@ func deferIt4() {
         }()
     }
 }
-// 这里不对，实验也是4321？？？？？？
+// 实验也是4321
 ``` 
-deferIt4函数在被执行之后标出输出上会出现5555，而不是4321。原因是defer语句携带的表达式语句中的那个匿名函数包含了对外部（确切地说，是该defer语句之外）的变量的使用。注意，等到这个匿名函数要被执行（且会被执行4次）的时候，包含该defer语句的那条for语句已经执行完毕了。此时的变量i的值已经变为了5。因此该匿名函数中的打印函数只会打印出5。正确的用法是：把要使用的外部变量作为参数传入到匿名函数中。修正后的deferIt4函数如下：
+deferIt4函数在被执行之后标出输出上会出现5555，而不是4321。原因是defer语句携带的表达式语句中的那个匿名函数包含了对外部（确切地说，是该defer语句之外）的变量的使用。注意，等到这个匿名函数要被执行（且会被执行4次）的时候，包含该defer语句的那条for语句已经执行完毕了。此时的变量i的值已经变为了5。因此该匿名函数中的打印函数只会打印出5。正确的用法是：把要使用的外部变量作为参数传入到匿名函数中。  **(以上说法针对 version < 1.22,  golang 1.22已经不是这样，上面的写法也是对的。https://pkg.go.dev/golang.org/x/tools/go/analysis/passes/loopclosure#hdr-Analyzer_loopclosure )**
+
+修正后的deferIt4函数如下：
 ```go
 func deferIt4() {
     for i := 1; i < 5; i++ {
@@ -697,7 +699,7 @@ func calc(index string, a, b int) int {
 - D. 调用panic函数；
 
 
-下面代码输出什么，请说明。 -- TBD
+下面代码输出什么，请说明。 
 ```go
 func main() {
     x := []int{0, 1, 2}
@@ -710,16 +712,13 @@ func main() {
     }
     print(*y[0], *y[1], *y[2])
 }
+// 012210   1.22
+// 222222   <1.22
+
+//知识点：defer()、for-range。
+
+//for-range 虽然使用的是 :=，但是 v 不会重新声明 (<1.22)，可以打印 v 的地址验证下。
 ```
-
-**答：012210     22222**
-
-**解析：**
-
-知识点：defer()、for-range。
-
-~~for-range 虽然使用的是 :=，但是 v 不会重新声明，可以打印 v 的地址验证下。~~
-
 
 下面两组代码输出：
 ```go
@@ -737,8 +736,8 @@ func b() (i int) {
 func main() { 	
     fmt.Println("return:", b()) 
 } 
-// defer 1
-// defer 2
+// defer1 1
+// defer2 2
 // return 2
 ```
 
@@ -753,13 +752,13 @@ func c() *int {
         i++ 		
         fmt.Println("defer1:", i) 	
     }() 	
-    return &i 
+    return &i
 } 
 func main() { 	
     fmt.Println("return:", *(c())) 
 }
-// defer 1
-// defer 2
+// defer1 1
+// defer2 2
 // return 2
 ```
 
@@ -771,7 +770,6 @@ func main() {
         defer fmt.Println("defer runs")
         fmt.Println("block ends")
     }
-
     fmt.Println("main ends")
 }
 // block ends

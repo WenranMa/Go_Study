@@ -593,9 +593,8 @@ func show(a interface{}) {
 ```go
 // 空接口作为map值
 	var studentInfo = make(map[string]interface{})
-	studentInfo["name"] = "沙河娜扎"
-	studentInfo["age"] = 18
-	studentInfo["married"] = false
+	studentInfo["name"] = "WenranMa"
+	studentInfo["age"] = 37
 	fmt.Println(studentInfo)
 ```
 
@@ -1791,7 +1790,7 @@ func main() {
 // 第10行代码的赋值可以使用强制类型转换 `var i1 MyInt1 = MyInt1(i)` 
 ```
 
-关于类型转化，下面选项正确的是？-- TBD
+关于类型转化，下面选项正确的是？
 ```go
 //A.
 type MyInt int

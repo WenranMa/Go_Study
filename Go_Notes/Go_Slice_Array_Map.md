@@ -459,13 +459,6 @@ func main() {
 */
 ```
 
-关于 cap() 函数的适用类型，下面说法正确的是() -- 答：A、B、D。cap() 函数不适用 map
-
-- A. array
-- B. slice
-- C. map
-- D. channel
-
 下面这段代码输出什么？
 
 ```go

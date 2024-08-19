@@ -15,6 +15,8 @@
 
 单进程一旦进程阻塞，CPU的时间就浪费了，后来操作系统就具有了最早的并发能力：多进程并发，当一个进程阻塞的时候，切换到另外等待执行的进程，这样就能尽量把CPU利用起来，CPU就不浪费了。而且调度cpu的算法可以保证在运行的进程都可以被分配到cpu的运行时间片。这样从宏观来看，似乎多个进程是在同时被运行。
 
+现代操作系统调度线程都是抢占式的，我们不能依赖用户代码主动让出CPU，或者因为IO、锁等待而让出，这样会造成调度的不公平。基于经典的时间片算法，当线程的时间片用完之后，会被时钟中断给打断，调度器会将当前线程的执行上下文进行保存，然后恢复下一个线程的上下文，分配新的时间片令其开始执行。这种抢占对于线程本身是无感知的，系统底层支持，不需要开发人员特殊处理。
+
 但新的问题就又出现了，进程拥有太多的资源，进程的创建、切换、销毁，都会占用很长的时间，CPU虽然利用起来了，但如果进程过多，CPU有很大的一部分都被用来进行进程调度了。（linux对待进程，线程类似）
 
 并且虽然多进程、多线程已经提高了系统的并发能力，但高并发场景下，为每个任务都创建一个线程是不现实的，因为会消耗大量的内存(进程虚拟内存会占用4GB(32位操作系统), 而线程也要大约4MB)。
@@ -23,14 +25,11 @@
 
 再去细化去分类一下，内核线程依然叫“线程(thread)”，用户线程叫“协程(co-routine)”。既然一个协程(co-routine)可以绑定一个线程(thread)，那么能不能多个协程(co-routine)绑定一个或者多个线程(thread)上呢。
 
-​之后，我们就看到了有3中协程和线程的映射关系：
+CPU负责线程，而用户自己开发调度器，调度携程。​之后，我们就看到了有3中协程和线程的映射关系：
 
-`N:1关系`：N个协程绑定1个线程，优点就是协程在用户态线程即完成切换，不会陷入到内核态，这种切换非常的轻量快速。但也有很大的缺点，1个进程的所有协程都绑定在1个线程上，用不了硬件的多核加速能力，
-一旦某协程阻塞，造成线程阻塞，本进程的其他协程都无法执行了，根本就没有并发的能力了。？？？？？？？？？？？
-
-`1:1 关系`：1个协程绑定1个线程，这种最容易实现。协程的调度都由CPU完成了，不存在N:1缺点，协程的创建、删除和切换的代价都由CPU完成，有点略显昂贵了。这不就是普通多线程吗。
-
-`M:N关系`：M个协程绑定N个线程，是N:1和1:1类型的结合，克服了以上2种模型的缺点，但实现起来最为复杂。
+1. `N:1关系`：N个协程绑定1个线程，优点就是协程在用户态线程即完成切换，不会陷入到内核态，这种切换非常的轻量快速。但也有很大的缺点，1个进程的所有协程都绑定在1个线程上，用不了硬件的多核加速能力，一旦某协程阻塞，造成线程阻塞，本进程的其他协程都无法执行了，根本就没有并发的能力了。？？？？？？？？？？
+2. `1:1 关系`：1个协程绑定1个线程，这种最容易实现。协程的调度都由CPU完成了，不存在N:1缺点，协程的创建、删除和切换的代价都由CPU完成，有点略显昂贵了。这不就是普通多线程吗。
+3. `M:N关系`：M个协程绑定N个线程，是N:1和1:1类型的结合，克服了以上2种模型的缺点，但实现起来最为复杂。压力全在协程调度。
 
 ### 并发模型
 
@@ -44,8 +43,6 @@
 Go语言中的并发程序主要是通过基于CSP（communicating sequential processes）的goroutine和channel来实现，当然也支持使用传统的多线程共享内存的并发方式。
 
 ## goroutine
-
-Goroutine 是 Go 语言支持并发的核心，在一个Go程序中同时创建成百上千个goroutine是非常普遍的，一个goroutine会以一个很小的栈开始其生命周期，一般只需要2KB。区别于操作系统线程由系统内核进行调度， goroutine 是由Go运行时（runtime）负责调度。例如Go运行时会智能地将 m个goroutine 合理地分配给n个操作系统线程，实现类似m:n的调度机制，不再需要Go开发者自行在代码层面维护一个线程池。
 
 Goroutine 是 Go 程序中最基本的并发执行单元。每一个 Go 程序都至少包含一个 goroutine——main goroutine，当 Go 程序启动时它会自动创建。
 
@@ -147,21 +144,17 @@ func main() {
 
 ### 动态栈
 
-操作系统的线程一般都有固定的栈内存（通常为2MB）， 这个栈会用来存储当前正在被调用或挂起(指在调用其它函数时)的函数的内部变量，2MB的栈对于一个小小的goroutine来说是很大的内存浪费而 Go 语言中的 goroutine 非常轻量级，一个 goroutine 的初始栈空间很小（一般为2KB），所以在 Go 语言中一次创建数万个 goroutine 也是可能的，一个goroutine的栈，和操作系统线程一样，会保存其活跃或挂起的函数调用的本地变量，但goroutine 的栈不是固定的，可以根据需要动态地增大或缩小， Go 的 runtime 会自动为 goroutine 分配合适的栈空间。
+操作系统的线程一般都有固定的栈内存（通常为2MB）， 这个栈会用来存储当前正在被调用或挂起(指在调用其它函数时)的函数的内部变量，2MB的栈对于一个小小的goroutine来说是很大的内存浪费而 Go 语言中的 goroutine 非常轻量级，一个 goroutine 的初始栈空间很小（一般为2KB），所以在 Go 语言中一次创建数万个 goroutine 也是可能的，一个goroutine的栈，和操作系统线程一样，会保存其活跃或挂起的函数调用的本地变量，区别于操作系统线程由系统内核进行调度，goroutine 是由Go运行时（runtime）负责调度。goroutine 的栈不是固定的，可以根据需要动态地增大或缩小， Go 的 runtime 会自动为 goroutine 分配合适的栈空间。
 
 ### goroutine调度
 
 OS线程会被操作系统内核调度。每几毫秒，一个硬件计时器会中断处理器，这会调用一个叫作scheduler的内核函数。这个函数会挂起当前执行的线程并保存内存中它的寄存器内容，检查线程列表并决定下一次哪个线程可以被运行，并从内存中恢复该线程的寄存器信息，然后恢复执行该线程的现场并开始执行线程。因为操作系统线程是被内核所调度，所以从一个线程向另一个“移动”需要完整的上下文切换，也就是说，保存一个用户线程的状态到内存，恢复另一个线程的到寄存器，然后更新调度器的数据结构。这几步操作很慢，因为其局部性很差需要几次内存访问，并且会增加运行的cpu周期。
 
-Go的运行时包含自己的调度器，这个调度器使用了一些技术手段，比如m:n调度，因为其会在n个操作系统线程上多工(调度)m个goroutine。Go调度器的工作和内核的调度是相似的，但是这个调度器只关注单独的Go程序中的goroutine(按程序独立)。
-
-区别于操作系统内核调度操作系统线程，goroutine 的调度是Go语言运行时（runtime）层面的实现，是完全由 Go 语言本身实现的一套调度系统——go scheduler。它的作用是按照一定的规则将所有的 goroutine 调度到操作系统线程上执行。完全是在用户态下完成的， 不涉及内核态与用户态之间的频繁切换，包括内存的分配与释放，都是在用户态维护着一块大的内存池， 不直接调用系统的malloc函数（除非内存池需要改变），成本比调度OS线程低很多。 另一方面充分利用了多核的硬件资源，近似的把若干goroutine均分在物理线程上， 再加上本身 goroutine 的超轻量级，以上种种特性保证了 goroutine 调度方面的性能。
+goroutine 的调度是Go语言运行时（runtime）层面的实现，是完全由 Go 语言本身实现的一套调度系统——go scheduler。它的作用是按照一定的规则将所有的 goroutine 调度到操作系统线程上执行（比如m:n调度）。完全是在用户态下完成的， 不涉及内核态与用户态之间的频繁切换，包括内存的分配与释放，都是在用户态维护着一块大的内存池， 不直接调用系统的malloc函数（除非内存池需要改变），成本比调度OS线程低很多。 另一方面充分利用了多核的硬件资源，近似的把若干goroutine均分在物理线程上， 再加上本身 goroutine 的超轻量级，以上种种特性保证了 goroutine 调度方面的性能。
 
 在经历数个版本的迭代之后，目前 Go 语言的调度器采用的是 `GPM` 调度模型。
 
 #### 被废弃的goroutine调度器
-goroutine来自协程的概念，让一组可复用的函数运行在一组线程之上，即使有协程阻塞，该线程的其他协程也可以被runtime调度，转移到其他可运行的线程上。goroutine非常轻量，一个goroutine只占几KB，并且这几KB就足够goroutine运行完，这就能在有限的内存空间内支持大量goroutine，支持了更多的并发。虽然一个goroutine的栈只占几KB，但实际是可伸缩的，如果需要更多内容，runtime会自动为goroutine分配。因为小，所以调度灵活。
-
 Go目前使用的调度器是2012年重新设计的，因为之前的调度器性能存在问题，所以使用4年就被废弃了。（用G来表示Goroutine，用M来表示线程）
 
 只有一个全局队列，​M想要执行、放回G都必须访问全局G队列，并且M有多个，即多线程访问同一资源需要加锁进行保证互斥/同步，所以全局G队列是有互斥锁进行保护的。有几个缺点：
@@ -193,11 +186,12 @@ Goroutine调度器和OS调度器是通过M结合起来的，每个M都代表了1
 **G,P,M 的个数问题**：
 
 1. G 的个数理论上是无限制的，但是受内存限制，
-2. P 的数量一般建议是逻辑 CPU 数量的 2 倍，由启动时环境变量`$GOMAXPROCS`或者是由runtime的方法`GOMAXPROCS()`决定。这意味着在程序执行的任意时刻都只有`$GOMAXPROCS`个goroutine在同时运行。
+2. P 的数量一般建议是逻辑 CPU 数量的 2 倍，由启动时环境变量`$GOMAXPROCS`或者是由runtime的方法`GOMAXPROCS()`决定。这意味着在程序执行的任意时刻都只有`$GOMAXPROCS`个goroutine在同时运行。**P决定了并行数，注意不是并发数**
 3. M 的数量
 	- go语言本身的限制：go程序启动时，会设置M的最大数量，默认10000.但是内核很难支持这么多的线程数，所以这个限制可以忽略。
 	- runtime/debug中的SetMaxThreads函数，设置M的最大数量
 	- 一个M阻塞了，会创建新的M。
+	- 空闲的M会回收或者休眠。
 
 M与P的数量没有绝对关系，一个M阻塞，P就会去创建或者切换另一个M，所以，即使P的默认数量是1，也有可能会创建很多个M出来。
 
@@ -226,9 +220,7 @@ M与P的数量没有绝对关系，一个M阻塞，P就会去创建或者切换�
 
 **抢占式调度是如何抢占的？**
 
-就像操作系统要负责线程的调度一样，Go的runtime要负责goroutine的调度。现代操作系统调度线程都是抢占式的，我们不能依赖用户代码主动让出CPU，或者因为IO、锁等待而让出，这样会造成调度的不公平。基于经典的时间片算法，当线程的时间片用完之后，会被时钟中断给打断，调度器会将当前线程的执行上下文进行保存，然后恢复下一个线程的上下文，分配新的时间片令其开始执行。这种抢占对于线程本身是无感知的，系统底层支持，不需要开发人员特殊处理。
-
-基于时间片的抢占式调度有个明显的优点，能够避免CPU资源持续被少数线程占用，从而使其他线程长时间处于饥饿状态。goroutine的调度器也用到了时间片算法，但是和操作系统的线程调度还是有些区别的，因为整个Go程序都是运行在用户态的，所以不能像操作系统那样利用时钟中断来打断运行中的goroutine。也得益于完全在用户态实现，goroutine的调度切换更加轻量。
+就像操作系统要负责线程的调度一样，Go的runtime要负责goroutine的调度。基于**时间片**的抢占式调度有个明显的优点，能够避免CPU资源持续被少数线程占用，从而使其他线程长时间处于饥饿状态。goroutine的调度器也用到了时间片算法，但是和操作系统的线程调度还是有些区别的，因为整个Go程序都是运行在用户态的，所以不能像操作系统那样利用时钟中断来打断运行中的goroutine。也得益于完全在用户态实现，goroutine的调度切换更加轻量。
 
 **go func()流程**
 
@@ -237,16 +229,16 @@ M与P的数量没有绝对关系，一个M阻塞，P就会去创建或者切换�
 1. 我们通过 go func()来创建一个goroutine；
 2. 有两个存储G的队列，一个是局部调度器P的本地队列、一个是全局G队列。新创建的G会先保存在P的本地队列中，如果P的本地队列已经满了就会保存在全局的队列中；
 3. G只能运行在M中，一个M必须持有一个P，M与P是1：1的关系。M会从P的本地队列弹出一个可执行状态的G来执行，如果P的本地队列为空，就会想其他的MP组合偷取一个可执行的G来执行；
-4. 一个M调度G执行的过程是一个循环机制；
+4. 一个M调度G执行的过程是一个循环机制 （调度，执行，销毁G，返回）；
 5. 当M执行某一个G时候如果发生了syscall或则其余阻塞操作，M会阻塞，如果当前有一些G在执行，runtime会把这个线程M从P中摘除(detach)，然后再创建一个新的操作系统的线程(如果有空闲的线程可用就复用空闲线程)来服务于这个P；
-6. 当M系统调用结束时候，这个G会尝试获取一个空闲的P执行，并放入到这个P的本地队列。如果获取不到P，那么这个线程M变成休眠状态， 加入到空闲线程中，然后这个G会被放入全局队列中。
+6. 当M系统调用结束时候，这个G会尝试获取一个空闲的P执行，并放入到这个P的本地队列。如果获取不到P，那么这个线程M变成休眠状态，加入到空闲线程中，然后这个G会被放入全局队列中。
 
 ### 4、调度器的生命周期
 
 ![img](/file/img/go_gmp_sheduler_life.png)
 
 特殊的M0和G0
-- M0是启动程序后的编号为0的主线程，这个M对应的实例会在全局变量runtime.m0中，不需要在heap上分配，M0负责执行初始化操作和启动第一个G， 在之后M0就和其他的M一样了。
+- M0是启动程序后的编号为0的主线程，这个M对应的实例会在全局变量runtime.m0中，不需要在heap上分配，M0负责执行初始化操作和启动第一个G(一般为main的gouroutine)， 在之后M0就和其他的M一样了。
 - G0是每次启动一个M都会第一个创建的gourtine，G0仅用于负责调度的G，G0不指向任何可执行的函数, 每个M都会有一个自己的G0。在调度或系统调用时会使用G0的栈空间, 全局变量的G0是M0的G0。
 
 我们来跟踪一段代码，它会经历如上图所示的过程：
@@ -839,7 +831,6 @@ type hchan struct {
 - `sendq` 写等待队列, 向一个满了的buf 发送数据而阻塞，会加入到sendq队列中
 
 - `lock` 互斥锁，保证读写channel时不存在并发竞争问题
-
 
 ### 发送流程：
 
@@ -1516,7 +1507,7 @@ func main() {
 }
 ```
 
-主协程中创建一个10s超时的context，并将其传递给子协程，10s自动关闭context。程序输出如下：
+主协程中创建一个5s超时的context，并将其传递给子协程，5s自动关闭context。程序输出如下：
 
 ```
 HandelRequest running
@@ -1541,7 +1532,7 @@ func main() {
 	for i := 0; i < 5; i++ {
 		go worker(ctx, i)
 	}
-	<-ctx.Done() // 程序会自动在超时或取消时结束
+	<-ctx.Done() // 程序会自动在超时或取消时结束 (阻塞)
 	time.Sleep(1 * time.Second)
 	fmt.Println("Gracefully shutting down due to timeout or cancellation...")
 }
@@ -1572,7 +1563,7 @@ func NewContextWithTimeout() (context.Context,context.CancelFunc) {
     return context.WithTimeout(context.Background(), 3 * time.Second)
 }
 
-func HttpHandler()  {
+func HttpHandler() {
     ctx, cancel := NewContextWithTimeout()
     defer cancel()
     deal(ctx)
@@ -1952,7 +1943,7 @@ const (
 
 - 互斥锁`Mutex`的加锁是靠`Lock` 方法完成的,当锁的状态是 `0` 时直接将`mutexLocked` 位置成 `1`。
 - 当`Lock` 方法被调用时`Mutex`的状态不是 `0` 时就会进入 `lockSlow` 方法尝试通过自旋或者其他方法等待锁的释放并获取互斥锁。
-- 自旋其实是在多线程同步的过程中使用的一种机制,当前的进程在进入自旋的过程中会一直保持CPU的占用,持续检查某个条件是否为真,在多核的CPU上,自旋的优点是避免了Goroutine的切换,如果使用恰当会对性能带来非常大的增益。
+- 自旋其实是在多线程同步的过程中使用的一种机制, 一个goroutine在尝试获取锁失败时继续占用CPU资源，并持续检查锁的状态，直到锁变为可用，当锁可用时，自旋中的goroutine可以直接获取锁并继续执行，而不需要经历调度过程。在多核的CPU上,自旋的优点是避免了Goroutine的切换,如果使用恰当会对性能带来非常大的增益。
 
 - 互斥锁中,只有在普通模式下才可能进入自旋,除了模式的限制之外 `runtime_canSpin` 方法中会判断当前方法是否可以进入自旋,进入自旋的条件非常苛刻:
 	- 运行在多CPU的机器上
@@ -2273,10 +2264,10 @@ func main() {
 
 像这种场景下就需要为 map 加锁来保证并发的安全性了，Go语言的`sync`包中提供了一个开箱即用的并发安全版 map——`sync.Map`。开箱即用表示其不用像内置的 map 一样使用 make 函数初始化就能直接使用。同时`sync.Map`内置了诸如`Store`、`Load`、`LoadOrStore`、`Delete`、`Range`等操作方法。
 
-|                            方法名                            |              功能               |
-| :----------------------------------------------------------: | :-----------------------------: |
-| func (m *Map) Store(key, value interface{})          |        存储key-value数据        |
-| func (m *Map) Load(key interface{}) (value interface{}, ok bool) |       查询key对应的value        |
+|                            方法名                            		 |              功能               |
+| :---------------------------------------------------------------: | :-----------------------------: |
+| func (m *Map) Store(key, value interface{})          				|   存储key-value数据        |
+| func (m *Map) Load(key interface{}) (value interface{}, ok bool)  |   查询key对应的value        |
 | func (m *Map) LoadOrStore(key, value interface{}) (actual interface{}, loaded bool) |    查询或存储key对应的value     |
 | func (m *Map) LoadAndDelete(key interface{}) (value interface{}, loaded bool) |          查询并删除key          |
 | func (m *Map) Delete(key interface{})             |             删除key             |
@@ -3049,7 +3040,7 @@ func main() {
 
 	result := make(chan int, 0)
 	asyncDoStuffWithTimeout(ctx, result)
-	fmt.Printf("restult get: %v", <-result)
+	fmt.Printf("result get: %v", <-result)
 }
 
 func asyncDoStuffWithTimeout(ctx context.Context, result chan int) {
@@ -3114,7 +3105,7 @@ func main() {
 }
 ```
 
-### 3. 写一共死锁
+### 3. 写一个死锁
 ```go
 // 死锁
 package main
@@ -3533,6 +3524,86 @@ func main() {
 }
 ```
 
+## 4种Golang并发操作中常见的死锁情形
+
+什么是死锁，在Go的协程里面死锁通常就是永久阻塞了，你拿着我的东西，要我先给你然后再给我，我拿着你的东西又让你先给我，不然就不给你。我俩都这么想，这事就解决不了了。
+
+### 第一种情形：无缓存能力的管道，自己写完自己读
+```go
+func main() {
+    ch := make(chan int, 0)
+
+    ch <- 666
+    x := <- ch
+    fmt.Println(x)
+}
+```
+一个没有缓存能力的管道，然后往里面写666，然后就去管道里面读。这样肯定会出现问题啊！一个无缓存能力的管道，没有人读，你也写不了，没有人写，你也读不了，这正是一种死锁！
+
+fatal error: all goroutines are asleep - deadlock!
+解决办法很简单，开辟两条协程，一条协程写，一条协程读。
+
+### 第二种情形：协程来晚了
+```go
+func main() {
+    ch := make(chan int,0)
+    ch <- 666
+    go func() {
+        <- ch
+    }()
+}
+```
+协程开辟在将数字写入到管道之后，因为没有人读，管道就不能写，然后写入管道的操作就一直阻塞。
+
+### 第三种情形：管道读写时，相互要求对方先读/写
+如果相互要求对方先读/写，自己再读/写，就会造成死锁。
+```go
+func main() {
+    chHusband := make(chan int,0)
+    chWife := make(chan int,0)
+
+    go func() {
+        select {
+        case <- chHusband:
+            chWife<-888
+        }
+    }()
+
+    select {
+        case <- chWife:
+            chHusband <- 888
+    }
+}
+```
+
+### 第四种情形：读写锁相互阻塞，形成隐形死锁
+```go
+func main() {
+    var rmw09 sync.RWMutex
+    ch := make(chan int,0)
+
+    go func() {
+        rmw09.Lock()
+        ch <- 123
+        rmw09.Unlock()
+    }()
+
+    go func() {
+        rmw09.RLock()
+        x := <- ch
+        fmt.Println("读到",x)
+        rmw09.RUnlock()
+    }()
+
+    for {
+        runtime.GC()
+    }
+}
+```
+这两条协程，如果第一条协程先抢到了只写锁，另一条协程就不能抢只读锁了，那么另外一条协程没有读，所以第一条协程就写不进。
+
+如果第二条协程先抢到了只读锁，另一条协程就不能抢只写锁了，那么因为另外一条协程没有写，所以第二条协程就读不到。
+
 ## TBD
 
 08 SingleFlight
@@ -3598,3 +3669,33 @@ func (g *Group) doCall(c *call, key string, fn func() (interface{}, error)) {
 
 
 `go tool trace trace.out` 可以看调度信息
+
+`GODEBUG=schedtrace=1000 ./trace` 可以debug信息
+
+```bash
+➜  gotest GODEBUG=schedtrace=1000 go run main.go
+SCHED 0ms: gomaxprocs=4 idleprocs=2 threads=4 spinningthreads=1 idlethreads=0 runqueue=0 [1 0 0 0]
+SCHED 1ms: gomaxprocs=4 idleprocs=2 threads=7 spinningthreads=1 idlethreads=2 runqueue=0 [0 0 0 0]
+SCHED 3ms: gomaxprocs=4 idleprocs=2 threads=7 spinningthreads=1 idlethreads=2 runqueue=0 [0 0 0 0]
+SCHED 10ms: gomaxprocs=4 idleprocs=1 threads=7 spinningthreads=1 idlethreads=1 runqueue=0 [7 7 0 0]
+SCHED 15ms: gomaxprocs=4 idleprocs=0 threads=7 spinningthreads=1 idlethreads=0 runqueue=0 [3 1 3 0]
+SCHED 18ms: gomaxprocs=4 idleprocs=0 threads=7 spinningthreads=0 idlethreads=0 runqueue=0 [1 1 3 1]
+SCHED 22ms: gomaxprocs=4 idleprocs=0 threads=8 spinningthreads=0 idlethreads=0 runqueue=1 [1 1 3 1]
+SCHED 24ms: gomaxprocs=4 idleprocs=0 threads=8 spinningthreads=0 idlethreads=1 runqueue=0 [0 0 0 0]
+SCHED 25ms: gomaxprocs=4 idleprocs=0 threads=8 spinningthreads=0 idlethreads=1 runqueue=0 [0 0 0 0]
+SCHED 29ms: gomaxprocs=4 idleprocs=0 threads=8 spinningthreads=1 idlethreads=0 runqueue=0 [0 6 0 0]
+SCHED 30ms: gomaxprocs=4 idleprocs=1 threads=8 spinningthreads=1 idlethreads=1 runqueue=0 [0 0 0 0]
+```
+
+我们这时设置的是 schedtrace=1000,即1秒输出一次，
+
+- SCHED：每一行都表示一次调度器的调试信息，后面提示的毫秒数表示启动到现在的运行时间，输出的时间间隔受 schedtrace 的值影响。
+- gomaxprocs：当前的 CPU 核心数（GOMAXPROCS 的当前值）。
+- idleprocs：空闲的处理器数量，后面的数字表示当前的空闲数量。
+- threads：OS 线程数量，后面的数字表示当前正在运行的线程数量。
+- spinningthreads：自旋状态的 OS 线程数量。
+- idlethreads：空闲的线程数量。
+- runqueue：全局队列中 Goroutine 数量，而后面的 [3 1 3 0] 则分别代表这 4 个 P 的本地队列正在运行的 Goroutine 数量。
+如果想打印更详情的信息，可能可以与 scheddetail 一起使用，如GODEBUG=schedtrace=1000,scheddetail=1 go run main.go ，会打印出每个G/P/M之间的切换状态详情。
+
+推荐使用pprof查看，目前这种方式不是太友好。
